@@ -1,0 +1,11 @@
+package net.shift {
+package util {
+
+object Util {
+
+  def toOption[T](v: T): Option[T] = if (v == null) None else Some(t)
+
+}
+
+}
+}
