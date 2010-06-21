@@ -1,5 +1,0 @@
-#External Dependencies
-#Sun Jun 20 12:56:31 EEST 2010
-/home/marius/repository/git/shift/project/boot/scala-2.7.7/org.scala-tools.sbt/sbt/0.7.4/ivy_2.7.7-0.7.4.jar=ShiftProject.scala
-/home/marius/repository/git/shift/project/boot/scala-2.7.7/org.scala-tools.sbt/sbt/0.7.4/sbt_2.7.7-0.7.4.jar=ShiftProject.scala
-/home/marius/repository/git/shift/project/boot/scala-2.7.7/lib/scala-library.jar=ShiftProject.scala
