@@ -17,6 +17,10 @@ object Util {
     l
   }
 
+  def applyPf[A, B](a: A)(pf: PartialFunction[A, B]): Option[B] = {
+    if (pf.isDefinedAt(a)) Some(pf(a)) else None
+  }
+
 }
 
 }

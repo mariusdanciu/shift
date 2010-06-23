@@ -6,6 +6,7 @@ import java.io.{InputStream, OutputStream}
 trait Request {
 
   def uri: String
+  def path: List[String]
   def method: String
   def contextPath: String
   def queryString: Option[String]
@@ -52,6 +53,30 @@ case class Cookie(name: String,
                   version: Option[Int],
                   secure_? : Option[Boolean])
 
+object Request {
+  def unapply(req: Request): Option[(List[String], String)] = Some((req.path, req.method))
+
+  def apply(req: Request): Request = new ReqShell(req)
+}
+
+class ReqShell(req: Request) extends Request {
+  def uri = req.uri
+  def path = req.path
+  def method = req.method
+  def contextPath = req.contextPath
+  def queryString = req.queryString
+  def param(name: String) = req.param(name)
+  def params(name: String) = req.params(name)
+  def params = req.params
+  def header(name: String) = req.header(name)
+  def headers(name: String) = req.headers(name)
+  def headers = req.headers
+  def contentLength = req.contentLength
+  def contentType = req.contentType
+  def cookies = req.cookies
+  def cookie(name: String) = req.cookie(name)
+  def inputStream = req.inputStream
+}
 
 }
 }
