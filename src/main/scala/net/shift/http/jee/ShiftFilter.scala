@@ -19,6 +19,9 @@ class ShiftFilter extends Filter {
   }
 
   def doFilter(req: SReq, res: SResp, chain: FilterChain) {
+    val request = new ReqShell(new ServletRequest(req.asInstanceOf[HttpServletRequest]))
+
+    ()
   }
 
 }
