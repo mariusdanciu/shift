@@ -10,8 +10,11 @@ import collection.immutable._
 
 class ServletRequest(val req: HttpServletRequest) extends Request {
 
-  lazy val uri: String = req.getRequestURI
-  lazy val path: List[String] = List.fromString(uri, '/')
+  lazy val path: List[String] = {
+    val uri = List.fromString(req.getRequestURI, '/').drop(1)
+    if (contextPath != "/") uri.drop(1)
+      else uri
+  }
   lazy val method: String = req.getMethod
   lazy val contextPath: String = req.getContextPath
   lazy val queryString: Option[String] = toOption(req.getQueryString)
@@ -33,15 +36,15 @@ class ServletRequest(val req: HttpServletRequest) extends Request {
 
   lazy val contentLength: Option[Long] = toOption(req.getContentLength)
   lazy val contentType: Option[String] = toOption(req.getContentType)
-  lazy val cookies: List[Cookie] = req.getCookies.toList.map(c => Cookie(c.getName,
+  lazy val cookies: Map[String, Cookie] = Map.empty ++ req.getCookies.toList.map(c => (c.getName, Cookie(c.getName,
       toOption(c.getValue),
       toOption(c.getDomain),
       toOption(c.getPath),
       toOption(c.getMaxAge),
       toOption(c.getVersion),
-      toOption(c.getSecure))  
-  )
-  def cookie(name: String): Option[Cookie] = cookies.find(_.name == name)
+      toOption(c.getSecure))))  
+
+  def cookie(name: String): Option[Cookie] = cookies.get(name)
   def inputStream: InputStream = req.getInputStream
 
 

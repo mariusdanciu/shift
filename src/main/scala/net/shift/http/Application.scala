@@ -7,6 +7,9 @@ object Application {
     case req => req
   }
 
+  var contextPath: PartialFunction[Request, String] = {
+    case req => req.contextPath
+  }
 }
 
 }
