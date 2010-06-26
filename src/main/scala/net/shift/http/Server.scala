@@ -3,10 +3,11 @@ package http {
 
 private[http] object Server {
 
-  def run(){
-
+  def run(req: Request): Option[Response] = {
+    None
   }
 
+  
 }
 
 }

@@ -61,34 +61,54 @@ object Request {
 }
 
 class ReqShell(val req: Request) extends Request {
-  def path = req.path
-  def method = req.method
-  def contextPath = applyPf(req)(Application.contextPath).getOrElse("/")
-  def queryString = 
-    (for ((k, v) <- params.toList;
-           item <- v) yield (k, item)) match {
+
+  private val qs = (for ((k, v) <- params.toList;
+                         item <- v) yield k + "=" + item) match {
     case Nil => None
     case l => Some(l.mkString("&"))
   }
+
+  private val reqParams = req.params
+  private val reqHeaders = req.headers
+
+  def path = req.path
+  def method = req.method
+  def contextPath = applyPf(req)(Application.contextPath).getOrElse("/")
+  def queryString = qs
+    
   def param(name: String) = params.get(name).map(_ head)
   def params(name: String) = params.get(name).getOrElse(Nil)
-  lazy val params = req.params ++ paramsFunc()
+  def params = reqParams
+
   def header(name: String) = headers.get(name).map(_ head)
   def headers(name: String) = headers.get(name).getOrElse(Nil)
-  lazy val headers = req.headers
+  def headers = reqHeaders
+
   def contentLength = req.contentLength
   def contentType = req.contentType
+
   lazy val cookies = req.cookies
   def cookie(name: String) = cookies.get(name)
+
   def inputStream = req.inputStream
 
-  private var paramsFunc: () => Map[String, List[String]] = () => Map.empty
-  private var headersFunc: () => Map[String, List[String]] = () => Map.empty
-  private var pathFunc: () => List[String] = () => Nil
-
-  def withParams(extraParams: Map[String, List[String]]): Request = new ReqShell(this) {
-    paramsFunc = () => extraParams
+  def withParams(extra: (String, String)*): Request = new ReqShell(this) {
+    override def params = super.params ++ extra.map(e => (e._1, List(e._2)))
   }
+
+  def withHeaders(extra: (String, String)*): Request = new ReqShell(this) {
+    override def headers = super.headers ++ extra.map(e => (e._1, List(e._2)))
+  }
+
+  def withPath(newPath: List[String]): Request = new ReqShell(this) {
+    override def path = newPath
+  }
+  
+  def withMethod(newMethod: String): Request = new ReqShell(this) {
+    override def method = newMethod
+  }
+
+
 }
 
 }
