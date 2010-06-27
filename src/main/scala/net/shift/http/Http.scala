@@ -2,7 +2,8 @@ package net.shift {
 package http {
 
 import java.io.{InputStream, OutputStream}
-import net.shift.util.Util._
+import net.shift.util._
+import Util._
 
 trait Request {
 
@@ -27,10 +28,10 @@ trait Request {
 trait Response {
   def code: Int
   def reason: Option[String] 
-  def headers: List[String]
+  def headers: List[(String, String)]
   def contentType: Option[String]
   def cookies: List[Cookie]
-  def drain(out: OutputStream)
+  def writeBody(out: OutputStream)
 }
 
 
@@ -54,10 +55,9 @@ case class Cookie(name: String,
                   secure_? : Option[Boolean])
 
 object Request {
+  val currentRequest = new Scope[Request]
   def unapply(req: Request): Option[(List[String], String)] = Some((req.path, req.method))
-
   def apply(req: Request): Request = new ReqShell(req)
-
 }
 
 class ReqShell(val req: Request) extends Request {

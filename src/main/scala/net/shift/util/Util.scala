@@ -23,5 +23,19 @@ object Util {
 
 }
 
+class Scope[T] {
+  val tl = new ThreadLocal[T]()
+
+  def apply[A](value: T)(f: => A): A = {
+    val old = tl.get
+    try {
+      tl.set(value)
+      f
+    } finally {
+      tl.set(old)
+    }
+  }
+}
+
 }
 }

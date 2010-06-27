@@ -13,10 +13,7 @@ object Application {
 
   var handle_? : (Request) => Boolean = (req) => {
     req.path match {
-      case "img" :: _ => false  
-      case "js" :: _ => false
-      case "css" :: _ => false
-      case "style" :: _ => false
+      case "static" :: _ => false  
       case _ => true
     }
   }

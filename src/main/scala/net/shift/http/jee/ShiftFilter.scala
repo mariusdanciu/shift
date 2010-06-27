@@ -22,14 +22,13 @@ class ShiftFilter extends Filter {
   }
 
   def doFilter(req: SReq, res: SResp, chain: FilterChain) {
-    val request = applyPf(new ReqShell(new ServletRequest(req.asInstanceOf[HttpServletRequest])))(rewrite)
-    request match {
-      case Some(r) => Server.run(r) match {
-        case Some(resp) => toServletResponse(resp, res.asInstanceOf[HttpServletResponse])
-        case _ => chain.doFilter(req, res)
-      }
+    val request = new ServletRequest(req.asInstanceOf[HttpServletRequest])
+
+    Server.run(request) match {
+      case Some(resp) => toServletResponse(resp, res.asInstanceOf[HttpServletResponse])
       case _ => chain.doFilter(req, res)
     }
+    
   }
 
   private def toServletResponse(resp: Response, sResp: HttpServletResponse) {
