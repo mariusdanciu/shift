@@ -42,6 +42,13 @@ case object OkResponse extends Response with HeaderDefaults with NoContent {
   def code = 200
 }
 
+case class NotFoundResponse(text: String) extends Response with HeaderDefaults  {
+  def code = 404
+  def contentType: Option[String] = Some("text/plain")
+  def writeBody(out: OutputStream) = out.write(text.getBytes("UTF-8"))
+}
+
+
 object PermRedirectResponse {
   def apply(where: String) = new PermRedirectResponse(where, Nil)
 }
