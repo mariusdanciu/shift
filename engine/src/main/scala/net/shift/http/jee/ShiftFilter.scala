@@ -6,7 +6,8 @@ import javax.servlet.{Filter,
   FilterChain, 
   FilterConfig, 
   ServletRequest => SReq, 
-  ServletResponse => SResp
+  ServletResponse => SResp,
+  ServletContext => SCtx
 }
 
 import javax.servlet.http._
@@ -16,6 +17,7 @@ import Application._
 class ShiftFilter extends Filter {
 
   def init(config: FilterConfig) {
+    Server.boot(new ServletContext(config.getServletContext))
   }
 
   def destroy {

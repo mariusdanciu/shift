@@ -1,9 +1,13 @@
 package net.shift {
 package http{
 
+import scala.io._
 import scala.xml._
+import parsing._
 
 object Application {
+
+  private[http] var context: Context = _
 
   var rewrite : PartialFunction[Request, Request] = {
     case req => req
@@ -20,7 +24,11 @@ object Application {
     }
   }
 
-  def resourceAsXml(res: String): Option[Node] = None
+  def resourceAsXml(res: String): Option[NodeSeq] = try {
+    context.resourceAsStream(res).map(s => XhtmlParser(Source.fromInputStream(s)))
+  } catch {
+    case e => None
+  }
 
 }
 
