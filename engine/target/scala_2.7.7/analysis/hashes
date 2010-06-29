@@ -1,0 +1,11 @@
+#Source Hashes
+#Tue Jun 29 20:28:17 EEST 2010
+src/main/scala/net/shift/http/Http.scala=6b83d5335a3cac9f8f6abec1b70cd8cd0fe0fe1c
+src/main/scala/net/shift/template/TemplateEngine.scala=a769cc0fd45b60c7ca80d58cdfe8453e8094decb
+src/main/scala/net/shift/http/Application.scala=9b169143a5468acdcdd0e8edd6a083843ed10a6c
+src/main/scala/net/shift/http/Server.scala=c1c8bee0acf9c99466e0ae6cc86f509ecf0cca03
+src/main/scala/net/shift/http/jee/Servlet.scala=79473a01e18b4cc139ad9dea224e562141ce9634
+src/main/scala/net/shift/http/jee/ShiftFilter.scala=c64e79495cb7c7b24caaa531da53715da66bc533
+src/main/scala/net/shift/http/Responses.scala=22c8b494784bb9f0dcdfcb37f0c3356999c144b5
+src/main/scala/net/shift/util/Util.scala=5a79811a1c24fadc0cf0285ff66817634f9dd23c
+src/main/scala/net/shift/http/Artifacts.scala=41e6e819b01bd17938405fe7001331b749da0ea7

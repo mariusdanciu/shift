@@ -1,0 +1,11 @@
+#Source Dependencies
+#Tue Jun 29 20:28:17 EEST 2010
+src/main/scala/net/shift/http/Http.scala=src/main/scala/net/shift/http/Responses.scala\:src/main/scala/net/shift/template/TemplateEngine.scala\:src/main/scala/net/shift/http/Application.scala\:src/main/scala/net/shift/http/jee/ShiftFilter.scala\:src/main/scala/net/shift/http/Server.scala\:src/main/scala/net/shift/http/jee/Servlet.scala
+src/main/scala/net/shift/template/TemplateEngine.scala=
+src/main/scala/net/shift/http/Application.scala=src/main/scala/net/shift/http/jee/ShiftFilter.scala\:src/main/scala/net/shift/http/Http.scala\:src/main/scala/net/shift/http/Server.scala
+src/main/scala/net/shift/http/Server.scala=src/main/scala/net/shift/http/jee/ShiftFilter.scala
+src/main/scala/net/shift/http/jee/Servlet.scala=src/main/scala/net/shift/http/jee/ShiftFilter.scala
+src/main/scala/net/shift/http/jee/ShiftFilter.scala=
+src/main/scala/net/shift/http/Responses.scala=src/main/scala/net/shift/http/Server.scala
+src/main/scala/net/shift/util/Util.scala=src/main/scala/net/shift/http/jee/ShiftFilter.scala\:src/main/scala/net/shift/http/Http.scala\:src/main/scala/net/shift/http/Server.scala\:src/main/scala/net/shift/http/jee/Servlet.scala
+src/main/scala/net/shift/http/Artifacts.scala=
