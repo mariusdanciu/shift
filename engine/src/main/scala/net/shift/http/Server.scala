@@ -11,12 +11,10 @@ private[http] object Server {
 
   def run(req: Request): Option[Response] = {
     val request = applyPf(Request(req))(rewrite)
-    request.map { r =>
-      val resp: Response = Request.req(r) {
+    for (r <- request) yield {
+      Request.req(r) {
         TextResponse("In development")
       }
-
-      resp
     }
   }
 
