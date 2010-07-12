@@ -19,7 +19,7 @@ object Application {
 
   var handle_? : (Request) => Boolean = (req) => {
     req.path match {
-      case "static" :: _ => false  
+      case Path("static" :: _, _, _) => false  
       case _ => true
     }
   }
@@ -30,6 +30,9 @@ object Application {
     case e => None
   }
 
+  var siteMap: PartialFunction[Request, Option[(List[String], List[PageRule])]] = {
+    case req => None
+  }
 }
 
 }

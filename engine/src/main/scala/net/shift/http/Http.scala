@@ -7,7 +7,7 @@ import net.shift.util._
 import Util._
 
 trait Request {
-  def path: List[String]
+  def path: Path
   def method: String
   def contextPath: String
   def queryString: Option[String]
@@ -38,6 +38,16 @@ trait Context {
   def resourceAsStream(res: String): Option[InputStream]
 }
 
+object Path {
+  def fromString(str: String) = {
+    val endSlash =  str.endsWith("/")
+    val abs = str.startsWith("/")
+    new Path(List.fromString(str, '/'), endSlash, abs)
+  }
+}
+
+case class Path(parts: List[String], endSlash: Boolean, absolute: Boolean)
+
 object Cookie {
   def apply(name: String, value: String) =
     new Cookie(name, Some(value), None, None, None, None, None)
@@ -59,7 +69,7 @@ case class Cookie(name: String,
 
 object Request {
   val req = new Scope[Request]
-  def unapply(req: Request): Option[(List[String], String)] = Some((req.path, req.method))
+  def unapply(req: Request): Option[(List[String], String)] = Some((req.path.parts, req.method))
   def apply(req: Request): Request = new ReqShell(req)
 }
 
@@ -103,7 +113,7 @@ class ReqShell(val req: Request) extends Request {
     override def headers = super.headers ++ extra.map(e => (e._1, List(e._2)))
   }
 
-  def withPath(newPath: List[String]): Request = new ReqShell(this) {
+  def withPath(newPath: Path): Request = new ReqShell(this) {
     override def path = newPath
   }
   

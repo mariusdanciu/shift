@@ -1,5 +1,6 @@
 import sbt._
 import java.io._
+import scala.xml._
 
 class ShiftProject(info: ProjectInfo) extends DefaultProject(info) {
 

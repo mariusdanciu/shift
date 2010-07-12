@@ -1,7 +1,8 @@
 package net.shift {
 package http {
 
-import net.shift.util.Util._
+import net.shift.util._
+import Util._
 import Application._
 
 

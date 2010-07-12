@@ -11,9 +11,9 @@ import collection.immutable._
 
 class ServletRequest(val req: HttpServletRequest) extends Request {
 
-  lazy val path: List[String] = {
-    val uri = List.fromString(req.getRequestURI, '/')
-    if (contextPath != "/") uri.drop(1)
+  lazy val path: Path = {
+    val uri = Path.fromString(req.getRequestURI)
+    if (contextPath != "/") new Path(uri.parts.drop(1), true, uri.endSlash)
       else uri
   }
   lazy val method: String = req.getMethod

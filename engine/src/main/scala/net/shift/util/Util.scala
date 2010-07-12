@@ -1,6 +1,11 @@
 package net.shift {
 package util {
 
+import java.io._
+import scala.io._
+import scala.xml._
+import parsing._
+
 object Util {
 
   def toOption[T](v: T): Option[T] = if (v == null) None else Some(v)
@@ -21,7 +26,15 @@ object Util {
     if (pf.isDefinedAt(a)) Some(pf(a)) else None
   }
 
+
+  def main(args: Array[String]) {
+
+    implicit val ieRules = new NonIeRules
+    println(XmlUtil.stringify(XhtmlParser(Source.fromInputStream(new FileInputStream(new File("test.html"))))))
+  }
+
 }
+
 
 class Scope[T] {
   val tl = new ThreadLocal[T]()
