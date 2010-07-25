@@ -11,11 +11,9 @@ private[http] object Server {
   def boot(ctx: Context) = Application.context = ctx
 
   def run(req: Request): Option[Response] = {
-    val request = applyPf(Request(req))(rewrite)
-    for (r <- request) yield {
-      Request.req(r) {
+
+    for (r <- applyPf(Request(req))(rewrite)) yield {
         TextResponse("In development")
-      }
     }
   }
 

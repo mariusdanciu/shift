@@ -7,6 +7,8 @@ import parsing._
 
 object Application {
 
+  type AccessControlFunc = Request => ((Request => Response) => Response)
+
   private[http] var context: Context = _
 
   var rewrite : PartialFunction[Request, Request] = {
@@ -17,7 +19,7 @@ object Application {
     case req => req.contextPath
   }
 
-  var handle_? : (Request) => Boolean = (req) => {
+  var handleRequest : (Request) => Boolean = (req) => {
     req.path match {
       case Path("static" :: _, _, _) => false  
       case _ => true
@@ -30,9 +32,8 @@ object Application {
     case e => None
   }
 
-  var siteMap: PartialFunction[Request, Option[(List[String], List[PageRule])]] = {
-    case req => None
-  }
+
+  var siteMap: () => List[Page] = () => Nil
 }
 
 }
