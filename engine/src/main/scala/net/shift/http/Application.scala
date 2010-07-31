@@ -33,7 +33,7 @@ object Application {
   }
 
 
-  var siteMap: () => List[Page] = () => Nil
+  var siteMap: () => Pages = () => Pages(Nil)
 }
 
 }
