@@ -1,5 +1,5 @@
-package net.shift {
-package http {
+package net.shift
+package http
 
 import java.io._
 import scala.xml._
@@ -89,5 +89,3 @@ abstract class NodeResponse(val node: Node,
 
 }
 
-}
-}

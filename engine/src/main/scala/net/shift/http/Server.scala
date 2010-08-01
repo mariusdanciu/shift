@@ -1,5 +1,5 @@
-package net.shift {
-package http {
+package net.shift
+package http
 
 import net.shift.util._
 import Util._
@@ -20,5 +20,4 @@ private[http] object Server {
   
 }
 
-}
-}
+

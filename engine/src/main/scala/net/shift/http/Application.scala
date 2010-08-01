@@ -1,9 +1,9 @@
-package net.shift {
-package http{
+package net.shift
+package http
 
 import scala.io._
-import scala.xml._
-import parsing._
+import scala.xml.{NodeSeq}
+import scala.xml.parsing._
 
 object Application {
 
@@ -36,5 +36,3 @@ object Application {
   var siteMap: () => Pages = () => Pages(Nil)
 }
 
-}
-}

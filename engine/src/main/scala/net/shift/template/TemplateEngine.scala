@@ -29,7 +29,7 @@ class XhtmlTemplateEngine[+A <: NodeSeq](val xhtml: A) extends TemplateEngine[A]
 
   def unit[B <: NodeSeq](a: B): TemplateEngine[B] = new XhtmlTemplateEngine(a)
 
-  def mult[B >: A <: NodeSeq](a: TemplateEngine[TemplateEngine[B]]): TemplateEngine[B] = a.flatMap(n => n)
+  def mult[B >: A <: NodeSeq](a: TemplateEngine[TemplateEngine[B]]): TemplateEngine[B] = a.flatMap((n: TemplateEngine[B]) => n)
 
   def map[B <: NodeSeq](f: A => B): TemplateEngine[B] = unit(f(run))
 

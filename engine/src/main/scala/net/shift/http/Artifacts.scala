@@ -1,5 +1,5 @@
-package net.shift {
-package http {
+package net.shift
+package http
 
 object DocType {
   val html4Strict = "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01//EN\" \"http://www.w3.org/TR/html4/strict.dtd\">"
@@ -14,5 +14,4 @@ object DocType {
   val html5 = "<!DOCTYPE html>"
 
 }
-}
-}
+

@@ -1,5 +1,5 @@
-package net.shift {
-package util {
+package net.shift
+package util
 
 import scala.xml._
 import parsing._
@@ -44,5 +44,3 @@ object XmlUtil {
 
 }
 
-}
-}

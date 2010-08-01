@@ -1,5 +1,5 @@
-package net.shift {
-package http {
+package net.shift 
+package http 
 
 import java.io.{InputStream, OutputStream}
 import java.net.URL
@@ -39,11 +39,17 @@ trait Context {
 }
 
 object Path {
-  def fromString(str: String) = {
+  def apply(str: String): Path = {
     val endSlash =  str.endsWith("/")
     val abs = str.startsWith("/")
-    new Path(List.fromString(str, '/'), endSlash, abs)
+    var uri = str split "/" toList
+
+    uri = if (abs) uri tail else uri
+
+    new Path(uri, endSlash, abs)
   }
+ 
+  val empty = Path("") 
 }
 
 case class Path(parts: List[String], endSlash: Boolean, absolute: Boolean)
@@ -124,5 +130,4 @@ class ReqShell(val req: Request) extends Request {
 
 }
 
-}
-}
+

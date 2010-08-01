@@ -1,10 +1,10 @@
-package net.shift {
-package util {
+package net.shift
+package util
 
 import java.io._
 import scala.io._
-import scala.xml._
-import parsing._
+import scala.xml.{NodeSeq}
+import scala.xml.parsing._
 
 object Util {
 
@@ -24,6 +24,14 @@ object Util {
 
   def applyPf[A, B](a: A)(pf: PartialFunction[A, B]): Option[B] = {
     if (pf.isDefinedAt(a)) Some(pf(a)) else None
+  }
+  /**
+   * /foo/bar/baz /foo/+
+   */
+  def matchUri(actual: List[String], pattern: List[String]): Boolean = {
+
+    val pairs: List[(String, String)] = actual zip pattern
+    true
   }
 
 
@@ -53,7 +61,3 @@ class Scope[T] {
 
 }
 
-
-
-}
-}
