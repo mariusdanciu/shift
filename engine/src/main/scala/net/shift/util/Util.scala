@@ -37,8 +37,6 @@ object Util {
 
   def main(args: Array[String]) {
 
-    implicit val ieRules = new NonIeRules
-    println(XmlUtil.stringify(XhtmlParser(Source.fromInputStream(new FileInputStream(new File("test.html"))))))
   }
 
 }

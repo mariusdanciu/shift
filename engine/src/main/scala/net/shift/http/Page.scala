@@ -4,10 +4,7 @@ package http
 import scala.xml._
 import Application._
 
-
-
 trait PageProp {
-
   def & (prop: PageProp): PageProps = PageProps(this :: List(prop))
 }
 
@@ -41,26 +38,14 @@ case class Page(name: String, uri: Path, resource: Path, props: Option[PageProp]
 
 case class Pages(pages: List[Page]) {
   def ~ (page: Page): Pages = new Pages(pages ::: List(page))
-
 }
 
-// temporary code for quick test
-object Run {
- 
-  def main(args: Array[String]){
+case class SiteMap(pages: Pages) {
 
-    import Page._
-
-    val p1 = "home" mapsUri "/home" withResource "/pages/home/index" having Hidden & Selected((page) => <b></b>)
-    val p2 = "users" mapsUri "/home/users" withResource "/pages/users/index"
-    val p3 = "devs" mapsUri "/home/dev" withResource "/pages/devs/index"
-    val p4 = "photos" mapsUri "/home/photos" withResource "/pages/photos/index"
-    
-    val siteMap = p1 ~ (p2 parentOf (p3 ~ p4))
-
-    siteMap.pages map ( println )
-  }
-
-
+   def select(path: Path): Option[Page] = {
+      None
+   }
+  
 }
+
 
