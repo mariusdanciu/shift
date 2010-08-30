@@ -8,8 +8,8 @@ import Util._
 
 trait Request {
   def path: Path
-  def method: String
-  def contextPath: String
+  def method : String
+  def contextPath : String
   def queryString: Option[String]
   def param(name: String): Option[String]
   def params(name: String): List[String]
@@ -74,7 +74,7 @@ case class Path(parts: List[String], endSlash: Boolean, absolute: Boolean) {
         case head :: tail if (head == right.head || right.head == "?") => check(tail, right.tail, false)
         case head :: tail if (right.head == "+") => check(tail, right.tail, true)
         case head :: tail if (right.head == "*") => check(left, right.tail, true)
-        case Nil if (right.head == "*") => true
+        case Nil if (!right.isEmpty && right.head == "*") => true
         case Nil if (!right.isEmpty) => false
         case Nil => true
         case _ => false
@@ -143,19 +143,19 @@ class ReqShell(val req: Request) extends Request {
 
   def inputStream = req.inputStream
 
-  def withParams(extra: (String, String)*): Request = new ReqShell(this) {
-    override def params = super.params ++ extra.map(e => (e._1, List(e._2)))
+  def applyParams(extra: (String, String)*): Request = new ReqShell(this) {
+    override def params = Map.empty ++ extra.map(e => (e._1, List(e._2)))
   }
 
   def withHeaders(extra: (String, String)*): Request = new ReqShell(this) {
     override def headers = super.headers ++ extra.map(e => (e._1, List(e._2)))
   }
 
-  def withPath(newPath: Path): Request = new ReqShell(this) {
+  def applyPath(newPath: Path): Request = new ReqShell(this) {
     override def path = newPath
   }
   
-  def withMethod(newMethod: String): Request = new ReqShell(this) {
+  def applyMethod(newMethod: String): Request = new ReqShell(this) {
     override def method = newMethod
   }
 

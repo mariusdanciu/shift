@@ -25,19 +25,6 @@ object Util {
   def applyPf[A, B](a: A)(pf: PartialFunction[A, B]): Option[B] = {
     if (pf.isDefinedAt(a)) Some(pf(a)) else None
   }
-  /**
-   * /foo/bar/baz /foo/+
-   */
-  def matchUri(actual: List[String], pattern: List[String]): Boolean = {
-
-    val pairs: List[(String, String)] = actual zip pattern
-    true
-  }
-
-
-  def main(args: Array[String]) {
-
-  }
 
 }
 
@@ -59,3 +46,18 @@ class Scope[T] {
 
 }
 
+trait Functor[F[_]] {
+  def fmap[A, B](f: A => B): F[A] => F[B]
+
+}
+
+trait Monad[M[_]] extends Functor[M] {
+
+  def unit[A](a: A): M[A]
+
+  def bind[A, B](m: M[A], f: A => M[B]): M[B]
+}
+
+trait CTMonad[M[_]] extends Monad[M] {
+  def mult[A](m: M[M[A]]): M[A] = bind(m, (x: M[A]) => x)
+}

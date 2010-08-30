@@ -1,0 +1,19 @@
+package net.shift {
+package exceptions {
+
+
+object ShiftException {
+  def apply: ShiftException = new ShiftException(null, null)
+  def apply(msg: String): ShiftException = new Exception(msg, null)
+  def apply(cause: Throwable): ShiftException = new ShiftException(null, cause)
+  def apply(msg: String, cause: Throwable): ShiftException = new ShiftException(msg, cause)
+}
+
+class ShiftException(msg: String, cause: Throwable) extends Exception(msg, cause) {
+  def message: Option[String] = if (msg == null) None else Some(msg)
+  def cause: Option[Throwable] = if (cause == null) None else Some(cause)
+
+}
+
+}
+}
