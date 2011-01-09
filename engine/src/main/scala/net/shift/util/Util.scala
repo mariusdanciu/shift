@@ -46,18 +46,3 @@ class Scope[T] {
 
 }
 
-trait Functor[F[_]] {
-  def fmap[A, B](f: A => B): F[A] => F[B]
-
-}
-
-trait Monad[M[_]] extends Functor[M] {
-
-  def unit[A](a: A): M[A]
-
-  def bind[A, B](m: M[A], f: A => M[B]): M[B]
-}
-
-trait CTMonad[M[_]] extends Monad[M] {
-  def mult[A](m: M[M[A]]): M[A] = bind(m, (x: M[A]) => x)
-}
