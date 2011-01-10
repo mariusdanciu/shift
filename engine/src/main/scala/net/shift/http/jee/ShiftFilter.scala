@@ -1,6 +1,6 @@
-package net.shift {
-package http {
-package jee {
+package net.shift
+package http
+package jee
 
 import javax.servlet.{Filter, 
   FilterChain, 

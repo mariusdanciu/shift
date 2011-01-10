@@ -1,5 +1,5 @@
-package net.shift {
-package exceptions {
+package net.shift
+package exceptions
 
 
 object ShiftException {
@@ -13,5 +13,3 @@ case class ShiftException(msg: String, causeEx: Throwable) extends Exception(msg
   def cause: Option[Throwable] = if (causeEx == null) None else Some(causeEx)
 }
 
-}
-}
