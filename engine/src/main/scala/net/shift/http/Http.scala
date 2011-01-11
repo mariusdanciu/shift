@@ -111,52 +111,43 @@ object Request {
   def apply(req: Request): Request = new ReqShell(req)
 }
 
-class ReqShell(val req: Request) extends Request {
+class ReqShell(req: Request) extends Request {self =>
 
-  private val qs = (for ((k, v) <- params.toList;
-                         item <- v) yield k + "=" + item) match {
-    case Nil => None
-    case l => Some(l.mkString("&"))
-  }
-
-  private val reqParams = req.params
-  private val reqHeaders = req.headers
-
-  def path = req.path
-  def method = req.method
-  def contextPath = applyPf(req)(Application.contextPath).getOrElse("/")
-  def queryString = qs
+  override val path = req.path
+  override val method = req.method
+  override val contextPath = applyPf(req)(Application.contextPath).getOrElse("/")
+  override val queryString = req.queryString
     
   def param(name: String) = params.get(name).map(_ head)
   def params(name: String) = params.get(name).getOrElse(Nil)
-  def params = reqParams
+  override val params = req.params
 
   def header(name: String) = headers.get(name).map(_ head)
   def headers(name: String) = headers.get(name).getOrElse(Nil)
-  def headers = reqHeaders
+  override val headers = req.headers
 
-  def contentLength = req.contentLength
-  def contentType = req.contentType
+  override val contentLength = req.contentLength
+  override val contentType = req.contentType
 
   lazy val cookies = req.cookies
   def cookie(name: String) = cookies.get(name)
 
-  def inputStream = req.inputStream
+  override val inputStream = req.inputStream
 
-  def applyParams(extra: (String, String)*): Request = new ReqShell(this) {
-    override def params = Map.empty ++ extra.map(e => (e._1, List(e._2)))
+  def extraParams (extra: (String, String)*): Request = new ReqShell(this) {
+    override val params = self.params ++ extra.map(e => (e._1, List(e._2)))
   }
 
-  def withHeaders(extra: (String, String)*): Request = new ReqShell(this) {
-    override def headers = super.headers ++ extra.map(e => (e._1, List(e._2)))
+  def estraHeaders (extra: (String, String)*): Request = new ReqShell(this) {
+    override val headers = self.headers ++ extra.map(e => (e._1, List(e._2)))
   }
 
   def applyPath(newPath: Path): Request = new ReqShell(this) {
-    override def path = newPath
+    override val path = newPath
   }
   
   def applyMethod(newMethod: String): Request = new ReqShell(this) {
-    override def method = newMethod
+    override val method = newMethod
   }
 
 
