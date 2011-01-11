@@ -38,6 +38,3 @@ class ShiftFilter extends Filter {
   }
 }
 
-}
-}
-}

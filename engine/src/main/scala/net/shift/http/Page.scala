@@ -33,13 +33,13 @@ case class Page(name: String, uri: Path, resource: Path, props: Option[PageProp]
   def having(prop: PageProp): Page  = new Page(name, uri, resource, Some(prop))
   def parentOf(childs: Pages): Page  = new Page(name, uri, resource, props, childs.pages: _*)
   
-  def ~ (page: Page): Pages = new Pages(List(this, page))
+  def & (page: Page): Pages = new Pages(List(this, page))
 
   def hasChilds: Boolean = pages.length > 0
 }
 
 case class Pages(pages: List[Page]) {
-  def ~ (page: Page): Pages = new Pages(pages ::: List(page))
+  def & (page: Page): Pages = new Pages(pages ::: List(page))
 }
 
 case class SiteMap(pages: Pages) {
@@ -76,7 +76,7 @@ object Main {
      val p3 = "admin" mapsUri "/d/f/*/d" withResource "home"
      val p4 = "users" mapsUri "/w/e/+/d" withResource "home"
 
-     val sm = SiteMap(p1 ~ (p2 parentOf (p3 ~ p4)))
+     val sm = SiteMap(p1 & (p2 parentOf (p3 & p4)))
 
      println(Path("/a/c") matches Path("/a/c/*"))
      println(sm select Path("/a/c"))

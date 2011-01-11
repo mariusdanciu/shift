@@ -10,16 +10,14 @@ case class ToBind(name: String, meta: BindMeta)
 
 trait Binds {
 
-  def bind(pref: String, xml: NodeSeq)(bindFunc: ToBind ?=> NodeSeq): NodeSeq = {
-    xml flatMap {
-      case e: Document => bind(pref, e children)(bindFunc)
-      case Group(nodes) => bind(pref, nodes)(bindFunc)
-      case Elem(prefix, label, attrs, ns, childs @ _*) if (prefix == pref) =>
-        applyPf(new ToBind(label, BindMeta(attrs, childs)))(bindFunc) getOrElse NodeSeq.Empty
-      case Elem(prefix, label, attrs, ns, childs @ _*) if (childs != null && !childs.isEmpty) =>
-        Elem(prefix, label, attrs, ns, bind(pref, childs)(bindFunc).theSeq : _*)
-      case e => e 
-    }
+  def bind(pref: String, xml: NodeSeq)(bindFunc: ToBind ?=> NodeSeq): NodeSeq = xml flatMap {
+    case e: Document => bind(pref, e children)(bindFunc)
+    case Group(nodes) => bind(pref, nodes)(bindFunc)
+    case Elem(prefix, label, attrs, ns, childs @ _*) if (prefix == pref) =>
+      applyPf(new ToBind(label, BindMeta(attrs, childs)))(bindFunc) getOrElse NodeSeq.Empty
+    case Elem(prefix, label, attrs, ns, childs @ _*) if (childs != null && !childs.isEmpty) =>
+      Elem(prefix, label, attrs, ns, bind(pref, childs)(bindFunc).theSeq : _*)
+    case e => e 
   }
 
 }
