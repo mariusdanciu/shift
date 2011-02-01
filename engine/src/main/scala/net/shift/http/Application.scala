@@ -21,7 +21,7 @@ object Application {
 
   var handleRequest : (Request) => Boolean = (req) => {
     req.path match {
-      case Path("static" :: _, _, _) => false  
+      case Path("static" :: _, _) => false  
       case _ => true
     }
   }

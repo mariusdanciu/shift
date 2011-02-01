@@ -38,53 +38,6 @@ trait Context {
   def resourceAsStream(res: String): Option[InputStream]
 }
 
-object Path {
-  def apply(str: String): Path = {
-    val endSlash =  str.endsWith("/")
-    val abs = str.startsWith("/")
-    var uri = str split "/" toList
-
-    uri = if (abs && ! uri.isEmpty) uri tail else uri
-
-    new Path(uri, endSlash, abs)
-  }
- 
-  val empty = Path("") 
-}
-
-case class Path(parts: List[String], endSlash: Boolean, absolute: Boolean) {
-
-  /**
-   * Matches this path against the other path. The other path may contain
-   * the following pattern denominator characters:
-   * <ul>
-   *  <li>? - matches exactly one part</li>
-   *  <li>+ - matches one or more parts</li>
-   *  <li>* - matches zero or more parts</li>
-   * </ul> 
-   */
-  def matches(other: Path): Boolean = {
-
-    def check(left: List[String], right: List[String], isPlus: Boolean): Boolean = {
-      left match {
-        case head :: _ if (isPlus && right.isEmpty) => true
-        case head :: tail if (isPlus && head != right.head) => check(tail, right, true)
-        case head :: tail if (isPlus && head == right.head) => check(tail, right.tail, false)
-        case head :: _ if (right isEmpty) => false
-        case head :: tail if (head == right.head || right.head == "?") => check(tail, right.tail, false)
-        case head :: tail if (right.head == "+") => check(tail, right.tail, true)
-        case head :: tail if (right.head == "*") => check(left, right.tail, true)
-        case Nil if (!right.isEmpty && right.head == "*") => true
-        case Nil if (!right.isEmpty) => false
-        case Nil => true
-        case _ => false
-      }
-    }
-
-    check(this.parts, other.parts, false)
-  }
-
-}
 
 object Cookie {
   def apply(name: String, value: String) =

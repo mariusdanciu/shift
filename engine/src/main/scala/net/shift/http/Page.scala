@@ -16,73 +16,58 @@ case class Selected(node: (Page) => NodeSeq) extends PageProp
 case class Access(func: AccessControlFunc) extends PageProp
 
 
-object Page {
-  implicit def str2Path(path: String): Path = Path(path)
-  implicit def str2Page(name: String): Page = Page(name)
 
-  def apply(name: String) = new Page(name, Path.empty, Path.empty, None)
-  def apply(name: String, uri: Path, resource: Path) = new Page(name, uri, resource, None)
-
+class Arrow(name: String) {
+  def <<(path: String) = Page(name, path, None)
 }
 
-case class Page(name: String, uri: Path, resource: Path, props: Option[PageProp], pages: Page*) {
+object Page {
+
+  implicit def str2Arrow(name: String): Arrow = new Arrow(name)
+}
+
+case class Page(resource: String, 
+		path: String, 
+		props: Option[PageProps], 
+		pages: Page*) {
   import Page._
 
-  def withResource(res: String): Page = new Page(name, uri, str2Path(res), props, pages: _*)
-  def mapsUri(path: Path): Page = Page(name, path, Path.empty, None)
-  def having(prop: PageProp): Page  = new Page(name, uri, resource, Some(prop))
-  def parentOf(childs: Pages): Page  = new Page(name, uri, resource, props, childs.pages: _*)
+  def having(prop: PageProps): Page = new Page(resource, path, Some(prop))
+  def parentOf(childs: Pages): Page = new Page(resource, path, props, childs.pages: _*)
   
   def & (page: Page): Pages = new Pages(List(this, page))
 
   def hasChilds: Boolean = pages.length > 0
+
 }
 
-case class Pages(pages: List[Page]) {
-  def & (page: Page): Pages = new Pages(pages ::: List(page))
-}
+case class Pages(val pages: List[Page]) {
 
-case class SiteMap(pages: Pages) {
-
-   def select(path: Path): Option[Page] = {
-
-     def lookup(path: Path, pages: List[Page]): Option[Page] = {
-       val matchesFirst = pages match {
-         case Nil => false
-         case list => path matches list.head.uri
-       }
-
-       pages match {
-         case head :: _ if (!matchesFirst && head.hasChilds) => lookup(path, head.pages.toList)
-         case head :: tail if (!matchesFirst) => lookup(path, tail)
-         case head :: _ if (matchesFirst) => Some(head)
-         case _ => None
-       }
-     }
-
-     lookup(path, pages pages)
-   }
+  def & (page: Page): Pages = new Pages(pages :+ page)
   
+  def & (nextPages: List[Page]): Pages = new Pages(pages ::: nextPages)
+
 }
+
+case class SiteMap(val pages: Pages) {
+
+}
+
+
 
 object Main {
 
   def main(args: Array[String]) = {
      import Page._
+  
+     val siteMap = SiteMap(
+      ("/pages/homePage" << "/" parentOf
+         "/pages/producs" << "/products" &
+         "/pages/help" << "/help") &
+      ("/pages/error" << "/error"))
 
-
-     val p1 = "home" mapsUri "/a/b/?/d" withResource "home" 
-     val p2 = "work" mapsUri "/a/c/*" withResource "home"
-     val p3 = "admin" mapsUri "/d/f/*/d" withResource "home"
-     val p4 = "users" mapsUri "/w/e/+/d" withResource "home"
-
-     val sm = SiteMap(p1 & (p2 parentOf (p3 & p4)))
-
-     println(Path("/a/c") matches Path("/a/c/*"))
-     println(sm select Path("/a/c"))
-
+     println(siteMap)
 
   }
-
 }
 
