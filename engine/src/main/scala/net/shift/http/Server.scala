@@ -7,13 +7,8 @@ import Application._
 
 
 private[http] object Server {
-  var continuation : Request => Option[Response] = _
-
-  private def read = new Generator[Request, Response, Option]( f => {
-     continuation = f
-     None
-    }
-  ) {
+ 
+  private def read = new Generator[Request, Response, Option] {
     def unit(b: Response): Option[Response] = {
       if (b != null) Some(b) else None
     }
@@ -21,7 +16,7 @@ private[http] object Server {
 
   def boot(ctx: Context) = Application.context = ctx
 
-  def run {
+  def run = {
     for (req <- read) yield {
       TextResponse("Echo " + req.path.toString)
     }
@@ -30,7 +25,7 @@ private[http] object Server {
 }
 
 
-abstract class Generator[A, B, M[_]](wrap :  (A => M[B]) => M[B]) {
+abstract class Generator[A, B, M[_]] {
   def unit(b: B): M[B]
-  def map(f: A => B): M[B] = wrap ( f andThen unit )
+  def map(f: A => B): (A => M[B]) = f andThen unit 
 }

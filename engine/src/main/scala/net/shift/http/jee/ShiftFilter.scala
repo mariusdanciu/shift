@@ -15,10 +15,11 @@ import net.shift.util.Util._
 import Application._
 
 class ShiftFilter extends Filter {
+  private var continuation : Request => Option[Response] = _
 
   def init(config: FilterConfig) {
     Server.boot(new ServletContext(config.getServletContext))
-    Server run
+    continuation = Server run
   }
 
   def destroy {
@@ -26,7 +27,7 @@ class ShiftFilter extends Filter {
 
   def doFilter(req: SReq, res: SResp, chain: FilterChain) {
     val request = new ServletRequest(req.asInstanceOf[HttpServletRequest])
-    Server.continuation(request) match {
+    continuation(request) match {
       case Some(resp) => toServletResponse(resp, res.asInstanceOf[HttpServletResponse])
       case _ => chain.doFilter(req, res)
     }
