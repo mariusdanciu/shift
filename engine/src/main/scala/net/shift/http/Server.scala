@@ -8,8 +8,8 @@ import Application._
 
 private[http] object Server {
  
-  private def read = new Generator[Request, Response, Option] {
-    def unit(b: Response): Option[Response] = {
+  private def read = new Generator[Request, Option] {
+    def unit[B](b: B): Option[B] = {
       if (b != null) Some(b) else None
     }
   }
@@ -25,7 +25,7 @@ private[http] object Server {
 }
 
 
-abstract class Generator[A, B, M[_]] {
-  def unit(b: B): M[B]
-  def map(f: A => B): (A => M[B]) = f andThen unit 
+abstract class Generator[A, M[_]] {
+  def unit[B](b: B): M[B]
+  def map[B](f: A => B): (A => M[B]) = f andThen unit 
 }
