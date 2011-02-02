@@ -3,6 +3,7 @@ package http
 
 import java.io._
 import scala.xml._
+import util._
 
 trait HeaderDefaults {
   val headers: List[(String, String)] = Nil
@@ -79,13 +80,51 @@ abstract class NodeResponse(val node: Node,
 
   def docType: Option[String]
   
-  def contentType: Option[String] = Some("text/plain; charset=utf-8")
+  def contentType: Option[String]
 
   def docTypeBeforeEncoding = false
 
   def writeBody(out: OutputStream) {
-  
+    val p = new PrintWriter(out)
+    if (docTypeBeforeEncoding) {
+      docType map p.println 
+      encoding map p.println
+    } else {
+      encoding map p.println
+      docType map p.println 
+    }
+    p.print(XmlUtil.stringify(node)(NonIeRules))
+    p.flush()
   }
 
 }
 
+object HtmlResponse {
+  def apply(node: Node) = new HtmlResponse(node, 200, Nil, Nil, Some(DocType.html4Transitional))
+}
+
+case class HtmlResponse(override val node: Node, 
+                        override val code: Int, 
+                        override val headers: List[(String, String)], 
+                        override val cookies: List[Cookie],
+                        override val docType: Option[String]) extends
+  NodeResponse(node, code, headers, cookies){
+
+  def contentType: Option[String] = Some("text/html; charset=utf-8")
+
+}
+
+object XhtmlResponse {
+  def apply(node: Node) = new XhtmlResponse(node, 200, Nil, Nil, Some(DocType.xhtml1Transitional))
+}
+
+case class XhtmlResponse(override val node: Node, 
+                         override val code: Int, 
+                         override val headers: List[(String, String)], 
+                         override val cookies: List[Cookie],
+                         override val docType: Option[String]) extends
+  NodeResponse(node, code, headers, cookies){
+
+  def contentType: Option[String] = Some("application/xhtml+xml; charset=utf-8")
+
+}

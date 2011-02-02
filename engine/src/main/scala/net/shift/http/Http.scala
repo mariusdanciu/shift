@@ -60,7 +60,9 @@ case class Cookie(name: String,
 
 object Request {
   val req = new Scope[Request]
-  def unapply(req: Request): Option[(List[String], String)] = Some((req.path.parts, req.method))
+  def unapply(req: Request): Option[(List[String], String)] = 
+   if (req !=null) Some((req.path.parts, req.method)) else None
+
   def apply(req: Request): Request = new ReqShell(req)
 }
 

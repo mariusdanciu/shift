@@ -9,12 +9,12 @@ trait RenderRule {
   def stripComment: Boolean = false
 }
 
-class IeRules extends RenderRule {
+object IeRules extends RenderRule {
   def emptyNonShortNodes = "br" :: "th" :: Nil
 
 }
 
-class NonIeRules extends RenderRule {
+object NonIeRules extends RenderRule {
   def emptyNonShortNodes = "base" :: "meta" :: 
                            "link" :: "hr" :: "br" ::
                            "param" :: "img" :: "area" :: "input" :: "col" :: Nil
@@ -25,22 +25,29 @@ object XmlUtil {
 
   def escape(str: String): String = str
 
-  def stringify(node: NodeSeq)(implicit rule: RenderRule): String = node.flatMap(_ match {
-    case d: Document => stringify(d.children)
-    case e: Group => stringify(e.nodes)
+  def stringify(node: NodeSeq)(implicit rule: RenderRule): String = {
+
+  def stringify(node: NodeSeq, currentDefNs: NamespaceBinding)(implicit rule: RenderRule): String = node.flatMap(_ match {
+    case d: Document => stringify(d.children, TopScope)
+    case e: Group => stringify(e.nodes, e scope)
     case c: Comment if !rule.stripComment => c.toString
     case u: Unparsed => u.toString
     case p: PCData => p.toString
     case Elem(prefix, label, attrs, ns, childs @ _*) if (childs == null || childs.isEmpty && 
       !rule.emptyNonShortNodes.contains(label)) => 
-      "<" + (if (prefix == null) label else prefix + ":" + label) + attrs + " />"
+      val nms = if (ns != currentDefNs) ns.buildString(currentDefNs) + " " else ""
+      "<" + (if (prefix == null) label else prefix + ":" + label) + nms + attrs + " />"
     case Elem(prefix, label, attrs, ns, childs @ _*) => 
-      "<" + (if (prefix == null) label else prefix + ":" + label) + attrs + ">" + 
-      stringify(childs) +
+      val nms = if (ns != currentDefNs) ns.buildString(currentDefNs) + " " else ""
+      "<" + (if (prefix == null) label else prefix + ":" + label) + nms + attrs + ">" + 
+      stringify(childs, ns) +
       "</" + (if (prefix == null) label else prefix + ":" + label) + ">"
     case Text(str)  => str 
     case e => ""
   }).toList.mkString
 
+  stringify(node, TopScope)(rule)
+
+  }
 }
 

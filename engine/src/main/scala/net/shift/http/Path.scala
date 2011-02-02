@@ -22,7 +22,7 @@ sealed case class Path(val parts: List[String], val endSlash: Boolean) {
 
   def matches(other: Path): Boolean = this.parts == other.parts
 
-  override def toString() = parts mkString("/")
+  override def toString() = parts mkString("/") + (if (endSlash) "/" else "")
 }
 
 
