@@ -2,7 +2,7 @@ package net.shift
 package http
 
 import scala.xml._
-import Application._
+import app.Application._
 
 trait PageProp {
   def & (prop: PageProp): PageProps = PageProps(this :: List(prop))
@@ -17,8 +17,8 @@ case class Access(func: AccessControlFunc) extends PageProp
 
 
 
-class Arrow(name: String) {
-  def <<(path: String) = Page(name, path, None)
+class Arrow(path: String) {
+  def <<(resource: String) = Page(path, resource, None)
 }
 
 object Page {
@@ -26,8 +26,8 @@ object Page {
   implicit def str2Arrow(name: String): Arrow = new Arrow(name)
 }
 
-case class Page(resource: String, 
-		path: String, 
+case class Page(path: String, 
+		resource: String, 
 		props: Option[PageProps], 
 		pages: Page*) {
   import Page._

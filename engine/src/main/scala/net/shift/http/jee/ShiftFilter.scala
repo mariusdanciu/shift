@@ -11,8 +11,8 @@ import javax.servlet.{Filter,
 }
 
 import javax.servlet.http._
-import net.shift.util.Util._
-import Application._
+import util.Util._
+
 
 class ShiftFilter extends Filter {
   private var continuation : Request => Option[Response] = _

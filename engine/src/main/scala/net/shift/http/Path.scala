@@ -1,6 +1,8 @@
 package net.shift
 package http
 
+import scala.xml._
+
 object Path {
   def apply(str: String): Path = {
     val endSlash = str endsWith "/"
@@ -24,5 +26,3 @@ sealed case class Path(val parts: List[String], val endSlash: Boolean) {
 
   override def toString() = parts mkString("/") + (if (endSlash) "/" else "")
 }
-
-

@@ -55,6 +55,7 @@ class ServletContext(ctx: SCtx) extends Context {
       case stream => Some(stream)
     }
 
+ val contextPath = ctx getContextPath
 
 }
 

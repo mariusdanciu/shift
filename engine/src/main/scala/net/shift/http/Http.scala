@@ -3,7 +3,8 @@ package http
 
 import java.io.{InputStream, OutputStream}
 import java.net.URL
-import net.shift.util._
+import app._
+import util._
 import Util._
 
 trait Request {
@@ -36,6 +37,7 @@ trait Response {
 
 trait Context {
   def resourceAsStream(res: String): Option[InputStream]
+  def contextPath: String
 }
 
 

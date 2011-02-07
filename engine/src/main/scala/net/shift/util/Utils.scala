@@ -1,6 +1,7 @@
 package net.shift
 package util
 
+
 import java.io._
 import scala.io._
 import scala.xml.{NodeSeq}
@@ -45,4 +46,17 @@ class Scope[T] {
   def get: T = tl.get
 
 }
+
+trait Generator[A, M[_]] {
+
+  type Cont[T] = A => M[T]
+
+  def unit[B](b: B): M[B]
+  def map[B](f: A => B): Cont[B] = f andThen unit
+  def flatMap[B](f: A => M[B]): Cont[B] = f
+
+  def filter(f: A => Boolean): Generator[A, M]
+}
+
+
 
