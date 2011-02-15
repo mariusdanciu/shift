@@ -1,8 +1,10 @@
 package net.shift
 package http
-package httputil
 
+import scala.xml._
 import util._
+
+import State._
 
 trait Reader {
   def read = new Generator[Request, Option] {
@@ -14,4 +16,12 @@ trait Reader {
       this
     }
   }
+
+  def readRequest = state[Request, ServerState](s => (s.req, s))
+
+  def template(n: Option[NodeSeq]) =  state[NodeSeq, ServerState](s => n match {
+    case Some(node) => (n, s)
+    case _ => 
+  })
+
 }

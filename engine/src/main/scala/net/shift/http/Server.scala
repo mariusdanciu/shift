@@ -1,12 +1,12 @@
 package net.shift
 package http
 
+import scala.xml._
 import app._
 import util._
-import http.httputil._
 import Util._
 import Application._
-
+import State._
 
 private[http] object Server extends Reader {
 
@@ -16,14 +16,16 @@ private[http] object Server extends Reader {
 
   def run = {
 
-    for (r @ Request(path, method) <- read;
-         req <- applyPf(r)(rewrite);
-         template <- Resources.pageAsXml(req.path)
-        ) yield {
-      XhtmlResponse(template theSeq(0))
+    for (req <- readRequest;
+         page <- template(Resources.pageAsXml(req.path) getOrElse <Crap/>)
+       ) yield {
+      XhtmlResponse(page theSeq(0))
     }
   }
   
 }
 
 
+case class ServerState(req: Request, 
+		       respStatus: Int, 
+		       error: Option[Exception])
