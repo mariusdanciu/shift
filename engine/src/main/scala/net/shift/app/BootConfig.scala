@@ -14,11 +14,9 @@ trait BootConfig {
     case req => req.contextPath
   }
 
-  def handleRequest : (Request) => Boolean = (req) => {
-    req.path match {
-      case Path("static" :: _, _) => false  
-      case _ => true
-    }
+  def handleRequest(req: Request) : Boolean = req.path match {
+    case Path("static" :: _, _) => false  
+    case _ => true
   }
 
   def templateLookupSuffixes: List[String] = "html" :: "htm" :: Nil

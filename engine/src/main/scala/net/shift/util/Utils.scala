@@ -46,34 +46,6 @@ class Scope[T] {
 
 }
 
-trait Generator[A, M[_]] {
-
-  type Cont[T] = A => M[T]
-
-  def unit[B](b: B): M[B]
-  def map[B](f: A => B): Cont[B] = f andThen unit
-  def flatMap[B](f: A => M[B]): Cont[B] = f
-
-  def filter(f: A => Boolean): Generator[A, M]
-}
-
-trait Functor[A] {
-
-  type M[A] <: Functor[A]
-
-  def unit[B](b: B): M[B]
-
-  //def fmap[B](f: A => B): M[A] => M[B]
-}
-
-trait Monad[A] extends Functor[A] {
-
-  type M[A] <: Monad[A]
-  
-  def bind[B](m: M[A])(f: A => M[B]): M[B]
-
-}
-
 
 class Cont[R, A](val in: (A => R) => R) {
   type M[R, A] = Cont[R, A]
@@ -108,11 +80,6 @@ object State {
 
   def unit[A, S](a: A) = new State[A, S](s => (a, s))
 
-  def modify[S](f: S => S) = state[Unit, S](s => ((), f(s)))
-
-  def modifyPf[S](f: PartialFunction[S, S]) = 
-    state[Unit, S](s => ((), if (f isDefinedAt s) f(s) else s))
-
   def compute[B, S](f: S => B) = new State[B, S](s => (f(s), s))
 
 }
@@ -142,20 +109,6 @@ class State[+A, S](val in: S => (A, S)) extends StateFunctor[A, S] {
 
   def map[B](f: A => B): M[B, S] = bind(this)(unit[B] _ compose f)
   
+
 }
-
-
-import http._
-import java.io.InputStream
-import shiftdefs._
-
-object Main3 {
-
-  def unit[R, B](b: B): Cont[R, B] = new Cont[R, B](a => a(b))
-
-  def state[B, S](b: B): State[B, S] = new State[B, S](s => (b, s))
-
-  def modifyState[A, S](a: A)(f : S => S): State[A, S] = 
-    new State[A, S](s => (a, f(s)))
-
 

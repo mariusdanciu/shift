@@ -23,7 +23,7 @@ object Application extends BootConfig {
   
   override def rewrite = cfg.rewrite
   override def contextPath = cfg.contextPath
-  override def handleRequest = cfg.handleRequest
+  override def handleRequest(req: Request) = cfg.handleRequest(req)
   override def templateLookupSuffixes = cfg.templateLookupSuffixes
   override def siteMap = cfg.siteMap
 

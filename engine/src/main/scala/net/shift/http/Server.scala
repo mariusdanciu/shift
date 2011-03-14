@@ -26,6 +26,6 @@ private[http] object Server extends Reader {
 }
 
 
-case class ServerState(req: Request, 
-		       respStatus: Int, 
-		       error: Option[Exception])
+case class PipeLine(req: Request, 
+		    respStatus: Int, 
+		    error: Option[Exception])
