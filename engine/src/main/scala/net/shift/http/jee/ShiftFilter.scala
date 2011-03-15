@@ -15,7 +15,7 @@ import util._
 import Util._
 
 class ShiftFilter extends Filter {
-  private var continuation : State[Response, PipeLine] = _
+  private var continuation : StateMonad[Response, PipeLine] = _
 
   def init(config: FilterConfig) {
     Server.boot(new ServletContext(config.getServletContext))
@@ -27,8 +27,10 @@ class ShiftFilter extends Filter {
 
   def doFilter(req: SReq, res: SResp, chain: FilterChain) {
     val request = new ServletRequest(req.asInstanceOf[HttpServletRequest])
+
     continuation(PipeLine(request, 200, None)) match {
-      case (resp, _) => toServletResponse(resp, res.asInstanceOf[HttpServletResponse])
+      case Some((resp, _)) => toServletResponse(resp, res.asInstanceOf[HttpServletResponse])
+      case _ => chain.doFilter(req, res)
     }
   }
 

@@ -16,7 +16,7 @@ private[http] object Server extends Reader {
 
   def run = {
 
-    for (req <- readRequest;
+    for (req <- readRequest() if handleRequest(req);
          page <- template(Resources.pageAsXml(req.path) getOrElse <Crap/>)
        ) yield {
       XhtmlResponse(page theSeq(0))

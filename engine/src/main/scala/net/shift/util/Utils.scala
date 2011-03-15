@@ -56,9 +56,9 @@ class Cont[R, A](val in: (A => R) => R) {
 
   def bind[B](m: M[R, A])(f: A => M[R, B]): M[R, B] = 
     new M[R, B](k => m(x => f(x)(k)))
- 
+
   def >>=[B] (f: A => M[R, B]): M[R, B] = bind(this)(f)
- 
+
   def flatMap[B] = >>=[B] _
 
   def map[B](f: A => B): M[R, B] = bind(this)(f andThen unit)
@@ -74,41 +74,56 @@ trait StateFunctor[+A, S] {
 
 object State {
 
-  def state[A, S](f: S => (A, S)): State[A, S] = new State( f )
+  def state[A, S](f: S => Option[(A, S)]): StateMonad[A, S] = new FullState( f )
 
-  def init[S] = new State[S, S](s => (s, s))
+  def init[S] = new FullState[S, S](s => Some((s, s)))
 
-  def unit[A, S](a: A) = new State[A, S](s => (a, s))
+  def unit[A, S](a: A) = new FullState[A, S](s => Some((a, s)))
 
-  def compute[B, S](f: S => B) = new State[B, S](s => (f(s), s))
+  def compute[B, S](f: S => B) = new FullState[B, S](s => Some((f(s), s)))
 
 }
 
-class State[+A, S](val in: S => (A, S)) extends StateFunctor[A, S] {
-  type M[A, S] = State[A, S]
+sealed abstract class StateMonad[+A, S] extends StateFunctor[A, S] {self =>
+  type M[A, S] = StateMonad[A, S]
   type F[A, S] = M[A, S]
 
-  def apply(s: S): (A, S) = in(s)
+  protected def in : S => Option[(A, S)]
 
-  def unit[B](b: B): M[B, S] = new M[B, S](s => (b, s))
+  def apply(s: S): Option[(A, S)] = in(s)
+
+  def unit[B](b: B): M[B, S] = new M[B, S]{override def in = s => Some((b, s))}
 
   def fmap[A1 >: A, B](f: A1 => B): F[A1, S] => F[B, S] = _ >>= (unit[B] _ compose f)
 
   def mult[A1 >: A](a: M[M[A1, S], S]): M[A1, S] = a >>= (x => x)
 
-  def bind[T, B](m: M[T, S])(f: T => M[B, S]) : M[B, S] = 
-    new M[B, S](s => {
+  def bind[T, B](m: M[T, S])(f: T => M[B, S]) : M[B, S] =  new M[B, S]{
+    override def in = s => {
       m(s) match {
-        case (a, s1) => f(a)(s1)
+        case Some((a, s1)) => f(a)(s1)
+        case _ => None
       }
-    });
+    }}
+
 
   def >>=[B] (f: A => M[B, S]): M[B, S] = bind(this)(f)
- 
+
   def flatMap[B] = >>=[B] _
 
   def map[B](f: A => B): M[B, S] = bind(this)(unit[B] _ compose f)
   
+  def withFilter[A1 >: A](f: A1 => Boolean): M[A1, S] =  new M[A1, S]{
+    override def in = s => {
+      self(s) match {
+        case Some((a, s1)) if f(a) => Some((a, s1))
+        case _ => None
+      }
+    }}
+
+}
+
+class FullState[+A, S](override val in : S => Option[(A, S)]) extends StateMonad[A, S] {
 
 }
 
