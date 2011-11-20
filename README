@@ -1,2 +1,2 @@
-Shift is a pure stateless web framework written in Scala being strongly inspired by LiftWeb.
+Shift is a pure stateless and asynchronous web framework written in Scalah being inspired by LiftWeb and Scalaz HTTP.
 
