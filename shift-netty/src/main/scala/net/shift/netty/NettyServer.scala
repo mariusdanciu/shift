@@ -17,7 +17,8 @@ import org.jboss.netty.handler.codec.http.HttpVersion._;
 
 
 import org.jboss.netty.bootstrap.ServerBootstrap;
-import org.jboss.netty.buffer.{ChannelBuffer, ChannelBuffers, ChannelBufferOutputStream};
+import org.jboss.netty.buffer.{ChannelBuffer, ChannelBuffers, 
+  ChannelBufferInputStream, ChannelBufferOutputStream};
 
 
 import org.jboss.netty.channel.ChannelFuture;
@@ -92,6 +93,19 @@ private[netty] class HttpRequestHandler(app: ShiftApplication) extends SimpleCha
     val cookiesSet = heads.get("Cookie").map(c => asScalaSet(cookieDecoder.decode(c)));
     val qs = queryString(uri)
 
+    val buffer = new ChannelBufferInputStream(request.getContent())
+    val readChannel = new ReadChannel {
+      def readBuffer(buf: Array[Byte]): Int = buffer.read(buf)
+      def readInt : Int = buffer.read()
+      def readByte: Byte = buffer.readByte()
+      def readLong: Long = buffer.readLong()
+      def readFloat: Float = buffer.readFloat()
+      def readDouble: Double = buffer.readDouble()
+      def readShort: Short = buffer.readShort()
+      def readBoolean: Boolean = buffer.readBoolean()
+      def readChar: Char = buffer.readChar()
+   }
+
     val shiftRequest = new Request {
       def path: String = uri
       def method : String = method
@@ -105,7 +119,7 @@ private[netty] class HttpRequestHandler(app: ShiftApplication) extends SimpleCha
       def contentType: Option[String] = header("Content-Type")
       lazy val cookies: Map[String, Cookie] = cookiesMap(cookiesSet)
       def cookie(name: String): Option[Cookie] = cookies.get(name)
-      def readBody: ReadChannel = null
+      def readBody: ReadChannel = readChannel
     }
 
     for (handle <- app.routes.map(r => r(shiftRequest)).find(!_.isEmpty); 
