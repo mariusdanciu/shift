@@ -1,11 +1,13 @@
 package net.shift
-package netty
+package demo
 
 import engine.ShiftApplication
 import engine.http._
 import HttpPredicates._
+import netty.NettyServer
 
-object Demo extends App {
+
+object Main extends App {
   println("Starting Netty server")
 
   def abcService(req: Request):  Option[AsyncResponse => Unit] = Some (

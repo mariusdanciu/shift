@@ -1,4 +1,4 @@
-name := "shift.engine"
+name := "shift-engine"
 
 version := "0.1"
 
