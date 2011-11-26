@@ -2,6 +2,8 @@ package net.shift
 package engine
 package http
 
+import io.WriteChannel
+
 case class TextResponse(text: String) extends Response {
   def code = 200
   def reason = "OK"

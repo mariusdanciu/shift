@@ -42,6 +42,4 @@ object HttpPredicates {
   def jsonContent: Kleisli[Request, Request, Option] = 
     r => r.contentType.filter(c => c == "application/json" || c == "text/json").map(c => r)
 
-  def anyOf(f: (Request => Option[Request])*): Kleisli[Request, Request, Option] = null
-
 }

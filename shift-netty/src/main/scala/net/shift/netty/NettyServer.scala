@@ -7,7 +7,8 @@ import java.util.concurrent.Executors;
 
 import common.StringUtils._  
 import engine.ShiftApplication
-import engine.http.{ReadChannel, WriteChannel, Request, Response, Cookie}
+import io.{ReadChannel, WriteChannel}
+import engine.http.{Request, Response, Cookie}
 
 import org.jboss.netty.channel.Channels._;
 import org.jboss.netty.handler.codec.http.HttpHeaders._;
@@ -74,7 +75,7 @@ private[netty] class HttpServerPipelineFactory(app: ShiftApplication) extends Ch
     pipe.addLast("encoder", new HttpResponseEncoder());
     pipe.addLast("handler", new HttpRequestHandler(app));
     
-    pipe;
+    pipe
   }
 }
 
