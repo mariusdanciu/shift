@@ -2,51 +2,52 @@ package net.shift
 package template
 
 import scala.xml._
-
+import common.XmlUtils._
 
 object TemplateMain extends App {
   import Template._
   import Selectors._
   
   val s = "<script></script>"
-  val xml = <html xmlns:shift="http://www.w3.org/1999/xhtml"><head></head><body>{s}<br></br>
+  val xml = <html><head></head><body>{s}<br></br>
 
   <div id="name" class="bold mysnippet">
   </div>
 
+  <!-- test 1-->
   <div shift:snippet="name"></div>
   
-  <!-- mycomment -->
+  <!-- test 2-->
+
   </body></html>
 
   val snippets: Map[String, NodeSeq => NodeSeq] = Map (
     ("name", e => <div> got name <span class="mysnippet">hi name</span></div>), 
     ("mysnippet", e => <p>hi my snippet</p>)
   )
-  println(mkString(Template(snippets, List(snippetsSelector, stripCommentsSelector)).run(xml)))
+  println(mkString(Template(snippets, List(bySnippetAttr, stripComments)).run(xml)))
 
+  val e: Elem = <div shift:snippet="marius"></div>
+  println(attribute(e, "shift", "snippet"))
 }
 
 object Selectors {
 
   type Selector = Map[String, NodeSeq => NodeSeq] => NodeSeq => Option[NodeSeq]
 
-  val snippetsSelector : Selector = snippets => in => in match {
+  val bySnippetAttr : Selector = snippets => in => in match {
     case e : Elem =>
-      for(node <- e.attributes.find( _ match {
-        case a : PrefixedAttribute => a.pre == "shift" && a.key == "snippet"
-        case _ => false
-      });
-	  snippet <- snippets.get(node.value mkString)) yield snippet(e)
+      for(value <- attribute(e, "shift", "snippet");
+	  snippet <- snippets.get(value)) yield snippet(e)
     case _ => None
   }
   
   /** 
    * Extracts the node class attribute and looks for snippets mathing the class names
    */
-  val classSelector: Selector = snippets => in => in match {
-    case e : Elem => (for(node <- e.attributes.get("class").toList;
-			  cls <- ("\\s+".r split node.mkString) if snippets.contains(cls)) yield cls) match {
+  val byClassAttr: Selector = snippets => in => in match {
+    case e : Elem => (for(value <- attribute(e, "class").toList;
+			  cls <- ("\\s+".r split value) if snippets.contains(cls)) yield cls) match {
 			    case Nil => None
 			    case l => Some((NodeSeq.Empty /: (l.map(n => snippets(n)(e))))(_ ++ _))
 			  }
@@ -56,8 +57,8 @@ object Selectors {
   /** 
    * Extracts the node id attribute and looks for snippets mathing the node id
    */
-  val idSelector: Selector = snippets => in => in match {
-    case e : Elem => for(node <- e.attributes.get("id");
+  val byIdAttr: Selector = snippets => in => in match {
+    case e : Elem => for(node <- attribute(e, "id");
 			 snippet <- snippets.get(node mkString)) yield snippet(e)
     case _ => None
   }
@@ -65,7 +66,7 @@ object Selectors {
   /** 
    * Removes the XML comments
    */
-  val stripCommentsSelector: Selector = snippets => in => in match {
+  val stripComments: Selector = snippets => in => in match {
     case c: Comment => Some(NodeSeq.Empty)
     case _ => None
   }
@@ -88,7 +89,7 @@ object Template {
     case e : Comment => e mkString
     case e : Elem => {
       val name = if (e.prefix eq null) e.label else e.prefix + ":" + e.label
-      val attrs = if (e.attributes ne null) e.attributes.mkString
+      val attrs = if (e.attributes ne null) e.attributes.toString
       "<" + name + attrs + ">" + mkString(e.child) + "</" + name + ">"
     }
     case k => k.getClass toString
@@ -129,7 +130,12 @@ case class Template(snippets: Map[String, NodeSeq => NodeSeq], selectors: List[S
    */
   def run(in: NodeSeq) : NodeSeq = in flatMap {
     case Group(childs) => run(childs)
-    case c: Comment => (for (s <- selectors; ns <- s(snippets)(c)) yield ns) flatMap (e => e)
+
+    case c: Comment => (for (s <- selectors) yield s(snippets)(c)).filter(n => !n.isEmpty) match {
+      case Nil => c
+      case l => for (optNodeSeq <- l; ns <- optNodeSeq.toList; n <- ns ) yield n
+    }
+
     case e: Elem => (for (s <- selectors) yield s(snippets)(e)).filter(n => !n.isEmpty) match {
       case Nil => new Elem(e.prefix, e.label, e.attributes, e.scope, run(e.child):_*)
       case l => run(for (optNodeSeq <- l; ns <- optNodeSeq.toList; n <- ns ) yield n)
