@@ -6,6 +6,7 @@ import scala.xml._
 
 object TemplateMain extends App {
   import Template._
+  import Selectors._
   
   val s = "<script></script>"
   val xml = <html x:version="5"><head></head><body>{s}<br></br>
@@ -24,10 +25,13 @@ object TemplateMain extends App {
 
 }
 
+object Selectors {
 
-object Template {
   type Selector = Map[String, NodeSeq => NodeSeq] => NodeSeq => Option[NodeSeq]
 
+  /** 
+   * Extracts the node class attribute and looks for snippets mathing the class names
+   */
   val classSelector: Selector = snippets => in => in match {
     case e : Elem => (for(node <- e.attributes.get("class").toList;
 			  cls <- ("\\s+".r split node.mkString) if snippets.contains(cls)) yield cls) match {
@@ -37,17 +41,32 @@ object Template {
     case _ => None
   }
 
+  /** 
+   * Extracts the node id attribute and looks for snippets mathing the node id
+   */
   val idSelector: Selector = snippets => in => in match {
     case e : Elem => for(node <- e.attributes.get("id");
 			 snippet <- snippets.get(node mkString)) yield snippet(e)
     case _ => None
   }
 
+  /** 
+   * Removes the XML comments
+   */
   val stripCommentsSelector: Selector = snippets => in => in match {
     case c: Comment => Some(NodeSeq.Empty)
     case _ => None
   }
 
+
+}
+
+object Template {
+
+  /** 
+   * Returns the String representation of the 'nodes'
+   *   
+   */
   def mkString(nodes: NodeSeq): String = (nodes flatMap { 
     case Group(childs) => mkString(childs)
     case Text(str) => escape(str)
@@ -82,11 +101,20 @@ object Template {
     }
     sb toString   
   }
-
 }
 
-case class Template(snippets: Map[String, NodeSeq => NodeSeq], selectors: List[Template.type#Selector]) {
+/** 
+ * Template
+ * 
+ * Analyses the page nodes and invokes the selectors which runs the corresponding snippets 
+ *   
+ */
+case class Template(snippets: Map[String, NodeSeq => NodeSeq], selectors: List[Selectors.type#Selector]) {
 
+  /** 
+   * Runs the in template and produces the modified template
+   *   
+   */
   def run(in: NodeSeq) : NodeSeq = in flatMap {
     case Group(childs) => run(childs)
     case c: Comment => (for (s <- selectors; ns <- s(snippets)(c)) yield ns) flatMap (e => e)
