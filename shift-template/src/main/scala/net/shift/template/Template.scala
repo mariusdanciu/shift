@@ -9,10 +9,12 @@ object TemplateMain extends App {
   import Selectors._
   
   val s = "<script></script>"
-  val xml = <html x:version="5"><head></head><body>{s}<br></br>
+  val xml = <html xmlns:shift="http://www.w3.org/1999/xhtml"><head></head><body>{s}<br></br>
 
   <div id="name" class="bold mysnippet">
   </div>
+
+  <div shift:snippet="name"></div>
   
   <!-- mycomment -->
   </body></html>
@@ -21,7 +23,7 @@ object TemplateMain extends App {
     ("name", e => <div> got name <span class="mysnippet">hi name</span></div>), 
     ("mysnippet", e => <p>hi my snippet</p>)
   )
-  println(mkString(Template(snippets, List(idSelector, classSelector, stripCommentsSelector)).run(xml)))
+  println(mkString(Template(snippets, List(snippetsSelector, stripCommentsSelector)).run(xml)))
 
 }
 
@@ -29,6 +31,16 @@ object Selectors {
 
   type Selector = Map[String, NodeSeq => NodeSeq] => NodeSeq => Option[NodeSeq]
 
+  val snippetsSelector : Selector = snippets => in => in match {
+    case e : Elem =>
+      for(node <- e.attributes.find( _ match {
+        case a : PrefixedAttribute => a.pre == "shift" && a.key == "snippet"
+        case _ => false
+      });
+	  snippet <- snippets.get(node.value mkString)) yield snippet(e)
+    case _ => None
+  }
+  
   /** 
    * Extracts the node class attribute and looks for snippets mathing the class names
    */
