@@ -6,7 +6,7 @@ import java.net.InetSocketAddress;
 import java.util.concurrent.Executors;
 
 import common.StringUtils._  
-import engine.ShiftApplication
+import engine.{ShiftApplication, Engine}
 import io.{ReadChannel, WriteChannel}
 import engine.http.{Request, Response, Cookie}
 
@@ -123,10 +123,7 @@ private[netty] class HttpRequestHandler(app: ShiftApplication) extends SimpleCha
       def readBody: ReadChannel = readChannel
     }
 
-    for (handle <- app.routes.map(r => r(shiftRequest)).find(!_.isEmpty); 
-         f <- handle) {
-      f(writeResponse(request, e))
-    }
+    Engine.run(app)(shiftRequest, writeResponse(request, e))
 
   } 
 
