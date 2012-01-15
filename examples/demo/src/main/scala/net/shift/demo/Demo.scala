@@ -15,7 +15,7 @@ object Main extends App {
   )
 
   NettyServer.start(8080, new ShiftApplication {
-    def routes: List[Route] = {
+    def rules: List[Rule] = {
       (fullPath("/a/b/c") or POST to abcService) :: Nil
     }
   })

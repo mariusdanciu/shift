@@ -4,6 +4,6 @@ package engine
 package object http {
 
   type AsyncResponse = Response => Unit
-  type Route = Request => Option[AsyncResponse => Unit]
+  type Rule = Request => Option[AsyncResponse => Unit]
 
 }
