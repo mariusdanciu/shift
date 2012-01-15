@@ -24,7 +24,7 @@ trait Combinators[M[_]] {
 }
 
 trait CombinatorsView[A, B, M[_]] {
-  def to[C](g: B => M[C]): A => M[C] 
+  def then[C](g: B => M[C]): A => M[C] 
   def or(f: A => M[B]): A => M[B]
 }
 
@@ -45,7 +45,7 @@ object OptionMonad extends Monad[Option] with Combinators[Option] {
 }
 
 class OptionCombinatorsView[A, B](f: A => Option[B]) extends CombinatorsView[A, B, Option] {
-  def to[C](g: B => Option[C]): A => Option[C] = 
+  def then[C](g: B => Option[C]): A => Option[C] = 
     OptionMonad.>=>(f)(g)
   def or(g: A => Option[B]): A => Option[B] = 
     OptionMonad.>|>(f)(g)
