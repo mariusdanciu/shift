@@ -34,12 +34,12 @@ object HttpPredicates {
     r => if (r.path.startsWith((path split "/").toList)) Some(r) else None
     
   def tailPath : Kleisli[Request, Request, Option] = 
-    r => Some(new RequestShell(r) {
-      override def path = r.path match {
-        case Nil => Nil
-        case p => p.tail
-      }
-    })
+    r => r.path match {
+      case Nil => None
+      case p => Some(new RequestShell(r) {
+        override def path = r.path tail
+      })
+    }
    
    
   def xmlContent: Kleisli[Request, Request, Option] = 
