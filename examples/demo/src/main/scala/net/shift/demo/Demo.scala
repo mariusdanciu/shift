@@ -11,14 +11,23 @@ object Main extends App {
   println("Starting Netty server")
 
   def abcService(req: Request):  Option[AsyncResponse => Unit] = Some (
-    resp => resp(TextResponse("abc service executed."))
+    resp => { println("abc"); resp(TextResponse("abc service executed."))}
   )
 
+  def yzService(req: Request):  Option[AsyncResponse => Unit] = Some (
+    resp => resp(TextResponse("yz service executed."))
+  )
+
+  def notFoundService(req: Request):  Option[AsyncResponse => Unit] = Some (
+    resp => resp(TextResponse("Sorry ... service not found"))
+  )
+
+
   NettyServer.start(8080, new ShiftApplication {
-    def rules: List[Rule] = {
-      (fullPath("/a/b/c") or POST then abcService) :: Nil
-    }
-  })
+    def rule =  (path("a/b/c") or POST then abcService) or
+      (tailPath then path("y/z") then yzService) or
+      notFoundService
+    })
 
 
 }

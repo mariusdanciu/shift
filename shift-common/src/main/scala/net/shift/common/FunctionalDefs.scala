@@ -1,5 +1,4 @@
 package net.shift
-package engine
 package common
 
 trait Functor[F[_]] {

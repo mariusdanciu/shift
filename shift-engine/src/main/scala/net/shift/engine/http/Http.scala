@@ -7,7 +7,7 @@ import scala.xml.Node
 import io.{ReadChannel, WriteChannel}
 
 trait Request {
-  def path: String
+  def path: List[String]
   def method : String
   def contextPath : String
   def queryString: Option[String]
@@ -20,6 +20,22 @@ trait Request {
   def cookies: Map[String, Cookie]
   def cookie(name: String): Option[Cookie]
   def readBody: ReadChannel
+}
+
+class RequestShell(in: Request) extends Request {
+  def path = in path
+  def method = in method
+  def contextPath = in contextPath
+  def queryString = in queryString
+  def param(name: String) = in param name
+  def params = in params
+  def header(name: String) = in header name
+  def headers = in headers
+  def contentLength = in contentLength
+  def contentType = in contentType
+  def cookies = in cookies
+  def cookie(name: String) = in cookie name
+  def readBody = in readBody
 }
 
 trait Response {
@@ -55,9 +71,11 @@ case class Cookie(name: String,
                   secure : Boolean,
                   httpOnly: Boolean)
 
-trait HttpMethod
+sealed trait HttpMethod
 case object GET extends HttpMethod
 case object POST extends HttpMethod
 case object PUT extends HttpMethod
 case object DELETE extends HttpMethod
 case object HEAD extends HttpMethod
+
+

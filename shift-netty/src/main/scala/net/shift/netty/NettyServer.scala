@@ -88,12 +88,12 @@ private[netty] class HttpRequestHandler(app: ShiftApplication) extends SimpleCha
     val uri = request.getUri()
     val queryStringDecoder = new QueryStringDecoder(uri);
     val cookieDecoder = new CookieDecoder();
-    val method = request.getMethod().getName();
-    val params = parameters(queryStringDecoder)
+    val httpMethod = request.getMethod().getName();
+    val httpParams = parameters(queryStringDecoder)
     val heads = headers(request)
     val cookiesSet = heads.get("Cookie").map(c => asScalaSet(cookieDecoder.decode(c)));
     val qs = queryString(uri)
-
+    
     val buffer = new ChannelBufferInputStream(request.getContent())
     val readChannel = new ReadChannel {
       def readBuffer(buf: Array[Byte]): Int = buffer.read(buf)
@@ -108,19 +108,22 @@ private[netty] class HttpRequestHandler(app: ShiftApplication) extends SimpleCha
    }
 
     val shiftRequest = new Request {
-      def path: String = uri
-      def method : String = method
-      def contextPath : String = ""
-      def queryString: Option[String] = qs
-      def param(name: String): List[String] = params.get(name).getOrElse(Nil)
-      def params: Map[String, List[String]] = params
-      def header(name: String): Option[String] = heads.get(name)
-      def headers: Map[String, String] = heads
-      lazy val contentLength: Option[Long] = header("Content-Length").map(toLong(_, 0))
-      def contentType: Option[String] = header("Content-Type")
-      lazy val cookies: Map[String, Cookie] = cookiesMap(cookiesSet)
-      def cookie(name: String): Option[Cookie] = cookies.get(name)
-      def readBody: ReadChannel = readChannel
+      def path = (uri split "/").toList match {
+         case Nil => Nil
+         case p => p.tail
+      }
+      def method = httpMethod
+      def contextPath  = ""
+      def queryString = qs
+      def param(name: String) = params.get(name).getOrElse(Nil)
+      def params = httpParams
+      def header(name: String) = heads.get(name)
+      def headers = heads
+      lazy val contentLength = header("Content-Length").map(toLong(_, 0))
+      def contentType = header("Content-Type")
+      lazy val cookies = cookiesMap(cookiesSet)
+      def cookie(name: String) = cookies.get(name)
+      def readBody = readChannel
     }
 
     Engine.run(app)(shiftRequest, writeResponse(request, e))
