@@ -40,7 +40,10 @@ object HttpPredicates {
         override def path = r.path tail
       })
     }
-   
+  
+  def matchPath(pf: PartialFunction[(Request, List[String]), Option[Request]]) : Kleisli[Request, Request, Option] = 
+    r => if (pf isDefinedAt((r, r.path))) pf(r, r.path) else None
+  
    
   def xmlContent: Kleisli[Request, Request, Option] = 
     r => r.contentType.filter(c => c == "application/xml" || c == "text/xml").map(c => r)

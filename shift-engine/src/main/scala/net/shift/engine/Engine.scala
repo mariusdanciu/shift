@@ -6,7 +6,7 @@ import http._
 object Engine {
 
   def run(app: ShiftApplication)(request: Request, response: AsyncResponse) {
-    for (f <- app.rule(request)) {
+    for (f <- app.servingRule(request)) {
       f(response)
     }
   }

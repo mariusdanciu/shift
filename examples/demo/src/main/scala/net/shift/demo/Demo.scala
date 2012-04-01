@@ -22,10 +22,17 @@ object Main extends App {
     resp => resp(TextResponse("Sorry ... service not found"))
   )
 
+  def serveService(req: Request):  Option[AsyncResponse => Unit] = Some (
+    resp => resp(TextResponse("serve invoked"))
+  )
+
 
   NettyServer.start(8080, new ShiftApplication {
-    def rule =  (path("a/b/c") or POST then abcService) or
+    def servingRule = (path("a/b/c") or POST then abcService) or
       (tailPath then path("y/z") then yzService) or
+      ((matchPath {
+        case (r, a :: b :: "serve" :: _) => Some(r)
+      }) then serveService) or
       notFoundService
     })
 
