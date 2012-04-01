@@ -5,7 +5,8 @@ import java.io.InputStream
 import java.net.InetSocketAddress;
 import java.util.concurrent.Executors;
 
-import common.StringUtils._  
+import common.StringUtils._
+import common.PathUtils._
 import engine.{ShiftApplication, Engine}
 import io.{ReadChannel, WriteChannel}
 import engine.http.{Request, Response, Cookie}
@@ -108,10 +109,7 @@ private[netty] class HttpRequestHandler(app: ShiftApplication) extends SimpleCha
    }
 
     val shiftRequest = new Request {
-      def path = (uri split "/").toList match {
-         case Nil => Nil
-         case p => p.tail
-      }
+      def path = pathToList(uri)
       def method = httpMethod
       def contextPath  = ""
       def queryString = qs

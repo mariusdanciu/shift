@@ -15,8 +15,10 @@ object HttpPredicates {
   implicit def method2Kleisli(m : HttpMethod) : Kleisli[Request, Request, Option] = 
      r => if (r.method == m) Some(r) else None
 
-  def path(path: String): Kleisli[Request, Request, Option] = 
-    r => if (r.path == (path split "/").toList) Some(r) else None
+  def path(path: String): Kleisli[Request, Request, Option] = {
+    val l = pathToList(path)
+    r => if (r.path == l) Some(r) else None
+  }
   
   def hasParams(params: List[String]): Kleisli[Request, Request, Option] = 
     r => if (params.filter(p => r.params.contains(p)).size != params.size) None else Some(r)
@@ -30,8 +32,10 @@ object HttpPredicates {
   def hasAnyHeader(headers: List[String]): Kleisli[Request, Request, Option] = 
     r => if (headers.filter(p => r.headers.contains(p)).isEmpty) None else Some(r)
 
-  def startsWith(path: String): Kleisli[Request, Request, Option] = 
-    r => if (r.path.startsWith((path split "/").toList)) Some(r) else None
+  def startsWith(path: String): Kleisli[Request, Request, Option] = {
+    val l = pathToList(path)
+    r => if (r.path.startsWith(l)) Some(r) else None
+  }
     
   def tailPath : Kleisli[Request, Request, Option] = 
     r => r.path match {
@@ -51,6 +55,11 @@ object HttpPredicates {
   def jsonContent: Kleisli[Request, Request, Option] = 
     r => r.contentType.filter(c => c == "application/json" || c == "text/json").map(c => r)
 
+
+  private def pathToList(path : String) = (path split "/").toList match {
+      case "" :: rest => rest
+      case e => e
+  }
 }
 
 

@@ -28,8 +28,8 @@ object Main extends App {
 
 
   NettyServer.start(8080, new ShiftApplication {
-    def servingRule = (path("a/b/c") or POST then abcService) or
-      (tailPath then path("y/z") then yzService) or
+    def servingRule = (path("/a/b/c") or POST then abcService) or
+      (tailPath then path("/y/z") then yzService) or
       ((matchPath {
         case (r, a :: b :: "serve" :: _) => Some(r)
       }) then serveService) or
