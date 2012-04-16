@@ -3,6 +3,7 @@ package engine
 package http
 
 import common._
+import PathUtils._
 
 
 object HttpPredicates {
@@ -56,10 +57,6 @@ object HttpPredicates {
     r => r.contentType.filter(c => c == "application/json" || c == "text/json").map(c => r)
 
 
-  private def pathToList(path : String) = (path split "/").toList match {
-      case "" :: rest => rest
-      case e => e
-  }
 }
 
 
