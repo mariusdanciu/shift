@@ -27,10 +27,8 @@ trait CombinatorsView[A, B, M[_]] {
   def or(f: A => M[B]): A => M[B]
 }
 
-/** 
- * Concrete implementations
- *   
- */
+// Concrete implementations
+ 
 object OptionMonad extends Monad[Option] with Combinators[Option] {
   def unit[A](a: A) : Option[A] = Some(a)
   def fmap[A, B](f: A => B) : Option[A] => Option[B] = 
@@ -49,3 +47,4 @@ class OptionCombinatorsView[A, B](f: A => Option[B]) extends CombinatorsView[A, 
   def or(g: A => Option[B]): A => Option[B] = 
     OptionMonad.>|>(f)(g)
 }
+
