@@ -1,4 +1,4 @@
-name := "shift-template"
+name := "shift-html"
 
 organization := "shift"
 
