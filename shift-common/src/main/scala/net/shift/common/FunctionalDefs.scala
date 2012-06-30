@@ -27,6 +27,10 @@ trait CombinatorsView[A, B, M[_]] {
   def or(f: A => M[B]): A => M[B]
 }
 
+trait Semigroup[A] {
+  def append(a: A, b: A): A
+}
+
 // Concrete implementations
  
 object OptionMonad extends Monad[Option] with Combinators[Option] {

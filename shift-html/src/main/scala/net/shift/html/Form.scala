@@ -46,10 +46,6 @@ trait Form[A, Env, Err] {me =>
   
 }
 
-trait Semigroup[A] {
-  def append(a: A, b: A): A
-}
-
 object Formlet {
 
   implicit def formToApp[A, Env, Err](form: Form[A, Env, Err]): ReversedApplicativeForm[A, Env, Err] = new ReversedApplicativeForm(form)
