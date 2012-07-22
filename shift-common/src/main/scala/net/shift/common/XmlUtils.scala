@@ -13,4 +13,12 @@ object XmlUtils {
       case _ => false
     }) yield ns.value.mkString
 
+  def elemByAttr(e: NodeSeq, attr: (String, String)) : Option[Elem] = (e find {
+    case x: Elem => !attribute(x, attr._1).filter(_ == attr._2).isEmpty
+    case _ => false
+  }) match {
+    case Some(e: Elem) => Some(e)
+    case _ => None
+  }
+
 }

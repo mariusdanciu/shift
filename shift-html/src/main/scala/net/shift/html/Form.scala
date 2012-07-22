@@ -3,6 +3,7 @@ package html
 
 import common._
 import scala.xml._
+import XmlUtils._
 
 sealed trait Validation[+E, +A] 
 case class Failure[E](e: E) extends Validation[E, Nothing]
@@ -27,7 +28,7 @@ class ReversedApplicativeForm[A, Env, Err](form: Form[A, Env, Err]) {
 }
 
 trait Form[A, Env, Err] {me =>
-  val validate : Env => Validation[Err, A]
+  def validate : Env => Validation[Err, A]
 
   def html: NodeSeq = NodeSeq.Empty
   
@@ -37,7 +38,7 @@ trait Form[A, Env, Err] {me =>
   }
 
   def attr(name: String, value: String): Form[A, Env, Err] = new Form[A, Env, Err] {
-	val validate = me validate
+	def validate = me validate
 	override def html: NodeSeq = me.html match {
 	  case elem : Elem => elem % new UnprefixedAttribute(name, value, Null)
 	  case e => e
@@ -70,5 +71,57 @@ object Formlet {
   }
   
 }
+
+object Main extends App {
+
+  case class Person (name: String, age: Int)
+  case class Subject(person: Person, userName: String)
+
+  val person = (Person(_, _)).curried
+  val subject = (Subject(_, _)).curried
+  
+  import Formlet._
+  
+  def validName(name: String) : Map[String, String] => Validation[List[String], String] = env => env.get(name) match {
+    case Some(n) => Success(n);
+    case _ => Failure(List("Missing name value"))
+  }
+  
+  def validAge : Map[String, String] => Validation[List[String], Int] = env => env.get("age") match {
+    case Some(age) => try {
+      val intAge = age.toInt
+      if (intAge >= 18)
+        Success(intAge)
+      else
+        Failure(List("Age must be higher than 18"))
+    } catch {
+      case e: Exception => Failure(List(age + " is not a number"))
+    }
+    case _ => Failure(List("Missing name value"))
+  }
+  
+  
+  val form = Formlet(person) <*>
+    inputText("name")(validName("name")).label("id", "User name: ") <*>
+    inputInt("age")(validAge).attr("id", "ageId")
+  
+  println(form html)
+  
+  val p = form validate Map(("name" -> "marius"), ("age" -> "33"))
+  
+  println(p)
+  
+  // Now let's compose forms
+  
+  val subjectForm = Formlet(subject) <*> form <*> inputText("address")(validName("userName"))
+  val markup = subjectForm.html
+  println(markup)
+  println(elemByAttr(markup, ("id", "ageId")))
+  println(elemByAttr(markup, ("name", "address")))
+  
+  println( subjectForm validate Map(("name" -> "marius"), ("userName" -> "mda"), ("age" -> "33")))
+  
+}
+
 
 
