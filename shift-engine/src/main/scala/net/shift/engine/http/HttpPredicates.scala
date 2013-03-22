@@ -15,6 +15,10 @@ object HttpPredicates {
   def path(path: String): State[Request, List[String]] = state {
     r => if (r.path == pathToList(path)) Some((r, r.path)) else None
   }
+  
+  def path: State[Request, List[String]] = state {
+    r => Some((r, r.path))
+  }
 
   def hasAllParams(params: List[String]): State[Request, Request] = state {
     r => if (params.filter(p => r.params.contains(p)).size != params.size) None else Some((r, r))
