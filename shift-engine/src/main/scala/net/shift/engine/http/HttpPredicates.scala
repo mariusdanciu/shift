@@ -15,29 +15,36 @@ object HttpPredicates {
   def path(path: String): State[Request, List[String]] = state {
     r => if (r.path == pathToList(path)) Some((r, r.path)) else None
   }
-  
+
   def path: State[Request, List[String]] = state {
     r => Some((r, r.path))
   }
 
-  def hasAllParams(params: List[String]): State[Request, Request] = state {
-    r => if (params.filter(p => r.params.contains(p)).size != params.size) None else Some((r, r))
+  def hasAllParams(params: List[String]): State[Request, List[String]] = state {
+    r => if (params.filter(p => r.params.contains(p)).size != params.size) None else Some((r, params))
   }
 
-  def containsAnyOfParams(params: List[String]): State[Request, Request] = state {
-    r => if (params.filter(p => r.params.contains(p)).isEmpty) None else Some((r, r))
+  def containsAnyOfParams(params: List[String]): State[Request, List[String]] = state {
+    r =>
+      params.filter(p => r.params.contains(p)) match {
+        case Nil => None
+        case p => Some((r, p))
+      }
   }
 
-  def hasAllHeaders(headers: List[String]): State[Request, Request] = state {
-    r => if (headers.filter(p => r.headers.contains(p)).size != headers.size) None else Some((r, r))
+  def hasAllHeaders(headers: List[String]): State[Request, List[String]] = state {
+    r => if (headers.filter(p => r.headers.contains(p)).size != headers.size) None else Some((r, headers))
   }
 
-  def containsAnyOfHeaders(headers: List[String]): State[Request, Request] = state {
-    r => if (headers.filter(p => r.headers.contains(p)).isEmpty) None else Some((r, r))
+  def containsAnyOfHeaders(headers: List[String]): State[Request, List[String]] = state {
+    r => headers.filter(p => r.headers.contains(p)) match {
+        case Nil => None
+        case p => Some((r, p))
+    }
   }
 
-  def startsWith(path: String): State[Request, Request] = state {
-    r => if (r.path.startsWith(pathToList(path))) Some((r, r)) else None
+  def startsWith(path: String): State[Request, String] = state {
+    r => if (r.path.startsWith(pathToList(path))) Some((r, path)) else None
   }
 
   def tailPath: State[Request, List[String]] = state {
@@ -57,7 +64,7 @@ object HttpPredicates {
   def jsonContent: State[Request, String] = state {
     r => r.contentType.filter(c => c == "application/json" || c == "text/json").map(c => (r, c))
   }
-  
+
 }
 
 
