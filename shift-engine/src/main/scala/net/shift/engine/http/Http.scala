@@ -20,6 +20,7 @@ trait Request {
   def cookies: Map[String, Cookie]
   def cookie(name: String): Option[Cookie]
   def readBody: ReadChannel
+  def resource(path: String): ReadChannel
 }
 
 class RequestShell(in: Request) extends Request {
@@ -36,6 +37,7 @@ class RequestShell(in: Request) extends Request {
   def cookies = in cookies
   def cookie(name: String) = in cookie name
   def readBody = in readBody
+  def resource(path: String) = in resource path
 }
 
 trait Response {
@@ -71,11 +73,23 @@ case class Cookie(name: String,
                   secure : Boolean,
                   httpOnly: Boolean)
 
-sealed trait HttpMethod
-case object GET extends HttpMethod
-case object POST extends HttpMethod
-case object PUT extends HttpMethod
-case object DELETE extends HttpMethod
-case object HEAD extends HttpMethod
+sealed trait HttpMethod {
+  def is(name: String): Boolean
+}
+case object GET extends HttpMethod {
+  def is(name: String) = name == "GET"
+}
+case object POST extends HttpMethod{
+  def is(name: String) = name == "POST"
+}
+case object PUT extends HttpMethod{
+  def is(name: String) = name == "PUT"
+}
+case object DELETE extends HttpMethod{
+  def is(name: String) = name == "DELETE"
+}
+case object HEAD extends HttpMethod{
+  def is(name: String) = name == "HEAD"
+}
 
 

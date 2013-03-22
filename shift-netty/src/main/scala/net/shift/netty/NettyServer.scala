@@ -122,8 +122,10 @@ private[netty] class HttpRequestHandler(app: ShiftApplication) extends SimpleCha
       lazy val cookies = cookiesMap(cookiesSet)
       def cookie(name: String) = cookies.get(name)
       def readBody = readChannel
+      def resource(path: String): ReadChannel = null
     }
 
+    
     Engine.run(app)(shiftRequest, writeResponse(request, e))
 
   } 

@@ -2,8 +2,8 @@ package net.shift
 package common
 
 trait Functor[F[_]] {
-  def unit[A](a: A) : F[A]
-  def fmap[A, B](f: A => B) : F[A] => F[B]
+  def unit[A](a: A): F[A]
+  def fmap[A, B](f: A => B): F[A] => F[B]
 }
 
 trait ApplicativeFunctor[F[_]] extends Functor[F] {
@@ -12,9 +12,9 @@ trait ApplicativeFunctor[F[_]] extends Functor[F] {
 
 trait Monad[M[_]] extends Functor[M] {
   def bind[A, B](f: A => M[B]): M[A] => M[B]
+  def join[A](mma: M[M[A]]): M[A] = bind((ma: M[A]) => ma)(mma)
   def flatMap[A, B] = bind _
   def map[A, B](f: A => B): M[A] => M[B] = fmap(f)
-  def join[A](mma : M[M[A]]): M[A] = bind((ma: M[A]) => ma)(mma)
 }
 
 trait Combinators[M[_]] {
@@ -22,33 +22,66 @@ trait Combinators[M[_]] {
   def >|>[A, B](f: A => M[B])(g: A => M[B]): A => M[B]
 }
 
-trait CombinatorsView[A, B, M[_]] {
-  def then[C](g: B => M[C]): A => M[C] 
-  def or(f: A => M[B]): A => M[B]
-}
-
 trait Semigroup[A] {
   def append(a: A, b: A): A
 }
 
-// Concrete implementations
- 
-object OptionMonad extends Monad[Option] with Combinators[Option] {
-  def unit[A](a: A) : Option[A] = Some(a)
-  def fmap[A, B](f: A => B) : Option[A] => Option[B] = 
-    in => in.map(f)
-  def bind[A, B](f: A => Option[B]): Option[A] => Option[B] =
-    in => in.flatMap(a => f(a))
-  def >=>[A, B, C](f: A => Option[B])(g: B => Option[C]): A => Option[C] = 
-    a => for (b <- f(a); c <- g(b)) yield c
-  def >|>[A, B](f: A => Option[B])(g: A => Option[B]): A => Option[B] =  
-    a => f(a) orElse g(a)
+trait State[S, +A] {
+  import State._
+
+  def apply(s: S): Option[(S, A)]
+
+  def map[B](f: A => B): State[S, B] = state {
+    apply(_) map { case (s, a) => (s, f(a)) }
+  }
+
+  def flatMap[B](f: A => State[S, B]): State[S, B] = state {
+    apply(_) flatMap { case (st, a) => f(a)(st) }
+  }
+
+  def filter(f: A => Boolean): State[S, A] = state {
+    apply(_) filter { case (s, a) => f(a) }
+  }
+
+  def withFilter(f: A => Boolean): State[S, A] = state {
+    apply(_) filter { case (s, a) => f(a) }
+  }
+
+  def |[B >: A](other: State[S, B]): State[S, B] = state {
+    x =>
+      apply(x) match {
+        case None => other apply (x)
+        case s => s
+      }
+  }
 }
 
-class OptionCombinatorsView[A, B](f: A => Option[B]) extends CombinatorsView[A, B, Option] {
-  def then[C](g: B => Option[C]): A => Option[C] = 
-    OptionMonad.>=>(f)(g)
-  def or(g: A => Option[B]): A => Option[B] = 
-    OptionMonad.>|>(f)(g)
+object State {
+  def state[S, A](f: S => Option[(S, A)]): State[S, A] = new State[S, A] {
+    def apply(s: S) = f(s)
+  }
+
+  def init[S] = state[S, S] {
+    s => Some((s, s))
+  }
+  
+  def initf[S](f: S => S) = state[S, S] {
+    s => Some((f(s), f(s)))
+  }
+
+  def put[S] = state[S, Unit] {
+    s => Some((s, ()))
+  }
+
+  def put[S, A](a: A) = state[S, A] {
+    s => Some((s, a))
+  }
+
+  def modify[S](f: S => S) = state[S, Unit] {
+    s => Some((f(s), ()))
+  }
+
+  def gets[S, A](f: S => A) = for (s <- init[S]) yield f(s)
+
 }
 
