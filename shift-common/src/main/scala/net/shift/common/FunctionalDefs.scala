@@ -56,7 +56,49 @@ trait State[S, +A] {
   }
 }
 
+trait Identity[M[_]] {
+  def unit[A](a: A): M[A]
+}
+
+trait Bind[M[_]] {
+  def bind[A, B](f: A => M[B]): M[A] => M[B]
+}
+
+trait Flat[F[_]] {
+  def fmap[A, B](f: A => B): F[A] => F[B]
+}
+
+object Monad {
+  def monad[M[_]](implicit id: Identity[M], flat: Flat[M], b: Bind[M]): Monad[M] = new Monad[M] {
+
+    def unit[A](a: A): M[A] = id unit a
+
+    def fmap[A, B](f: A => B): M[A] => M[B] = flat fmap f
+
+    def bind[A, B](f: A => M[B]): M[A] => M[B] = b bind f
+  }
+
+}
+
 object State {
+  import Monad._
+  
+  implicit def stateMonad[S] = monad[({ type l[a] = State[S, a] })#l](stateIdentity, stateFlat, stateBind)
+
+  implicit def stateBind[S]: Bind[({ type l[a] = State[S, a] })#l] = new Bind[({ type l[a] = State[S, a] })#l] {
+    def bind[A, B](f: A => State[S, B]): State[S, A] => State[S, B] = s => s flatMap f
+  }
+
+  implicit def stateIdentity[S]: Identity[({ type l[a] = State[S, a] })#l] = new Identity[({ type l[a] = State[S, a] })#l] {
+    def unit[A](a: A): State[S, A] = state {
+      s => Some((s, a))
+    }
+  }
+
+  implicit def stateFlat[S]: Flat[({ type l[a] = State[S, a] })#l] = new Flat[({ type l[a] = State[S, a] })#l] {
+    def fmap[A, B](f: A => B): State[S, A] => State[S, B] = _ map f
+  }
+
   def state[S, A](f: S => Option[(S, A)]): State[S, A] = new State[S, A] {
     def apply(s: S) = f(s)
   }
@@ -64,7 +106,7 @@ object State {
   def init[S] = state[S, S] {
     s => Some((s, s))
   }
-  
+
   def initf[S](f: S => S) = state[S, S] {
     s => Some((f(s), f(s)))
   }
