@@ -5,11 +5,11 @@ object ShiftNettyBuild extends Build {
   lazy val root = Project(id = "shift",
                           base = file(".")) aggregate(shift_common, shift_io, shift_engine, shift_netty, shift_template, shift_html)
 
-  lazy val shift_common = Project(id = "shift-common",
-				  base = file("shift-common"))
-
   lazy val shift_io = Project(id = "shift-io",
 				  base = file("shift-io"))
+
+  lazy val shift_common = Project(id = "shift-common",
+				  base = file("shift-common")) dependsOn (shift_io)
 
   lazy val shift_engine = Project(id = "shift-engine",
 				  base = file("shift-engine")) dependsOn (shift_common, shift_template)

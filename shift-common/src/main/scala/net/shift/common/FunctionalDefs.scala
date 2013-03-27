@@ -83,7 +83,7 @@ object Monad {
 object State {
   import Monad._
   
-  implicit def stateMonad[S] = monad[({ type l[a] = State[S, a] })#l](stateIdentity, stateFlat, stateBind)
+  implicit def stateMonad[S] = monad[({ type l[a] = State[S, a] })#l]
 
   implicit def stateBind[S]: Bind[({ type l[a] = State[S, a] })#l] = new Bind[({ type l[a] = State[S, a] })#l] {
     def bind[A, B](f: A => State[S, B]): State[S, A] => State[S, B] = s => s flatMap f
