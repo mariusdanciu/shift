@@ -50,7 +50,7 @@ trait State[S, +A] {
   def |[B >: A](other: State[S, B]): State[S, B] = state {
     x =>
       apply(x) match {
-        case None => other apply (x)
+        case None => other apply x
         case s => s
       }
   }

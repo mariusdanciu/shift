@@ -8,7 +8,11 @@ object FirstPage extends DynamicContent {
 
   def snippets = List(elem1, elem2)
 
-  val elem1 = Snippet("elem1", in => <b/>)
-  val elem2 = Snippet("elem2", in => <br/>)
+  val elem1 = Snippet("elem1", {
+    case _ => <b/>
+  })
+  val elem2 = Snippet("elem2", {
+    case _ => <b/>
+  })
 }
 
