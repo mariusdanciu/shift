@@ -4,7 +4,6 @@ package test
 
 import net.shift.common._
 import State._
-import org.scalatest._
 import scala.xml._
 
 object TemplateTest extends App {
@@ -31,24 +30,20 @@ object TemplateTest extends App {
                </body>
              </html>
 
+  import Snippet._
   val snippets = new DynamicContent[String] {
     def snippets = List(
-      Snippet("form1", state {
+      snip[String]("form1") {
         s =>
           Console println s.req
-          val ex = s.node match {
-            case SnipNode(name, attrs, childs) => <form>{ childs }</form>
-          }
-          Some(PageState("form", ex), ex)
-      }),
-      Snippet("email", state {
+          val SnipNode(name, attrs, childs) = s.node
+          ("form", <form>{ childs }</form>)
+      },
+      snip[String]("email") {
         s =>
           Console println s.req
-          val ex = s.node match {
-            case SnipNode(name, attrs, childs) => <input type="text" id="email1">Type email here</input>
-          }
-          Some(PageState("email", ex), ex)
-      }))
+          ("email", <input type="text" id="email1">Type email here</input>)
+      })
   }
 
   val res = new Template[String](snippets, Selectors.byClassAttr[PageState[String]])
@@ -56,7 +51,7 @@ object TemplateTest extends App {
   val e = for {
     t <- res.run(page)
   } yield {
-    Template.mkString(t)
+    XmlUtils.mkString(t)
   }
   for {
     c <- e(PageState("start", NodeSeq.Empty))

@@ -37,7 +37,6 @@ object Selectors {
     ) yield snippet
     case _ => None
   }
-
 }
 
 object Template {
@@ -45,38 +44,18 @@ object Template {
   def apply[T](selector: Selectors.type#Selector[PageState[T]])(snippets: DynamicContent[T]) =
     new Template[T](snippets, selector)
 
-  /**
-   * Returns the String representation of the 'nodes'
-   *
-   */
-  def mkString(nodes: NodeSeq): String = (nodes flatMap {
-    case Group(childs) => mkString(childs)
-    case Text(str) => escape(str)
-    case e: Unparsed => e mkString
-    case e: PCData => e mkString
-    case e: Atom[_] => escape(e.data.toString)
-    case e: Comment => e mkString
-    case e: Elem => {
-      val name = if (e.prefix eq null) e.label else e.prefix + ":" + e.label
-      val attrs = if (e.attributes ne null) e.attributes.toString
-      "<" + name + attrs + ">" + mkString(e.child) + "</" + name + ">"
-    }
-    case k => k.getClass toString
-  }) mkString
-
-  private def escape(str: String): String = ("" /: str)(_ + escape(_))
-
-  private def escape(c: Char): String = c match {
-    case '<' => "&lt;"
-    case '>' => "&gt;"
-    case '&' => "&amp;"
-    case '"' => "&quot;"
-    case '\n' => "\n"
-    case '\r' => "\r"
-    case '\t' => "\t"
-    case c if (c >= ' ' && c != '\u0085' && !(c >= '\u007f' && c <= '\u0095')) => c toString
-    case _ => ""
+  def pushNode[T](e: NodeSeq) = state[PageState[T], NodeSeq] {
+    s => Some((PageState(s.req, e), e))
   }
+
+  def popNode[T, K](pstate: State[PageState[T], K]): State[PageState[T], NodeSeq] =
+    for {
+      _ <- pstate
+      k <- state[PageState[T], NodeSeq] {
+        s => Some((s, s.node))
+      }
+    } yield k
+
 }
 
 /**
@@ -84,33 +63,20 @@ object Template {
  *
  */
 class Template[T](snippets: DynamicContent[T], selector: Selectors.type#Selector[PageState[T]]) {
+  import Template._
 
   private val snippetsMap = snippets toMap
 
-  def lift[T](s: State[T, NodeSeq]): State[T, NodeSeq] = {
-    for {
-      nodeSeq <- s
-    } yield { nodeSeq }
-  }
-
-  private def exposeState[T](st: State[T, NodeSeq]): State[T, T] = state {
-    s => st(s) map { t => (t._1, t._1) }
-  }
-
   def run(in: NodeSeq): State[PageState[T], NodeSeq] = {
-    def nodeProc(in: State[PageState[T], NodeSeq], n: NodeSeq): State[PageState[T], NodeSeq] = {
+    def nodeProc(n: NodeSeq): State[PageState[T], NodeSeq] = {
       n match {
         case Group(childs) => run(childs)
 
         case e: Elem =>
-          val st = state[PageState[T], NodeSeq] {
-            s => Some((PageState(s.req, e), e))
-          }
-
           selector(snippetsMap get)(e) match {
             case Some(snippet) =>
               for {
-                _ <- st
+                _ <- pushNode[T](e)
                 snip <- snippet
                 e <- run(snip)
               } yield e
@@ -120,33 +86,16 @@ class Template[T](snippets: DynamicContent[T], selector: Selectors.type#Selector
             } yield new Elem(e.prefix, e.label, e.attributes, e.scope, elem: _*)
           }
 
-        case e => State put e
+        case e => pushNode[T](e)
       }
     }
 
     (State.put[PageState[T], NodeSeq](NodeSeq.Empty) /: in)((a, e) =>
       for {
         as <- a
-        el <- nodeProc(a, e)
+        el <- nodeProc(e)
       } yield as ++ el)
   }
-  /**
-   * Runs the in template and produces the modified template
-   *
-   *
-   * def run(in: NodeSeq): NodeSeq = in flatMap {
-   * case Group(childs) => run(childs)
-   *
-   * case e: Elem =>
-   * (NodeSeq.Empty /: selectors)((a, s) =>
-   * s(snippetsMap get)(e) match {
-   * case Some(snippet) => a ++ run(snippet(e))
-   * case _ => new Elem(e.prefix, e.label, e.attributes, e.scope, run(e.child): _*)
-   * })
-   *
-   * case e => e
-   * }
-   */
 }
 
 object SnipNode {

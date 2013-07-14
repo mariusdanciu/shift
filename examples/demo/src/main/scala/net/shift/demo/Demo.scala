@@ -37,7 +37,7 @@ object Main extends App {
     // Serve /page/first page
     val r2 = for {
       _ <- path("/page/first")
-    } yield XhtmlPage("page.html", FirstPage)
+    } yield Html5("pages/first.html", FirstPage)
 
     // Serve /?/y/z where first part can be anything
     val r3 = for {

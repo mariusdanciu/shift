@@ -4,6 +4,7 @@ package http
 
 import io.WriteChannel
 import scala.xml._
+import common._
 
 
 case class TextResponse(text: String) extends Response {
@@ -16,13 +17,13 @@ case class TextResponse(text: String) extends Response {
     channel.writeBuffer(text getBytes("UTF-8"))
   }
 }
-case class XhtmlResponse(content : NodeSeq) extends Response {
+case class Html5Response(content : NodeSeq) extends Response {
   def code = 200
   def reason = "OK"
   def headers = Map.empty
-  def contentType = Some("text/plain; charset=\"UTF-8\"")
+  def contentType = Some("text/html; charset=\"UTF-8\"")
   def cookies = Nil
   def writeBody(channel: WriteChannel) = {
-    channel.writeBuffer(new Array[Byte](0))
+    channel.writeBuffer(("<!DOCTYPE html>\n"+XmlUtils.mkString(content)).getBytes("UTF-8"))
   }
 }

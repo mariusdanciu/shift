@@ -1,9 +1,16 @@
 package net.shift
 package io
 
-trait ReadChannel {
+import java.io.InputStream
+
+trait Closing {
+  def close
+}
+
+trait ReadChannel extends Closing {
   def readBuffer(buf: Array[Byte]): Int
-  def readInt : Int
+  def readBuffer(buf: Array[Byte], offset: Int, length: Int): Int
+  def readInt: Int
   def readByte: Byte
   def readLong: Long
   def readFloat: Float
@@ -13,7 +20,7 @@ trait ReadChannel {
   def readChar: Char
 }
 
-trait WriteChannel {
+trait WriteChannel extends Closing {
   def writeBuffer(buf: Array[Byte])
   def writeInt(v: Int)
   def writeByte(v: Byte)
@@ -24,4 +31,4 @@ trait WriteChannel {
   def writeBoolean(v: Boolean)
   def writeChar(v: Char)
   def bytesWritten: Long
- }
+}

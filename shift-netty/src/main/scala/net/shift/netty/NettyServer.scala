@@ -49,6 +49,7 @@ import org.jboss.netty.handler.codec.http.QueryStringDecoder;
 import org.jboss.netty.util.CharsetUtil;
 
 import scala.collection.immutable.TreeMap
+import common.IOUtils._
 
 object NettyServer {
 
@@ -98,6 +99,7 @@ private[netty] class HttpRequestHandler(app: ShiftApplication) extends SimpleCha
     val buffer = new ChannelBufferInputStream(request.getContent())
     val readChannel = new ReadChannel {
       def readBuffer(buf: Array[Byte]): Int = buffer.read(buf)
+      def readBuffer(buf: Array[Byte], offset: Int, length: Int): Int = buffer read (buf, offset, length)
       def readInt : Int = buffer.read()
       def readByte: Byte = buffer.readByte()
       def readLong: Long = buffer.readLong()
@@ -106,6 +108,7 @@ private[netty] class HttpRequestHandler(app: ShiftApplication) extends SimpleCha
       def readShort: Short = buffer.readShort()
       def readBoolean: Boolean = buffer.readBoolean()
       def readChar: Char = buffer.readChar()
+      def close = buffer.close
    }
 
     val shiftRequest = new Request {
@@ -122,7 +125,9 @@ private[netty] class HttpRequestHandler(app: ShiftApplication) extends SimpleCha
       lazy val cookies = cookiesMap(cookiesSet)
       def cookie(name: String) = cookies.get(name)
       def readBody = readChannel
-      def resource(path: String): ReadChannel = null
+      def resource(path: String): ReadChannel = {
+        new java.io.BufferedInputStream(new java.io.FileInputStream(path))
+      }
     }
 
     
@@ -150,6 +155,7 @@ private[netty] class HttpRequestHandler(app: ShiftApplication) extends SimpleCha
       def writeUTF8(v: String) = out.writeUTF(v)
       def writeChar(v: Char) = out.writeChar(v.toInt)
       def bytesWritten: Long = out.writtenBytes
+      def close = out.close
    })
    response.setContent(buf)
 
