@@ -26,7 +26,9 @@ object XmlUtils {
     case _ => None
   }
 
-  def load(resource: ReadChannel): NodeSeq = XML.load(resource)
+  def load(resource: ReadChannel): NodeSeq = safe(resource) {
+    XML.load(resource)
+  }
 
   /**
    * Returns the String representation of the 'nodes'
@@ -60,5 +62,5 @@ object XmlUtils {
     case c if (c >= ' ' && c != '\u0085' && !(c >= '\u007f' && c <= '\u0095')) => c toString
     case _ => ""
   }
-  
+
 }
