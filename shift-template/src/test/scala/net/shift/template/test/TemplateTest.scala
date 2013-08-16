@@ -35,18 +35,18 @@ object TemplateTest extends App {
     def snippets = List(
       snip[String]("form1") {
         s =>
-          Console println s.req
+          Console println s.state
           val SnipNode(name, attrs, childs) = s.node
           ("form", <form>{ childs }</form>)
       },
       snip[String]("email") {
         s =>
-          Console println s.req
+          Console println s.state
           ("email", <input type="text" id="email1">Type email here</input>)
       })
   }
 
-  val res = new Template[String](snippets, Selectors.byClassAttr[PageState[String]])
+  val res = new Template[String](snippets, Selectors.byClassAttr[SnipState[String]])
 
   val e = for {
     t <- res.run(page)
@@ -54,7 +54,7 @@ object TemplateTest extends App {
     XmlUtils.mkString(t)
   }
   for {
-    c <- e(PageState("start", NodeSeq.Empty))
+    c <- e(SnipState("start", NodeSeq.Empty))
   } yield {
     Console println c._2
   }

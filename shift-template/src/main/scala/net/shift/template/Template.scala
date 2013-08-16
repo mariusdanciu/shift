@@ -41,17 +41,17 @@ object Selectors {
 
 object Template {
 
-  def apply[T](selector: Selectors.type#Selector[PageState[T]])(snippets: DynamicContent[T]) =
+  def apply[T](selector: Selectors.type#Selector[SnipState[T]])(snippets: DynamicContent[T]) =
     new Template[T](snippets, selector)
 
-  def pushNode[T](e: NodeSeq) = state[PageState[T], NodeSeq] {
-    s => Some((PageState(s.req, e), e))
+  def pushNode[T](e: NodeSeq) = state[SnipState[T], NodeSeq] {
+    s => Some((SnipState(s.state, e), e))
   }
 
-  def popNode[T, K](pstate: State[PageState[T], K]): State[PageState[T], NodeSeq] =
+  def popNode[T, K](pstate: State[SnipState[T], K]): State[SnipState[T], NodeSeq] =
     for {
       _ <- pstate
-      k <- state[PageState[T], NodeSeq] {
+      k <- state[SnipState[T], NodeSeq] {
         s => Some((s, s.node))
       }
     } yield k
@@ -62,13 +62,13 @@ object Template {
  * Template
  *
  */
-class Template[T](snippets: DynamicContent[T], selector: Selectors.type#Selector[PageState[T]]) {
+class Template[T](snippets: DynamicContent[T], selector: Selectors.type#Selector[SnipState[T]]) {
   import Template._
 
   private val snippetsMap = snippets toMap
 
-  def run(in: NodeSeq): State[PageState[T], NodeSeq] = {
-    def nodeProc(n: NodeSeq): State[PageState[T], NodeSeq] = {
+  def run(in: NodeSeq): State[SnipState[T], NodeSeq] = {
+    def nodeProc(n: NodeSeq): State[SnipState[T], NodeSeq] = {
       n match {
         case Group(childs) => run(childs)
 
@@ -78,8 +78,8 @@ class Template[T](snippets: DynamicContent[T], selector: Selectors.type#Selector
               for {
                 _ <- pushNode[T](e)
                 snip <- snippet
-                e <- run(snip)
-              } yield e
+                r <- run(snip)
+              } yield r
 
             case _ => for {
               elem <- run(e.child)
@@ -90,7 +90,7 @@ class Template[T](snippets: DynamicContent[T], selector: Selectors.type#Selector
       }
     }
 
-    (State.put[PageState[T], NodeSeq](NodeSeq.Empty) /: in)((a, e) =>
+    (State.put[SnipState[T], NodeSeq](NodeSeq.Empty) /: in)((a, e) =>
       for {
         as <- a
         el <- nodeProc(e)
@@ -109,4 +109,4 @@ object SnipNode {
   }
 }
 
-case class PageState[T](req: T, node: NodeSeq)
+case class SnipState[T](state: T, node: NodeSeq)

@@ -7,29 +7,29 @@ import scala.xml.NodeSeq
 object Snippet {
   import State._
 
-  def snip[T](name: String)(f: PageState[T] => (T, NodeSeq)) = new Snippet(name, state[PageState[T], NodeSeq] {
+  def snip[T](name: String)(f: SnipState[T] => (T, NodeSeq)) = new Snippet(name, state[SnipState[T], NodeSeq] {
     s =>
       f(s) match {
-        case (t, n) => Some((PageState(t, n), n))
+        case (t, n) => Some((SnipState(t, n), n))
       }
   })
   
-  def snipNoState[T](name: String)(f: PageState[T] => NodeSeq) = new Snippet(name, state[PageState[T], NodeSeq] {
+  def snipNoState[T](name: String)(f: SnipState[T] => NodeSeq) = new Snippet(name, state[SnipState[T], NodeSeq] {
     s =>
       f(s) match {
-        case n => Some((PageState(s.req, n), n))
+        case n => Some((SnipState(s.state, n), n))
       }
   })
 
   
 }
 
-case class Snippet[T](name: String, f: State[T, NodeSeq])
+case class Snippet[T](name: String, f: State[SnipState[T], NodeSeq])
 
 trait DynamicContent[T] {
-  def snippets: List[Snippet[PageState[T]]]
+  def snippets: List[Snippet[T]]
 
-  def toMap: Map[String, State[PageState[T], NodeSeq]] = snippets.map(s => (s.name, s.f)).toMap
+  def toMap: Map[String, State[SnipState[T], NodeSeq]] = snippets.map(s => (s.name, s.f)).toMap
 }
 
 
