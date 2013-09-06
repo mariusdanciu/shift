@@ -13,7 +13,7 @@ object FirstPage extends DynamicContent[Request] {
   def reqSnip(name: String) = snip[Request](name) _
   
   val elem1 = reqSnip("elem1"){
-    s => (s.req, <p>Elem1</p>)
+    s => (s.state, <p>Elem1</p>)
   }
   
   val elem2 = snipNoState[Request]("elem2"){
