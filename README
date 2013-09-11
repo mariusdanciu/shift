@@ -1,2 +1,4 @@
 Shift is a pure stateless and asynchronous web toolkit written in Scala and being inspired by LiftWeb.
 
+- Uses state monads to process requests.
+- Uses snippets in html templates (à la LiftWeb).
