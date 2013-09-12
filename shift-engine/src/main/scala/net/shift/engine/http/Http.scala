@@ -4,7 +4,7 @@ package engine
 package http
 
 import scala.xml.Node
-import io.{ReadChannel, WriteChannel}
+import scalax.io._
 
 trait Request {
   def path: List[String]
@@ -19,8 +19,8 @@ trait Request {
   def contentType: Option[String]
   def cookies: Map[String, Cookie]
   def cookie(name: String): Option[Cookie]
-  def readBody: ReadChannel
-  def resource(path: String): ReadChannel
+  def readBody: Input
+  def resource(path: String): Input
 }
 
 class RequestShell(in: Request) extends Request {
@@ -46,11 +46,11 @@ trait Response {
   def headers: Map[String, String]
   def contentType: Option[String]
   def cookies: List[Cookie]
-  def writeBody(channel: WriteChannel)
+  def writeBody(channel: Output)
 }
 
 trait Context {
-  def resourceChannel(res: String): Option[ReadChannel]
+  def resourceChannel(res: String): Option[Output]
   def resourceAsXml(res: String): Option[Node]
   def contextPath: String
 }

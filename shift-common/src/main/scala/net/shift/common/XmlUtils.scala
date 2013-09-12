@@ -4,7 +4,7 @@ package common
 import scala.xml._
 import io._
 import java.io.Reader
-import IOUtils._
+import scalax.io._
 
 object XmlUtils {
 
@@ -29,9 +29,7 @@ object XmlUtils {
     case _ => None
   }
 
-  def load(resource: ReadChannel): NodeSeq = safe(resource) {
-    XML.load(resource)
-  }
+  def load(resource: Input): NodeSeq = XML.load(new java.io.ByteArrayInputStream(resource.byteArray))
 
   /**
    * Returns the String representation of the 'nodes'

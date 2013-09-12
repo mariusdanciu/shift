@@ -2,18 +2,24 @@ package net.shift
 package engine
 package http
 
-import io.WriteChannel
 import scala.xml._
 import common._
+import scalax.io._
+import JavaConverters._
+import AsInputConverter._
 
-case class TextResponse(text: String) extends Response {
+object TextResponse {
+  def apply(text: String): TextResponse = new TextResponse(text.getBytes("UTF8").asInput)
+}
+
+case class TextResponse(content: Input) extends Response {
   def code = 200
   def reason = "OK"
   def headers = Map.empty
   def contentType = Some("text/plain; charset=\"UTF-8\"")
   def cookies = Nil
-  def writeBody(channel: WriteChannel) = {
-    channel.writeBuffer(text getBytes ("UTF-8"))
+  def writeBody(channel: Output) = {
+    content copyDataTo channel
   }
 }
 
@@ -23,29 +29,40 @@ case class Html5Response(content: NodeSeq) extends Response {
   def headers = Map.empty
   def contentType = Some("text/html; charset=\"UTF-8\"")
   def cookies = Nil
-  def writeBody(channel: WriteChannel) = {
-    channel.writeBuffer(("<!DOCTYPE html>\n" + XmlUtils.mkString(content)).getBytes("UTF-8"))
+  def writeBody(channel: Output) = {
+    channel.write(("<!DOCTYPE html>\n" + XmlUtils.mkString(content)).getBytes("UTF-8"))
   }
 }
 
- case class CSSResponse(content: String) extends Response {
-   def code = 200
-   def reason = "OK"
-   def headers = Map.empty
-   def contentType = Some("text/css; charset=\"UTF-8\"")
-   def cookies = Nil
-   def writeBody(channel: WriteChannel) = {
-     channel.writeBuffer(content.getBytes("UTF-8"))
-   }
- }
+class CSSResponse(content: Input) extends Response {
+  def code = 200
+  def reason = "OK"
+  def headers = Map.empty
+  def contentType = Some("text/css; charset=\"UTF-8\"")
+  def cookies = Nil
+  def writeBody(channel: Output) = {
+    content copyDataTo channel
+  }
+}
 
- case class JSResponse(content: String) extends Response {
-   def code = 200
-   def reason = "OK"
-   def headers = Map.empty
-   def contentType = Some("text/javascript; charset=\"UTF-8\"")
-   def cookies = Nil
-   def writeBody(channel: WriteChannel) = {
-     channel.writeBuffer(content.getBytes("UTF-8"))
-   }
- }
+class JSResponse(content: Input) extends Response {
+  def code = 200
+  def reason = "OK"
+  def headers = Map.empty
+  def contentType = Some("text/javascript; charset=\"UTF-8\"")
+  def cookies = Nil
+  def writeBody(channel: Output) = {
+    content copyDataTo channel
+  }
+}
+
+class ImageResponse(content: Input, mime: String) extends Response {
+  def code = 200
+  def reason = "OK"
+  def headers = Map.empty
+  def contentType = Some(mime)
+  def cookies = Nil
+  def writeBody(channel: Output) = {
+    content copyDataTo channel
+  }
+}
