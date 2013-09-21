@@ -11,14 +11,14 @@ object TemplateTest extends App {
                <head>
                </head>
                <body>
-                 <FORM class="form1" action="http://somesite.com/prog/adduser" method="post">
+                 <FORM data-snip="form1" action="http://somesite.com/prog/adduser" method="post">
                    <P/>
                    <LABEL for="firstname">First name: </LABEL>
                    <INPUT type="text" id="firstname"/><BR/>
                    <LABEL for="lastname">Last name: </LABEL>
                    <INPUT type="text" id="lastname"/><BR/>
                    <LABEL for="email">email: </LABEL>
-                   <INPUT class="email" type="text"/><BR/>
+                   <INPUT data-snip="email" type="text"/><BR/>
                    <INPUT type="radio" name="sex" value="Male"/>
                    Male<BR/>
                    <INPUT type="radio" name="sex" value="Female"/>
@@ -46,7 +46,7 @@ object TemplateTest extends App {
       })
   }
 
-  val res = new Template[String](snippets, Selectors.byClassAttr[SnipState[String]])
+  val res = new Template[String](snippets, Selectors.bySnippetAttr[SnipState[String]])
 
   val e = for {
     t <- res.run(page)

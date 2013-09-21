@@ -14,7 +14,7 @@ object Selectors {
   def bySnippetAttr[T]: Selector[T] = snippets => in => in match {
     case e: Elem =>
       for (
-        value <- attribute(e, "shift", "snippet");
+        value <- attribute(e, "data-snip");
         snippet <- snippets(value)
       ) yield snippet
     case _ => None
@@ -45,7 +45,13 @@ object Template {
     new Template[T](snippets, selector)
 
   def pushNode[T](e: NodeSeq) = state[SnipState[T], NodeSeq] {
-    s => Some((SnipState(s.state, e), e))
+    s =>
+      e match {
+        case el: Elem =>
+          val el1 = el.removeAttr("data-snip")
+          Some((SnipState(s.state, el1.e), el1.e))
+        case n => Some((SnipState(s.state, n), n))
+      }
   }
 
   def popNode[T, K](pstate: State[SnipState[T], K]): State[SnipState[T], NodeSeq] =

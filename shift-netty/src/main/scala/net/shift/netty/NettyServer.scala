@@ -101,10 +101,10 @@ private[netty] class HttpRequestHandler(app: ShiftApplication) extends SimpleCha
     val buffer = new ChannelBufferInputStream(request.getContent())
 
     val shiftRequest = new Request {
-      def path = pathToList(uri)
+      lazy val path = pathToList(uriPath(uri))
       def method = httpMethod
       def contextPath = ""
-      def queryString = qs
+      lazy val queryString = qs
       def param(name: String) = params.get(name).getOrElse(Nil)
       def params = httpParams
       def header(name: String) = heads.get(name)
