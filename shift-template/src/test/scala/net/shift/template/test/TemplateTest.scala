@@ -46,7 +46,8 @@ object TemplateTest extends App {
       })
   }
 
-  val res = new Template[String](snippets, Selectors.bySnippetAttr[SnipState[String]])
+  implicit val sel = Selectors.bySnippetAttr[SnipState[String]]
+  val res = Template[String](snippets)
 
   val e = for {
     t <- res.run(page)

@@ -89,19 +89,20 @@ private[netty] class HttpRequestHandler(app: ShiftApplication) extends SimpleCha
 
   override def messageReceived(ctx: ChannelHandlerContext, e: MessageEvent) {
     val request = e.getMessage().asInstanceOf[HttpRequest]
-    val uri = request.getUri()
-    val queryStringDecoder = new QueryStringDecoder(uri);
+    val uriStr = request.getUri()
+    val queryStringDecoder = new QueryStringDecoder(uriStr);
     val cookieDecoder = new CookieDecoder();
     val httpMethod = request.getMethod().getName();
     val httpParams = parameters(queryStringDecoder)
     val heads = headers(request)
     val cookiesSet = heads.get("Cookie").map(c => asScalaSet(cookieDecoder.decode(c)));
-    val qs = queryString(uri)
+    val qs = queryString(uriStr)
 
     val buffer = new ChannelBufferInputStream(request.getContent())
 
     val shiftRequest = new Request {
-      lazy val path = pathToList(uriPath(uri))
+      lazy val path = pathToList(uriPath(uriStr))
+      def uri = uriStr
       def method = httpMethod
       def contextPath = ""
       lazy val queryString = qs

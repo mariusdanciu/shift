@@ -13,7 +13,7 @@ object HttpPredicates {
   }
 
   def path(path: String): State[Request, List[String]] = state {
-    r => if (r.path == pathToList(path)) Some((r, r.path)) else None
+    r => if (r.uri == path) Some((r, r.path)) else None
   }
 
   def path: State[Request, List[String]] = state {
@@ -65,6 +65,8 @@ object HttpPredicates {
     r => r.contentType.filter(c => c == "application/json" || c == "text/json").map(c => (r, c))
   }
 
+  def req : State[Request, Request] = init[Request]
+  
 }
 
 

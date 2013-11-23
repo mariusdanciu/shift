@@ -11,15 +11,13 @@ trait ApplicativeFunctor[F[_]] extends Functor[F] {
 }
 
 trait Monad[M[_]] extends Functor[M] {
-  def bind[A, B](f: A => M[B]): M[A] => M[B]
-  def join[A](mma: M[M[A]]): M[A] = bind((ma: M[A]) => ma)(mma)
-  def flatMap[A, B] = bind _
+  def flatMap[A, B](f: A => M[B]): M[A] => M[B]
+  def join[A](mma: M[M[A]]): M[A] = flatMap((ma: M[A]) => ma)(mma)
   def map[A, B](f: A => B): M[A] => M[B] = fmap(f)
 }
 
 trait Combinators[M[_]] {
   def >=>[A, B, C](f: A => M[B])(g: B => M[C]): A => M[C]
-  def >|>[A, B](f: A => M[B])(g: A => M[B]): A => M[B]
 }
 
 trait Semigroup[A] {
@@ -54,6 +52,17 @@ trait State[S, +A] {
         case s => s
       }
   }
+
+  def >=>[B, C](f: A => State[S, B])(g: B => State[S, C]): State[S, C] = state {
+    apply(_) flatMap {
+      case (s, a) =>
+        (for {
+          b <- f(a)
+          c <- g(b)
+        } yield c)(s)
+    }
+  }
+
 }
 
 trait Identity[M[_]] {
@@ -61,7 +70,7 @@ trait Identity[M[_]] {
 }
 
 trait Bind[M[_]] {
-  def bind[A, B](f: A => M[B]): M[A] => M[B]
+  def flatMap[A, B](f: A => M[B]): M[A] => M[B]
 }
 
 trait Flat[F[_]] {
@@ -75,18 +84,19 @@ object Monad {
 
     def fmap[A, B](f: A => B): M[A] => M[B] = flat fmap f
 
-    def bind[A, B](f: A => M[B]): M[A] => M[B] = b bind f
+    def flatMap[A, B](f: A => M[B]): M[A] => M[B] = b flatMap f
+
   }
 
 }
 
 object State {
   import Monad._
-  
+
   implicit def stateMonad[S] = monad[({ type l[a] = State[S, a] })#l]
 
   implicit def stateBind[S]: Bind[({ type l[a] = State[S, a] })#l] = new Bind[({ type l[a] = State[S, a] })#l] {
-    def bind[A, B](f: A => State[S, B]): State[S, A] => State[S, B] = s => s flatMap f
+    def flatMap[A, B](f: A => State[S, B]): State[S, A] => State[S, B] = s => s flatMap f
   }
 
   implicit def stateIdentity[S]: Identity[({ type l[a] = State[S, a] })#l] = new Identity[({ type l[a] = State[S, a] })#l] {

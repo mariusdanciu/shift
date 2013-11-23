@@ -6,11 +6,18 @@ import common._
 import State._
 import XmlUtils._
 
+/**
+ * Holds various strategies on matching page nodes with snippets
+ *
+ */
 object Selectors {
 
   type LookUp[T] = String => Option[State[T, NodeSeq]]
   type Selector[T] = (LookUp[T]) => NodeSeq => Option[State[T, NodeSeq]]
 
+  /**
+   * The value of "data-snip" attribute determines the snippet that will be applied
+   */
   def bySnippetAttr[T]: Selector[T] = snippets => in => in match {
     case e: Elem =>
       for (
@@ -20,6 +27,9 @@ object Selectors {
     case _ => None
   }
 
+  /**
+   * The value of "class" attribute determines the snippet that will be applied
+   */
   def byClassAttr[T]: Selector[T] = snippets => in => in match {
     case e: Elem => for {
       value <- attribute(e, "class")
@@ -30,6 +40,9 @@ object Selectors {
     case _ => None
   }
 
+  /**
+   * The value of "id" attribute determines the snippet that will be applied
+   */
   def byIdAttr[T]: Selector[T] = snippets => in => in match {
     case e: Elem => for (
       node <- attribute(e, "id");
@@ -41,10 +54,20 @@ object Selectors {
 
 object Template {
 
-  def apply[T](selector: Selectors.type#Selector[SnipState[T]])(snippets: DynamicContent[T]) =
-    new Template[T](snippets, selector)
+  def apply[T](snippets: DynamicContent[T])(implicit selector: Selectors.type#Selector[SnipState[T]]) =
+    new Template[T](snippets)
 
-  def pushNode[T](e: NodeSeq) = state[SnipState[T], NodeSeq] {
+}
+
+/**
+ * Template engine
+ */
+class Template[T](snippets: DynamicContent[T])(implicit selector: Selectors.type#Selector[SnipState[T]]) {
+  import Template._
+
+  private val snippetsMap = snippets toMap
+
+  private def pushNode[T](e: NodeSeq) = state[SnipState[T], NodeSeq] {
     s =>
       e match {
         case el: Elem =>
@@ -54,7 +77,7 @@ object Template {
       }
   }
 
-  def popNode[T, K](pstate: State[SnipState[T], K]): State[SnipState[T], NodeSeq] =
+  private def popNode[T, K](pstate: State[SnipState[T], K]): State[SnipState[T], NodeSeq] =
     for {
       _ <- pstate
       k <- state[SnipState[T], NodeSeq] {
@@ -62,17 +85,9 @@ object Template {
       }
     } yield k
 
-}
-
-/**
- * Template
- *
- */
-class Template[T](snippets: DynamicContent[T], selector: Selectors.type#Selector[SnipState[T]]) {
-  import Template._
-
-  private val snippetsMap = snippets toMap
-
+  /**
+   * Run the template processing
+   */
   def run(in: NodeSeq): State[SnipState[T], NodeSeq] = {
     def nodeProc(n: NodeSeq): State[SnipState[T], NodeSeq] = {
       n match {
@@ -115,4 +130,8 @@ object SnipNode {
   }
 }
 
+/**
+ * @param state - the user state that is propagated during the page rendering
+ * @param node - the page element that needs to be transformed by this snippet
+ */
 case class SnipState[T](state: T, node: NodeSeq)

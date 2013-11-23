@@ -8,6 +8,7 @@ import scalax.io._
 
 trait Request {
   def path: List[String]
+  def uri: String
   def method : String
   def contextPath : String
   def queryString: Option[String]
@@ -25,6 +26,7 @@ trait Request {
 
 class RequestShell(in: Request) extends Request {
   def path = in path
+  def uri = in uri
   def method = in method
   def contextPath = in contextPath
   def queryString = in queryString

@@ -5,6 +5,7 @@ import engine.ShiftApplication
 import engine.http._
 import engine.page._
 import HttpPredicates._
+import template._
 import netty.NettyServer
 import ShiftApplication._
 
@@ -28,6 +29,8 @@ object Main extends App {
 
   NettyServer.start(8080, new ShiftApplication {
 
+    implicit val selector = Selectors.bySnippetAttr[SnipState[Request]]
+
     // If we have a GET request and the path is /a/b/c
     val r1 = for {
       _ <- GET
@@ -37,7 +40,9 @@ object Main extends App {
     // Serve /page/first page
     val r2 = for {
       _ <- path("/page/first")
-    } yield Html5("pages/first.html", FirstPage)
+    } yield {
+      Html5("pages/first.html", FirstPage)
+    }
 
     // Serve /?/y/z where first part can be anything
     val r3 = for {
@@ -47,7 +52,7 @@ object Main extends App {
 
     // Serve ?/1/?/?/3 the first and the two parts in the middle can be anything
     val r4 = for {
-      "1" :: a :: b :: "3" :: Nil  <- tailPath
+      "1" :: a :: b :: "3" :: Nil <- tailPath
     } yield serviceWithRequest(serveService)
 
     def servingRule = r1 |

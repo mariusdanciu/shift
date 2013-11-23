@@ -9,7 +9,7 @@ import JavaConverters._
 import AsInputConverter._
 
 object TextResponse {
-  def apply(text: String): TextResponse = new TextResponse(text.getBytes("UTF8").asInput)
+  def apply(text: String) = new TextResponse(text.getBytes("UTF8").asInput)
 }
 
 case class TextResponse(content: Input) extends Response {
@@ -66,3 +66,19 @@ class ImageResponse(content: Input, mime: String) extends Response {
     content copyDataTo channel
   }
 }
+
+object JsonResponse {
+  def apply(text: String) = new JsonResponse( text.getBytes("UTF8").asInput )
+}
+
+case class JsonResponse(content: Input) extends Response {
+  def code = 200
+  def reason = "OK"
+  def headers = Map.empty
+  def contentType = Some("application/json; charset=\"UTF-8\"")
+  def cookies = Nil
+  def writeBody(channel: Output) = {
+    content copyDataTo channel
+  }
+}
+

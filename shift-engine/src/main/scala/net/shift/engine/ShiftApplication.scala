@@ -8,10 +8,10 @@ object ShiftApplication {
 
   implicit def rule(r: Rule) = State.gets[Request, Rule](req => r)
   
-  def service(in: AsyncResponse => Unit): Request => Option[AsyncResponse => Unit] =
+  def service(in: AsyncResponse => Unit): Rule =
     request => Some(in)
 
-  def serviceWithRequest(in: Request => AsyncResponse => Unit): Request => Option[AsyncResponse => Unit] =
+  def serviceWithRequest(in: Request => AsyncResponse => Unit): Rule =
     request => Some(in(request))
 }
 
