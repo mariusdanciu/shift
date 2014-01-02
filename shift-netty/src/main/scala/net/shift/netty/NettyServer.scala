@@ -2,56 +2,55 @@ package net.shift
 package netty
 
 import java.io.InputStream
-import java.net.InetSocketAddress;
-import java.util.concurrent.Executors;
-
+import java.net.InetSocketAddress
+import java.util.concurrent.Executors
 import scalax.io._
-
 import common.StringUtils._
 import common.PathUtils._
+import common._
 import engine.{ ShiftApplication, Engine }
 import engine.http.{ Request, Response, Cookie }
-
-import org.jboss.netty.channel.Channels._;
-import org.jboss.netty.handler.codec.http.HttpHeaders._;
-import org.jboss.netty.handler.codec.http.HttpHeaders.Names._;
-import org.jboss.netty.handler.codec.http.HttpResponseStatus._;
-import org.jboss.netty.handler.codec.http.HttpVersion._;
-
-import org.jboss.netty.bootstrap.ServerBootstrap;
+import org.jboss.netty.channel.Channels._
+import org.jboss.netty.handler.codec.http.HttpHeaders._
+import org.jboss.netty.handler.codec.http.HttpHeaders.Names._
+import org.jboss.netty.handler.codec.http.HttpResponseStatus._
+import org.jboss.netty.handler.codec.http.HttpVersion._
+import org.jboss.netty.bootstrap.ServerBootstrap
 import org.jboss.netty.buffer.{
   ChannelBuffer,
   ChannelBuffers,
   ChannelBufferInputStream,
   ChannelBufferOutputStream
-};
-
-import org.jboss.netty.channel.ChannelFuture;
-import org.jboss.netty.channel.ChannelFutureListener;
-import org.jboss.netty.channel.ChannelHandlerContext;
-import org.jboss.netty.channel.ChannelPipeline;
-import org.jboss.netty.channel.ChannelPipelineFactory;
-import org.jboss.netty.channel.ExceptionEvent;
-import org.jboss.netty.channel.MessageEvent;
-import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
-import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
-
-import org.jboss.netty.handler.codec.http.{ Cookie => NettyCookie, DefaultCookie };
-import org.jboss.netty.handler.codec.http.CookieDecoder;
-import org.jboss.netty.handler.codec.http.CookieEncoder;
-import org.jboss.netty.handler.codec.http.DefaultHttpResponse;
-import org.jboss.netty.handler.codec.http.HttpChunk;
-import org.jboss.netty.handler.codec.http.HttpChunkTrailer;
-import org.jboss.netty.handler.codec.http.HttpContentCompressor;
-import org.jboss.netty.handler.codec.http.HttpRequest;
-import org.jboss.netty.handler.codec.http.HttpRequestDecoder;
-import org.jboss.netty.handler.codec.http.{ HttpResponse, HttpResponseStatus };
-import org.jboss.netty.handler.codec.http.HttpResponseEncoder;
-import org.jboss.netty.handler.codec.http.QueryStringDecoder;
-
-import org.jboss.netty.util.CharsetUtil;
-
+}
+import org.jboss.netty.channel.ChannelFuture
+import org.jboss.netty.channel.ChannelFutureListener
+import org.jboss.netty.channel.ChannelHandlerContext
+import org.jboss.netty.channel.ChannelPipeline
+import org.jboss.netty.channel.ChannelPipelineFactory
+import org.jboss.netty.channel.ExceptionEvent
+import org.jboss.netty.channel.MessageEvent
+import org.jboss.netty.channel.SimpleChannelUpstreamHandler
+import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory
+import org.jboss.netty.handler.codec.http.{ Cookie => NettyCookie, DefaultCookie }
+import org.jboss.netty.handler.codec.http.CookieDecoder
+import org.jboss.netty.handler.codec.http.CookieEncoder
+import org.jboss.netty.handler.codec.http.DefaultHttpResponse
+import org.jboss.netty.handler.codec.http.HttpChunk
+import org.jboss.netty.handler.codec.http.HttpChunkTrailer
+import org.jboss.netty.handler.codec.http.HttpContentCompressor
+import org.jboss.netty.handler.codec.http.HttpRequest
+import org.jboss.netty.handler.codec.http.HttpRequestDecoder
+import org.jboss.netty.handler.codec.http.{ HttpResponse, HttpResponseStatus }
+import org.jboss.netty.handler.codec.http.HttpResponseEncoder
+import org.jboss.netty.handler.codec.http.QueryStringDecoder
+import org.jboss.netty.util.CharsetUtil
 import scala.collection.immutable.TreeMap
+import net.shift.common.Path
+import net.shift.common.EmptyPath
+import net.shift.common.Path
+import net.shift.common.EmptyPath
+import net.shift.common.Path
+import net.shift.common.EmptyPath
 
 object NettyServer {
 
@@ -101,10 +100,10 @@ private[netty] class HttpRequestHandler(app: ShiftApplication) extends SimpleCha
     val buffer = new ChannelBufferInputStream(request.getContent())
 
     val shiftRequest = new Request {
-      lazy val path = pathToList(uriPath(uriStr))
+      lazy val path = Path(uriPath(uriStr))
       def uri = uriStr
       def method = httpMethod
-      def contextPath = ""
+      def contextPath: Path = EmptyPath
       lazy val queryString = qs
       def param(name: String) = params.get(name).getOrElse(Nil)
       def params = httpParams
@@ -115,7 +114,7 @@ private[netty] class HttpRequestHandler(app: ShiftApplication) extends SimpleCha
       lazy val cookies = cookiesMap(cookiesSet)
       def cookie(name: String) = cookies.get(name)
       lazy val readBody = Resource.fromInputStream(buffer)
-      def resource(path: String): Input = Resource.fromFile(path)
+      def resource(path: Path): Input = Resource.fromFile(path.toString)
     }
 
     Engine.run(app)(shiftRequest, writeResponse(request, e))

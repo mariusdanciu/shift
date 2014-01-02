@@ -5,12 +5,14 @@ package http
 
 import scala.xml.Node
 import scalax.io._
+import common.Path
+
 
 trait Request {
-  def path: List[String]
+  def path: Path
   def uri: String
   def method : String
-  def contextPath : String
+  def contextPath : Path
   def queryString: Option[String]
   def param(name: String): List[String]
   def params: Map[String, List[String]]
@@ -21,7 +23,7 @@ trait Request {
   def cookies: Map[String, Cookie]
   def cookie(name: String): Option[Cookie]
   def readBody: Input
-  def resource(path: String): Input
+  def resource(path: Path): Input
 }
 
 class RequestShell(in: Request) extends Request {
@@ -39,7 +41,7 @@ class RequestShell(in: Request) extends Request {
   def cookies = in cookies
   def cookie(name: String) = in cookie name
   def readBody = in readBody
-  def resource(path: String) = in resource path
+  def resource(path: Path) = in resource path
 }
 
 trait Response {

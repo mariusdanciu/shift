@@ -8,6 +8,7 @@ import HttpPredicates._
 import template._
 import netty.NettyServer
 import ShiftApplication._
+import net.shift.common.Path
 
 object Main extends App {
   println("Starting Netty server")
@@ -41,7 +42,7 @@ object Main extends App {
     val r2 = for {
       _ <- path("/page/first")
     } yield {
-      Html5("pages/first.html", FirstPage)
+      Html5(Path("pages/first.html"), FirstPage)
     }
 
     // Serve /?/y/z where first part can be anything
@@ -52,10 +53,15 @@ object Main extends App {
 
     // Serve ?/1/?/?/3 the first and the two parts in the middle can be anything
     val r4 = for {
-      "1" :: a :: b :: "3" :: Nil <- tailPath
+      Path("1" :: a :: b :: "3" :: Nil) <- tailPath
     } yield serviceWithRequest(serveService)
 
-    def servingRule = r1 |
+    val r0 = for {
+      _ <- path("/")
+    } yield Html5(Path("pages/first.html"), FirstPage)
+
+    def servingRule = r0 |
+      r1 |
       r2 |
       r3 |
       r4 |

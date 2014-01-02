@@ -1,6 +1,9 @@
 package net.shift
 package common
 
+import scala.util.Try
+import scala.util.Success
+
 trait Functor[F[_]] {
   def unit[A](a: A): F[A]
   def fmap[A, B](f: A => B): F[A] => F[B]
@@ -14,6 +17,12 @@ trait Monad[M[_]] extends Functor[M] {
   def flatMap[A, B](f: A => M[B]): M[A] => M[B]
   def join[A](mma: M[M[A]]): M[A] = flatMap((ma: M[A]) => ma)(mma)
   def map[A, B](f: A => B): M[A] => M[B] = fmap(f)
+
+}
+
+trait Traversing[F[_]] {
+  def traverse[A, B, M[_]](f: A => M[B])(fa: F[A])(implicit m: ApplicativeFunctor[F]): M[F[B]] = sequence(m.fmap(f)(fa))
+  def sequence[A, M[_]](fma: F[M[A]])(implicit m: ApplicativeFunctor[F]): M[F[A]]
 }
 
 trait Combinators[M[_]] {
@@ -75,6 +84,17 @@ trait Bind[M[_]] {
 
 trait Flat[F[_]] {
   def fmap[A, B](f: A => B): F[A] => F[B]
+}
+
+object Traversing {
+  
+  implicit def listTrySequence[A](in: List[Try[A]]): Try[List[A]] = {
+    (Try(Nil: List[A]) /: in){(a, e) => e match {
+      case Success(s) =>  a map {_ ::: List(s)}
+      case _ => a
+    }}
+    
+  }
 }
 
 object Monad {

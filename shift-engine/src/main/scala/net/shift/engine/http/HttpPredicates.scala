@@ -12,11 +12,12 @@ object HttpPredicates {
     r => if (m is r.method) Some((r, r)) else None
   }
 
-  def path(path: String): State[Request, List[String]] = state {
-    r => if (r.uri == path) Some((r, r.path)) else None
+  def path(path: String): State[Request, Path] = state {
+    r => 
+      if (r.path == Path(path)) Some((r, r.path)) else None
   }
 
-  def path: State[Request, List[String]] = state {
+  def path: State[Request, Path] = state {
     r => Some((r, r.path))
   }
 
@@ -43,17 +44,18 @@ object HttpPredicates {
     }
   }
 
-  def startsWith(path: String): State[Request, String] = state {
-    r => if (r.path.startsWith(pathToList(path))) Some((r, path)) else None
+  def startsWith(path: Path): State[Request, Path] = state {
+    r => if (r.path.startsWith(path)) Some((r, path)) else None
   }
 
-  def tailPath: State[Request, List[String]] = state {
+  def tailPath: State[Request, Path] = state {
     r =>
       r.path match {
-        case Nil => None
-        case h :: rest => Some((new RequestShell(r) {
+        case Path(Nil) => None
+        case Path(h :: rest) => Some((new RequestShell(r) {
           override def path = r.path tail
-        }, rest))
+          override def uri = s"$path?${r.queryString}"
+        }, Path(rest)))
       }
   }
 
