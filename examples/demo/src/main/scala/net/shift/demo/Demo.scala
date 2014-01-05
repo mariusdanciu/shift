@@ -9,6 +9,7 @@ import template._
 import netty.NettyServer
 import ShiftApplication._
 import net.shift.common.Path
+import net.shift.loc.Language
 
 object Main extends App {
   println("Starting Netty server")
@@ -32,6 +33,8 @@ object Main extends App {
 
     implicit val selector = Selectors.bySnippetAttr[SnipState[Request]]
 
+    import Request._
+
     // If we have a GET request and the path is /a/b/c
     val r1 = for {
       _ <- GET
@@ -41,8 +44,9 @@ object Main extends App {
     // Serve /page/first page
     val r2 = for {
       _ <- path("/page/first")
+      r <- req(_ withLanguage Language("ro"))
     } yield {
-      Html5(Path("pages/first.html"), FirstPage)
+      Html5(r, Path("pages/first.html"), FirstPage)
     }
 
     // Serve /?/y/z where first part can be anything
@@ -54,11 +58,12 @@ object Main extends App {
     // Serve ?/1/?/?/3 the first and the two parts in the middle can be anything
     val r4 = for {
       Path("1" :: a :: b :: "3" :: Nil) <- tailPath
-    } yield serviceWithRequest(serveService)
+      r <- req
+    } yield service(serveService(r))
 
     val r0 = for {
-      _ <- path("/")
-    } yield Html5(Path("pages/first.html"), FirstPage)
+      r <- path("/")
+    } yield Html5(r, Path("pages/first.html"), FirstPage)
 
     def servingRule = r0 |
       r1 |

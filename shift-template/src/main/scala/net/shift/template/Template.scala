@@ -3,8 +3,10 @@ package template
 
 import scala.xml._
 import common._
-import State._
-import XmlUtils._
+import common.State._
+import common.XmlUtils._
+import net.shift.loc.Loc
+import net.shift.loc.Language
 
 /**
  * Holds various strategies on matching page nodes with snippets
@@ -54,15 +56,36 @@ object Selectors {
 
 object Template {
 
-  def apply[T](snippets: DynamicContent[T])(implicit selector: Selectors.type#Selector[SnipState[T]]) =
-    new Template[T](snippets)
+  import Loc._
 
+  def apply[T](snippets: DynamicContent[T])(implicit selector: Selectors.type#Selector[SnipState[T]]) =
+    new Template[T](snippets)(List(selector, byLocAttr))
+
+  private def locSnippet[T] = state[SnipState[T], NodeSeq] {
+    import XmlUtils._
+
+    s => s match {
+      case SnipState(_, locale, e: Elem) =>
+        println(locale)
+        for { l <- attribute(e, "data-loc") } yield {
+          (s, new Elem(e.prefix, e.label, e.attributes.remove("data-loc"), e.scope, Text(loc0(locale)(l).text)))
+        }
+    }
+  }
+
+  private def byLocAttr[T]: Selectors.type#Selector[SnipState[T]] = snippets => in => in match {
+    case e: Elem =>
+      for (
+        value <- attribute(e, "data-loc")
+      ) yield Template.locSnippet[T]
+    case _ => None
+  }
 }
 
 /**
  * Template engine
  */
-class Template[T](snippets: DynamicContent[T])(implicit selector: Selectors.type#Selector[SnipState[T]]) {
+class Template[T](snippets: DynamicContent[T])(implicit selectors: List[Selectors.type#Selector[SnipState[T]]]) {
   import Template._
 
   private val snippetsMap = snippets toMap
@@ -72,8 +95,8 @@ class Template[T](snippets: DynamicContent[T])(implicit selector: Selectors.type
       e match {
         case el: Elem =>
           val el1 = el.removeAttr("data-snip")
-          Some((SnipState(s.state, el1.e), el1.e))
-        case n => Some((SnipState(s.state, n), n))
+          Some((SnipState(s.state, s.locale, el1.e), el1.e))
+        case n => Some((SnipState(s.state, s.locale, n), n))
       }
   }
 
@@ -94,14 +117,14 @@ class Template[T](snippets: DynamicContent[T])(implicit selector: Selectors.type
         case Group(childs) => run(childs)
 
         case e: Elem =>
-          selector(snippetsMap get)(e) match {
+
+          selectors.map(_(snippetsMap get)(e)).find(s => !s.isEmpty).flatten match {
             case Some(snippet) =>
               for {
                 _ <- pushNode[T](e)
                 snip <- snippet
                 r <- run(snip)
               } yield r
-
             case _ => for {
               elem <- run(e.child)
             } yield new Elem(e.prefix, e.label, e.attributes, e.scope, elem: _*)
@@ -134,4 +157,4 @@ object SnipNode {
  * @param state - the user state that is propagated during the page rendering
  * @param node - the page element that needs to be transformed by this snippet
  */
-case class SnipState[T](state: T, node: NodeSeq)
+case class SnipState[T](state: T, locale: Language, node: NodeSeq)

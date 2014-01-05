@@ -9,10 +9,8 @@ object ShiftApplication {
   implicit def rule(r: Rule) = State.gets[Request, Rule](req => r)
   
   def service(in: AsyncResponse => Unit): Rule =
-    request => Some(in)
+    Some(in)
 
-  def serviceWithRequest(in: Request => AsyncResponse => Unit): Rule =
-    request => Some(in(request))
 }
 
 trait ShiftApplication {

@@ -6,11 +6,11 @@ import template._
 import engine.http._
 import Snippet._
 import loc.Loc._
-import java.util.Locale
+import net.shift.loc.Language
 
 object FirstPage extends DynamicContent[Request] {
 
-  val ? = loc("test", new Locale("ro")) _
+  val ? = loc("test", Language("ro")) _
   
   def snippets = List(elem1, elem2)
  

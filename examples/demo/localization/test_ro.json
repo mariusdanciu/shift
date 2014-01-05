@@ -3,5 +3,10 @@
    "code" : "M101",
    "name" : "first",
    "text" : "Asta %s e"
+ },
+  {
+   "code" : "M101",
+   "name" : "second",
+   "text" : "Asta e"
  }
 ]

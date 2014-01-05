@@ -1,8 +1,11 @@
 package net.shift
 package template
 
-import common._
 import scala.xml.NodeSeq
+
+import common.State
+import common.State.state
+import net.shift.common.State
 
 object Snippet {
   import State._
@@ -10,14 +13,14 @@ object Snippet {
   def snip[T](name: String)(f: SnipState[T] => (T, NodeSeq)) = new Snippet(name, state[SnipState[T], NodeSeq] {
     s =>
       f(s) match {
-        case (t, n) => Some((SnipState(t, n), n))
+        case (t, n) => Some((SnipState(t, s.locale, n), n))
       }
   })
   
   def snipNoState[T](name: String)(f: SnipState[T] => NodeSeq) = new Snippet(name, state[SnipState[T], NodeSeq] {
     s =>
       f(s) match {
-        case n => Some((SnipState(s.state, n), n))
+        case n => Some((SnipState(s.state, s.locale, n), n))
       }
   })
 

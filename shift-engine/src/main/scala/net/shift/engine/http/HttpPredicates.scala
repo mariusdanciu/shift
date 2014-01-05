@@ -12,9 +12,11 @@ object HttpPredicates {
     r => if (m is r.method) Some((r, r)) else None
   }
 
-  def path(path: String): State[Request, Path] = state {
-    r => 
-      if (r.path == Path(path)) Some((r, r.path)) else None
+  def path(path: String): State[Request, Request] = state {
+    r =>
+      {
+        if (r.path == Path(path)) Some((r, r)) else None
+      }
   }
 
   def path: State[Request, Path] = state {
@@ -38,10 +40,11 @@ object HttpPredicates {
   }
 
   def containsAnyOfHeaders(headers: List[String]): State[Request, List[String]] = state {
-    r => headers.filter(p => r.headers.contains(p)) match {
+    r =>
+      headers.filter(p => r.headers.contains(p)) match {
         case Nil => None
         case p => Some((r, p))
-    }
+      }
   }
 
   def startsWith(path: Path): State[Request, Path] = state {
@@ -67,8 +70,10 @@ object HttpPredicates {
     r => r.contentType.filter(c => c == "application/json" || c == "text/json").map(c => (r, c))
   }
 
-  def req : State[Request, Request] = init[Request]
-  
+  def req: State[Request, Request] = init[Request]
+
+  def req(r: Request => Request): State[Request, Request] = initf[Request](r)
+
 }
 
 

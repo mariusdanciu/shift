@@ -51,6 +51,7 @@ import net.shift.common.Path
 import net.shift.common.EmptyPath
 import net.shift.common.Path
 import net.shift.common.EmptyPath
+import net.shift.loc.Language
 
 object NettyServer {
 
@@ -115,6 +116,7 @@ private[netty] class HttpRequestHandler(app: ShiftApplication) extends SimpleCha
       def cookie(name: String) = cookies.get(name)
       lazy val readBody = Resource.fromInputStream(buffer)
       def resource(path: Path): Input = Resource.fromFile(path.toString)
+      lazy val language = Language("en")
     }
 
     Engine.run(app)(shiftRequest, writeResponse(request, e))

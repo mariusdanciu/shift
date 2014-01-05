@@ -5,6 +5,8 @@ package test
 import net.shift.common._
 import State._
 import scala.xml._
+import java.util.Locale
+import net.shift.loc.Language
 
 object TemplateTest extends App {
   val page = <html>
@@ -55,7 +57,7 @@ object TemplateTest extends App {
     XmlUtils.mkString(t)
   }
   for {
-    c <- e(SnipState("start", NodeSeq.Empty))
+    c <- e(SnipState("start", Language("ro"), NodeSeq.Empty))
   } yield {
     Console println c._2
   }

@@ -6,13 +6,13 @@ package http
 import scala.xml.Node
 import scalax.io._
 import common.Path
-
+import net.shift.loc.Language
 
 trait Request {
   def path: Path
   def uri: String
-  def method : String
-  def contextPath : Path
+  def method: String
+  def contextPath: Path
   def queryString: Option[String]
   def param(name: String): List[String]
   def params: Map[String, List[String]]
@@ -24,6 +24,7 @@ trait Request {
   def cookie(name: String): Option[Cookie]
   def readBody: Input
   def resource(path: Path): Input
+  def language: Language
 }
 
 class RequestShell(in: Request) extends Request {
@@ -42,6 +43,33 @@ class RequestShell(in: Request) extends Request {
   def cookie(name: String) = in cookie name
   def readBody = in readBody
   def resource(path: Path) = in resource path
+  def language: Language = in language
+}
+
+object Request {
+  implicit def augmentRequest(r: Request): RichRequest = RichRequest(r)
+}
+
+case class RichRequest(r: Request) {
+  def withLanguage(l: Language) = new RequestShell(r) {
+    override val language = l
+  }
+
+  def withHeader(prop: (String, String)) = new RequestShell(r) {
+    override val headers = r.headers + prop
+  }
+
+  def withoutHeader(name: String) = new RequestShell(r) {
+    override val headers = r.headers - name
+  }
+
+  def withParam(prop: (String, String)) = new RequestShell(r) {
+    override val params = r.params + (prop._1 -> List(prop._2))
+  }
+
+  def withoutParam(name: String) = new RequestShell(r) {
+    override val params = r.params - name
+  }
 }
 
 trait Response {
@@ -59,7 +87,6 @@ trait Context {
   def contextPath: String
 }
 
-
 object Cookie {
   def apply(name: String, value: String) =
     new Cookie(name, value, None, None, None, None, false, false)
@@ -69,13 +96,13 @@ object Cookie {
 }
 
 case class Cookie(name: String,
-                  value: String,
-                  domain: Option[String],
-                  path: Option[String],
-                  maxAge: Option[Int],
-                  version: Option[Int],
-                  secure : Boolean,
-                  httpOnly: Boolean)
+  value: String,
+  domain: Option[String],
+  path: Option[String],
+  maxAge: Option[Int],
+  version: Option[Int],
+  secure: Boolean,
+  httpOnly: Boolean)
 
 sealed trait HttpMethod {
   def is(name: String): Boolean
@@ -83,16 +110,16 @@ sealed trait HttpMethod {
 case object GET extends HttpMethod {
   def is(name: String) = name == "GET"
 }
-case object POST extends HttpMethod{
+case object POST extends HttpMethod {
   def is(name: String) = name == "POST"
 }
-case object PUT extends HttpMethod{
+case object PUT extends HttpMethod {
   def is(name: String) = name == "PUT"
 }
-case object DELETE extends HttpMethod{
+case object DELETE extends HttpMethod {
   def is(name: String) = name == "DELETE"
 }
-case object HEAD extends HttpMethod{
+case object HEAD extends HttpMethod {
   def is(name: String) = name == "HEAD"
 }
 
