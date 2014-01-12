@@ -7,6 +7,7 @@ import engine.http._
 import Snippet._
 import loc.Loc._
 import net.shift.loc.Language
+import scala.util.Success
 
 object FirstPage extends DynamicContent[Request] {
 
@@ -17,11 +18,11 @@ object FirstPage extends DynamicContent[Request] {
   def reqSnip(name: String) = snip[Request](name) _
   
   val elem1 = reqSnip("elem1"){
-    s => (s.state, <p>Elem1</p>)
+    s => Success((s.state, <p>Elem1</p>))
   }
   
   val elem2 = snipNoState[Request]("elem2"){
-    s => <p>{?("first", List("param")).text}</p>
+    s => Success(<p>{?("first", List("param")).text}</p>)
   }
 }
 

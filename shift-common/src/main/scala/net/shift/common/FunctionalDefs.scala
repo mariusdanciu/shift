@@ -3,6 +3,7 @@ package common
 
 import scala.util.Try
 import scala.util.Success
+import scala.util.Failure
 
 trait Functor[F[_]] {
   def unit[A](a: A): F[A]
@@ -36,7 +37,7 @@ trait Semigroup[A] {
 trait State[S, +A] {
   import State._
 
-  def apply(s: S): Option[(S, A)]
+  def apply(s: S): Try[(S, A)]
 
   def map[B](f: A => B): State[S, B] = state {
     apply(_) map { case (s, a) => (s, f(a)) }
@@ -57,7 +58,7 @@ trait State[S, +A] {
   def |[B >: A](other: State[S, B]): State[S, B] = state {
     x =>
       apply(x) match {
-        case None => other apply x
+        case Failure(_) => other apply x
         case s => s
       }
   }
@@ -121,7 +122,7 @@ object State {
 
   implicit def stateIdentity[S]: Identity[({ type l[a] = State[S, a] })#l] = new Identity[({ type l[a] = State[S, a] })#l] {
     def unit[A](a: A): State[S, A] = state {
-      s => Some((s, a))
+      s => Success((s, a))
     }
   }
 
@@ -129,28 +130,28 @@ object State {
     def fmap[A, B](f: A => B): State[S, A] => State[S, B] = _ map f
   }
 
-  def state[S, A](f: S => Option[(S, A)]): State[S, A] = new State[S, A] {
+  def state[S, A](f: S => Try[(S, A)]): State[S, A] = new State[S, A] {
     def apply(s: S) = f(s)
   }
 
   def init[S] = state[S, S] {
-    s => Some((s, s))
+    s => Success((s, s))
   }
 
   def initf[S](f: S => S) = state[S, S] {
-    s => Some((f(s), f(s)))
+    s => Success((f(s), f(s)))
   }
 
   def put[S] = state[S, Unit] {
-    s => Some((s, ()))
+    s => Success((s, ()))
   }
 
   def put[S, A](a: A) = state[S, A] {
-    s => Some((s, a))
+    s => Success((s, a))
   }
 
   def modify[S](f: S => S) = state[S, Unit] {
-    s => Some((f(s), ()))
+    s => Success((f(s), ()))
   }
 
   def gets[S, A](f: S => A) = for (s <- init[S]) yield f(s)

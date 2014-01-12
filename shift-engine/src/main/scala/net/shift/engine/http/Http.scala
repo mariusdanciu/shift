@@ -7,6 +7,7 @@ import scala.xml.Node
 import scalax.io._
 import common.Path
 import net.shift.loc.Language
+import scala.util.Try
 
 trait Request {
   def path: Path
@@ -23,7 +24,7 @@ trait Request {
   def cookies: Map[String, Cookie]
   def cookie(name: String): Option[Cookie]
   def readBody: Input
-  def resource(path: Path): Input
+  def resource(path: Path): Try[Input]
   def language: Language
 }
 
@@ -123,4 +124,9 @@ case object HEAD extends HttpMethod {
   def is(name: String) = name == "HEAD"
 }
 
+object RuleException {
+ def apply() = new RuleException("");  
+}
+
+class RuleException(msg: String) extends RuntimeException(msg) with util.control.NoStackTrace
 

@@ -2,60 +2,69 @@ package net.shift
 package engine
 package http
 
+import java.io.BufferedInputStream
+import java.io.FileInputStream
+
+import scala.util.Failure
+import scala.util.Success
+import scala.util.Try
+
 import common._
-import PathUtils._
-import State._
+import common.PathUtils._
+import common.State._
+import scalax.io.Input
+import scalax.io.Resource
 
 object HttpPredicates {
 
   implicit def httpMethod2State(m: HttpMethod): State[Request, Request] = state {
-    r => if (m is r.method) Some((r, r)) else None
+    r => if (m is r.method) Success((r, r)) else ShiftFailure[Request]
   }
 
   def path(path: String): State[Request, Request] = state {
     r =>
       {
-        if (r.path == Path(path)) Some((r, r)) else None
+        if (r.path == Path(path)) Success((r, r)) else ShiftFailure[Request]
       }
   }
 
   def path: State[Request, Path] = state {
-    r => Some((r, r.path))
+    r => Success((r, r.path))
   }
 
   def hasAllParams(params: List[String]): State[Request, List[String]] = state {
-    r => if (params.filter(p => r.params.contains(p)).size != params.size) None else Some((r, params))
+    r => if (params.filter(p => r.params.contains(p)).size != params.size) ShiftFailure[Request] else Success((r, params))
   }
 
   def containsAnyOfParams(params: List[String]): State[Request, List[String]] = state {
     r =>
       params.filter(p => r.params.contains(p)) match {
-        case Nil => None
-        case p => Some((r, p))
+        case Nil => ShiftFailure[Request]
+        case p => Success((r, p))
       }
   }
 
   def hasAllHeaders(headers: List[String]): State[Request, List[String]] = state {
-    r => if (headers.filter(p => r.headers.contains(p)).size != headers.size) None else Some((r, headers))
+    r => if (headers.filter(p => r.headers.contains(p)).size != headers.size) ShiftFailure[Request] else Success((r, headers))
   }
 
   def containsAnyOfHeaders(headers: List[String]): State[Request, List[String]] = state {
     r =>
       headers.filter(p => r.headers.contains(p)) match {
-        case Nil => None
-        case p => Some((r, p))
+        case Nil => ShiftFailure[Request]
+        case p => Success((r, p))
       }
   }
 
   def startsWith(path: Path): State[Request, Path] = state {
-    r => if (r.path.startsWith(path)) Some((r, path)) else None
+    r => if (r.path.startsWith(path)) Success((r, path)) else ShiftFailure[Request]
   }
 
   def tailPath: State[Request, Path] = state {
     r =>
       r.path match {
-        case Path(Nil) => None
-        case Path(h :: rest) => Some((new RequestShell(r) {
+        case Path(Nil) => ShiftFailure[Request]
+        case Path(h :: rest) => Success((new RequestShell(r) {
           override def path = r.path tail
           override def uri = s"$path?${r.queryString}"
         }, Path(rest)))
@@ -73,6 +82,14 @@ object HttpPredicates {
   def req: State[Request, Request] = init[Request]
 
   def req(r: Request => Request): State[Request, Request] = initf[Request](r)
+
+  def fileOf(path: Path): State[Request, Input] = state {
+    r =>
+      Try(Resource.fromInputStream(new BufferedInputStream(new FileInputStream(path toString)))) match {
+        case Success(input) => Success((r, input))
+        case Failure(f) => Failure(f)
+      }
+  }
 
 }
 

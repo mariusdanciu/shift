@@ -7,6 +7,7 @@ import State._
 import scala.xml._
 import java.util.Locale
 import net.shift.loc.Language
+import scala.util.Success
 
 object TemplateTest extends App {
   val page = <html>
@@ -39,12 +40,12 @@ object TemplateTest extends App {
         s =>
           Console println s.state
           val SnipNode(name, attrs, childs) = s.node
-          ("form", <form>{ childs }</form>)
+          Success(("form", <form>{ childs }</form>))
       },
       snip[String]("email") {
         s =>
           Console println s.state
-          ("email", <input type="text" id="email1">Type email here</input>)
+          Success(("email", <input type="text" id="email1">Type email here</input>))
       })
   }
 

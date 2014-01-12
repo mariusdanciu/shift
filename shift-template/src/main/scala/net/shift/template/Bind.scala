@@ -3,6 +3,8 @@ package template
 
 import scala.xml._
 import MetaData._
+import scala.util.Try
+import scala.util.Success
 
 case class Attributes(attrs: Map[String, String]) {
   def hasAttr(name: String): Boolean = attrs contains name
@@ -22,21 +24,22 @@ trait Binds {
 
   def nameOf(e: Elem) = if (e.prefix == null) e.label else e.prefix.mkString + ":" + e.label
 
-  def bind(xml: NodeSeq)(bindFunc: PartialFunction[ToBind, NodeSeq]): NodeSeq = {
-    xml flatMap { n =>
-      n match {
-        case Group(nodes) => bind(nodes)(bindFunc)
+  def bind(xml: NodeSeq)(bindFunc: PartialFunction[ToBind, NodeSeq]): Try[NodeSeq] = {
+    def _bind(_xml: NodeSeq): NodeSeq = {
+      _xml flatMap {
+        case Group(nodes) => _bind(nodes)
         case el: Elem =>
           val v = (applyPf(ToBind(nameOf(el), BindMeta(el.attributes, el.child)))(bindFunc) getOrElse el)
           v match {
             case e: Elem =>
-              new Elem(e.prefix, e.label, e.attributes, e.scope, bind(e.child)(bindFunc): _*)
+              new Elem(e.prefix, e.label, e.attributes, e.scope, _bind(e.child): _*)
             case n =>
-              bind(n)(bindFunc)
+              _bind(n)
           }
         case e => e
       }
     }
+    Success(_bind(xml))
   }
 
   def applyPf[A, B](a: A)(pf: PartialFunction[A, B]): Option[B] = {

@@ -5,12 +5,13 @@ import scala.xml._
 import io._
 import java.io.Reader
 import scalax.io._
+import java.io.FileInputStream
+import scala.util.Try
 
 object XmlUtils {
 
   implicit def elem2NodeOps(e: Elem): NodeOps = new NodeOps(e)
 
-  
   def attribute(e: Elem, name: String): Option[String] = e.attributes.get(name).map(_ mkString)
 
   def attribute(e: Elem, prefix: String, name: String): Option[String] =
@@ -29,7 +30,11 @@ object XmlUtils {
     case _ => None
   }
 
-  def load(resource: Input): NodeSeq = XML.load(new java.io.ByteArrayInputStream(resource.byteArray))
+  def load(resource: Input): Try[NodeSeq] = 
+    Try(XML.load(new java.io.ByteArrayInputStream(resource.byteArray)))
+
+  def load(path: Path): Try[NodeSeq] = 
+    Try(XML.load(new java.io.ByteArrayInputStream(Resource.fromInputStream(new FileInputStream(path.toString)).byteArray)))
 
   /**
    * Returns the String representation of the 'nodes'
@@ -67,9 +72,9 @@ object XmlUtils {
 }
 
 case class NodeOps(e: Elem) {
-  
+
   def attr(name: String, value: String): NodeOps = new NodeOps(e % new UnprefixedAttribute(name, value, Null))
-  
+
   def removeAttr(name: String): NodeOps = new NodeOps(new Elem(e.prefix, e.label, e.attributes.remove(name), e.scope, e.child: _*))
-  
+
 }

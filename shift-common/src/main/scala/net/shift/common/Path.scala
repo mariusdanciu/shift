@@ -28,6 +28,11 @@ class Path(val parts: List[String]) {
     case h :: Nil => EmptyPath
     case h :: rest => Path(rest)
   }
+  
+  def + (part: String) = new Path(parts ::: List(part))
+  
+  def ++ (other: Path) = new Path(parts ::: other.parts)
+  
 
   override def equals(o: Any) = o match {
     case o: Path => parts == o.parts

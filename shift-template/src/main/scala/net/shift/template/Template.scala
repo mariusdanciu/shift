@@ -1,12 +1,23 @@
 package net.shift
 package template
 
+import scala.util.Success
+import scala.util.Try
+import scala.xml.Elem
+import scala.xml.Group
+import scala.xml.NodeSeq
+import scala.xml.NodeSeq.seqToNodeSeq
+import scala.xml.Text
 import scala.xml._
-import common._
-import common.State._
-import common.XmlUtils._
-import net.shift.loc.Loc
+import common.State
+import common.State.state
+import common.XmlUtils.attribute
+import common.XmlUtils.elem2NodeOps
+import net.shift.common.State
 import net.shift.loc.Language
+import net.shift.loc.Loc.loc0
+import net.shift.loc.Loc
+import net.shift.common.XmlUtils
 
 /**
  * Holds various strategies on matching page nodes with snippets
@@ -54,32 +65,35 @@ object Selectors {
   }
 }
 
-object Template {
-
+private[template] object DefaultSnippets {
   import Loc._
 
-  def apply[T](snippets: DynamicContent[T])(implicit selector: Selectors.type#Selector[SnipState[T]]) =
-    new Template[T](snippets)(List(selector, byLocAttr))
-
-  private def locSnippet[T] = state[SnipState[T], NodeSeq] {
+  def locSnippet[T] = state[SnipState[T], NodeSeq] {
     import XmlUtils._
 
     s => s match {
       case SnipState(_, locale, e: Elem) =>
-        println(locale)
-        for { l <- attribute(e, "data-loc") } yield {
+        Try((for { l <- attribute(e, "data-loc") } yield {
           (s, new Elem(e.prefix, e.label, e.attributes.remove("data-loc"), e.scope, Text(loc0(locale)(l).text)))
-        }
+        }) get)
     }
   }
+
+}
+
+object Template {
+
+  def apply[T](snippets: DynamicContent[T])(implicit selector: Selectors.type#Selector[SnipState[T]]) =
+    new Template[T](snippets)(List(selector, byLocAttr))
 
   private def byLocAttr[T]: Selectors.type#Selector[SnipState[T]] = snippets => in => in match {
     case e: Elem =>
       for (
         value <- attribute(e, "data-loc")
-      ) yield Template.locSnippet[T]
+      ) yield DefaultSnippets.locSnippet[T]
     case _ => None
   }
+
 }
 
 /**
@@ -95,8 +109,8 @@ class Template[T](snippets: DynamicContent[T])(implicit selectors: List[Selector
       e match {
         case el: Elem =>
           val el1 = el.removeAttr("data-snip")
-          Some((SnipState(s.state, s.locale, el1.e), el1.e))
-        case n => Some((SnipState(s.state, s.locale, n), n))
+          Success((SnipState(s.state, s.locale, el1.e), el1.e))
+        case n => Success((SnipState(s.state, s.locale, n), n))
       }
   }
 
@@ -104,7 +118,7 @@ class Template[T](snippets: DynamicContent[T])(implicit selectors: List[Selector
     for {
       _ <- pstate
       k <- state[SnipState[T], NodeSeq] {
-        s => Some((s, s.node))
+        s => Success((s, s.node))
       }
     } yield k
 
