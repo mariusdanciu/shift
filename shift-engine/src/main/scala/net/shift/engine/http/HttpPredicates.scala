@@ -10,12 +10,11 @@ import scala.util.Success
 import scala.util.Try
 
 import common._
-import common.PathUtils._
 import common.State._
 import scalax.io.Input
 import scalax.io.Resource
 
-object HttpPredicates {
+trait HttpPredicates {
 
   implicit def httpMethod2State(m: HttpMethod): State[Request, Request] = state {
     r => if (m is r.method) Success((r, r)) else ShiftFailure[Request]

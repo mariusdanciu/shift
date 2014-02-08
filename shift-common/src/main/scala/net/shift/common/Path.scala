@@ -1,8 +1,8 @@
 package net.shift
 package common
 
-object Path {
-  def apply(p: String) = new Path(PathUtils.pathToList(p))
+object Path extends PathUtils {
+  def apply(p: String) = new Path(pathToList(p))
 
   def apply(l: Traversable[String]): Path = new Path(l.toList)
 

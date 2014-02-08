@@ -23,15 +23,18 @@ case class TextResponse(content: Input) extends Response {
   }
 }
 
-case class Html5Response(content: NodeSeq) extends Response {
+case class Html5Response(content: NodeSeq) extends Response with XmlUtils {
   def code = 200
   def reason = "OK"
   def headers = Map.empty
   def contentType = Some("text/html; charset=\"UTF-8\"")
   def cookies = Nil
   def writeBody(channel: Output) = {
-    channel.write(("<!DOCTYPE html>\n" + XmlUtils.mkString(content)).getBytes("UTF-8"))
+    channel.write(("<!DOCTYPE html>\n" + mkString(content)).getBytes("UTF-8"))
   }
+}
+object CSSResponse {
+  def apply(text: String) = new CSSResponse(text.getBytes("UTF8").asInput)
 }
 
 class CSSResponse(content: Input) extends Response {
@@ -43,6 +46,10 @@ class CSSResponse(content: Input) extends Response {
   def writeBody(channel: Output) = {
     content copyDataTo channel
   }
+}
+
+object JsResponse {
+  def apply(text: String) = new JSResponse(text.getBytes("UTF8").asInput)
 }
 
 class JSResponse(content: Input) extends Response {
@@ -68,7 +75,7 @@ class ImageResponse(content: Input, mime: String) extends Response {
 }
 
 object JsonResponse {
-  def apply(text: String) = new JsonResponse( text.getBytes("UTF8").asInput )
+  def apply(text: String) = new JsonResponse(text.getBytes("UTF8").asInput)
 }
 
 case class JsonResponse(content: Input) extends Response {

@@ -1,7 +1,7 @@
 package net.shift
 package common
 
-object StringUtils {
+trait StringUtils {
 
   def toInt(s: String): Option[Int] = try {
     Some(s.toInt)

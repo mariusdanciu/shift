@@ -3,14 +3,13 @@ package engine.utils
 
 import engine.ShiftApplication._
 import engine.http._
-import HttpPredicates._
 import scalax.io._
 import common._
 import java.io.BufferedInputStream
 import java.io.FileInputStream
 import scala.util.Try
 
-object ShiftUtils {
+trait ShiftUtils extends HttpPredicates {
 
   def cssFromFolder(folder: Path) = for {
     Path("styles" :: file :: _) <- path

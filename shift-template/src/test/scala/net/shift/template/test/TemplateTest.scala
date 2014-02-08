@@ -9,7 +9,7 @@ import java.util.Locale
 import net.shift.loc.Language
 import scala.util.Success
 
-object TemplateTest extends App {
+object TemplateTest extends App with XmlUtils with Selectors {
   val page = <html>
                <head>
                </head>
@@ -49,13 +49,13 @@ object TemplateTest extends App {
       })
   }
 
-  implicit val sel = Selectors.bySnippetAttr[SnipState[String]]
+  implicit val sel = bySnippetAttr[SnipState[String]]
   val res = Template[String](snippets)
 
   val e = for {
     t <- res.run(page)
   } yield {
-    XmlUtils.mkString(t)
+    mkString(t)
   }
   for {
     c <- e(SnipState("start", Language("ro"), NodeSeq.Empty))

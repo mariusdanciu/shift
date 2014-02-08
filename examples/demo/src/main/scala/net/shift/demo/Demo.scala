@@ -4,14 +4,13 @@ package demo
 import engine.ShiftApplication
 import engine.http._
 import engine.page._
-import HttpPredicates._
 import template._
 import netty.NettyServer
 import ShiftApplication._
 import net.shift.common.Path
 import net.shift.loc.Language
 
-object Main extends App {
+object Main extends App with HttpPredicates {
   println("Starting Netty server")
 
   def abcService(resp: AsyncResponse) {
@@ -29,9 +28,9 @@ object Main extends App {
     resp(TextResponse("serve invoked"))
   }
 
-  NettyServer.start(8080, new ShiftApplication {
+  NettyServer.start(8080, new ShiftApplication with Selectors {
 
-    implicit val selector = Selectors.bySnippetAttr[SnipState[Request]]
+    implicit val selector = bySnippetAttr[SnipState[Request]]
 
     import Request._
 

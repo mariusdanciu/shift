@@ -21,6 +21,17 @@ trait Monad[M[_]] extends Functor[M] {
 
 }
 
+object Traversing {
+  
+  implicit def listTrySequence[A](in: List[Try[A]]): Try[List[A]] = {
+    (Try(Nil: List[A]) /: in){(a, e) => e match {
+      case Success(s) =>  a map {_ ::: List(s)}
+      case _ => a
+    }}
+    
+  }
+}
+
 trait Traversing[F[_]] {
   def traverse[A, B, M[_]](f: A => M[B])(fa: F[A])(implicit m: ApplicativeFunctor[F]): M[F[B]] = sequence(m.fmap(f)(fa))
   def sequence[A, M[_]](fma: F[M[A]])(implicit m: ApplicativeFunctor[F]): M[F[A]]
@@ -87,16 +98,7 @@ trait Flat[F[_]] {
   def fmap[A, B](f: A => B): F[A] => F[B]
 }
 
-object Traversing {
-  
-  implicit def listTrySequence[A](in: List[Try[A]]): Try[List[A]] = {
-    (Try(Nil: List[A]) /: in){(a, e) => e match {
-      case Success(s) =>  a map {_ ::: List(s)}
-      case _ => a
-    }}
-    
-  }
-}
+
 
 object Monad {
   def monad[M[_]](implicit id: Identity[M], flat: Flat[M], b: Bind[M]): Monad[M] = new Monad[M] {

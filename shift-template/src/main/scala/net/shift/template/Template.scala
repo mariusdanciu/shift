@@ -11,8 +11,6 @@ import scala.xml.Text
 import scala.xml._
 import common.State
 import common.State.state
-import common.XmlUtils.attribute
-import common.XmlUtils.elem2NodeOps
 import net.shift.common.State
 import net.shift.loc.Language
 import net.shift.loc.Loc.loc0
@@ -23,7 +21,7 @@ import net.shift.common.XmlUtils
  * Holds various strategies on matching page nodes with snippets
  *
  */
-object Selectors {
+trait Selectors extends XmlUtils {
 
   type LookUp[T] = String => Option[State[T, NodeSeq]]
   type Selector[T] = (LookUp[T]) => NodeSeq => Option[State[T, NodeSeq]]
@@ -65,32 +63,32 @@ object Selectors {
   }
 }
 
-private[template] object DefaultSnippets {
+private[template] trait DefaultSnippets extends XmlUtils {
   import Loc._
 
   def locSnippet[T] = state[SnipState[T], NodeSeq] {
-    import XmlUtils._
 
-    s => s match {
-      case SnipState(_, locale, e: Elem) =>
-        Try((for { l <- attribute(e, "data-loc") } yield {
-          (s, new Elem(e.prefix, e.label, e.attributes.remove("data-loc"), e.scope, Text(loc0(locale)(l).text)))
-        }) get)
-    }
+    s =>
+      s match {
+        case SnipState(_, locale, e: Elem) =>
+          Try((for { l <- attribute(e, "data-loc") } yield {
+            (s, new Elem(e.prefix, e.label, e.attributes.remove("data-loc"), e.scope, Text(loc0(locale)(l).text)))
+          }) get)
+      }
   }
 
 }
 
-object Template {
+object Template extends XmlUtils with DefaultSnippets {
 
-  def apply[T](snippets: DynamicContent[T])(implicit selector: Selectors.type#Selector[SnipState[T]]) =
+  def apply[T](snippets: DynamicContent[T])(implicit selector: Selectors#Selector[SnipState[T]]) =
     new Template[T](snippets)(List(selector, byLocAttr))
 
-  private def byLocAttr[T]: Selectors.type#Selector[SnipState[T]] = snippets => in => in match {
+  private def byLocAttr[T]: Selectors#Selector[SnipState[T]] = snippets => in => in match {
     case e: Elem =>
       for (
         value <- attribute(e, "data-loc")
-      ) yield DefaultSnippets.locSnippet[T]
+      ) yield locSnippet[T]
     case _ => None
   }
 
@@ -99,7 +97,7 @@ object Template {
 /**
  * Template engine
  */
-class Template[T](snippets: DynamicContent[T])(implicit selectors: List[Selectors.type#Selector[SnipState[T]]]) {
+class Template[T](snippets: DynamicContent[T])(implicit selectors: List[Selectors#Selector[SnipState[T]]]) extends XmlUtils {
   import Template._
 
   private val snippetsMap = snippets toMap

@@ -8,7 +8,7 @@ import scalax.io._
 import java.io.FileInputStream
 import scala.util.Try
 
-object XmlUtils {
+trait XmlUtils {
 
   implicit def elem2NodeOps(e: Elem): NodeOps = new NodeOps(e)
 

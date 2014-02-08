@@ -18,7 +18,7 @@ import org.jboss.netty.channel.ExceptionEvent
 import org.jboss.netty.channel.MessageEvent
 import org.jboss.netty.channel.SimpleChannelUpstreamHandler
 import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory
-import org.jboss.netty.handler.codec.http.{Cookie => NettyCookie}
+import org.jboss.netty.handler.codec.http.{ Cookie => NettyCookie }
 import org.jboss.netty.handler.codec.http.CookieDecoder
 import org.jboss.netty.handler.codec.http.CookieEncoder
 import org.jboss.netty.handler.codec.http.DefaultCookie
@@ -31,8 +31,6 @@ import org.jboss.netty.handler.codec.http.HttpResponseStatus
 import org.jboss.netty.handler.codec.http.HttpVersion._
 import org.jboss.netty.handler.codec.http.QueryStringDecoder
 import common._
-import common.PathUtils._
-import common.StringUtils._
 import engine.Engine
 import engine.ShiftApplication
 import engine.http.Cookie
@@ -78,7 +76,7 @@ private[netty] class HttpServerPipelineFactory(app: ShiftApplication) extends Ch
   }
 }
 
-private[netty] class HttpRequestHandler(app: ShiftApplication) extends SimpleChannelUpstreamHandler {
+private[netty] class HttpRequestHandler(app: ShiftApplication) extends SimpleChannelUpstreamHandler with StringUtils with ShiftUtils {
   import scala.collection.JavaConversions._
   import NettyHttpExtractor._
 
@@ -110,7 +108,7 @@ private[netty] class HttpRequestHandler(app: ShiftApplication) extends SimpleCha
       lazy val cookies = cookiesMap(cookiesSet)
       def cookie(name: String) = cookies.get(name)
       lazy val readBody = Resource.fromInputStream(buffer)
-      def resource(path: Path) = ShiftUtils.fromFile(path)
+      def resource(path: Path) = fromFile(path)
       lazy val language = Language("en")
     }
 
