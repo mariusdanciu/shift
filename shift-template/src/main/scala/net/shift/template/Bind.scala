@@ -9,6 +9,7 @@ import scala.util.Success
 case class Attributes(attrs: Map[String, String]) {
   def hasAttr(name: String): Boolean = attrs contains name
   def hasClass(name: String): Boolean = attrs.get("class").map(_ contains name) getOrElse false
+  def hasId(name: String): Boolean = attrs.get("id").map(_ contains name) getOrElse false
 }
 
 case class BindMeta(attrs: Attributes, children: NodeSeq)
@@ -51,4 +52,12 @@ trait Binds {
 object Binds extends Binds {
   val > = ToBind
   val / = BindMeta
+}
+
+object Attrs {
+
+  def unapplySeq(a: Attributes): Option[Seq[(String, String)]] = { 
+    Some(a.attrs.toList.sorted)
+  }
+
 }
