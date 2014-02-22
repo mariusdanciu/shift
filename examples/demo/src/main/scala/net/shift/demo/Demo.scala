@@ -9,6 +9,7 @@ import netty.NettyServer
 import ShiftApplication._
 import net.shift.common.Path
 import net.shift.loc.Language
+import common.Config
 
 object Main extends App with HttpPredicates {
   println("Starting Netty server")
@@ -27,6 +28,9 @@ object Main extends App with HttpPredicates {
   def serveService(req: Request)(resp: AsyncResponse) {
     resp(TextResponse("serve invoked"))
   }
+  
+  Config.load()
+  println(Config.string("domain"))
 
   NettyServer.start(8080, new ShiftApplication with Selectors {
 

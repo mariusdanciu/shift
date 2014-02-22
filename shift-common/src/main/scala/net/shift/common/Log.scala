@@ -6,45 +6,67 @@ import org.apache.log4j.Level
 trait Log {
   val log = Logger.getLogger(getClass())
 
-  def debug(s: => String) {
+  def debug(s: => String, e: Exception = null) {
     if (log.isEnabledFor(Level.DEBUG)) {
-      log debug s
+      if (e != null)
+        log.debug(s, e)
+      else
+        log.debug(s)
     }
   }
 
-  def info(s: => String) {
+  def info(s: => String, e: Exception = null) {
     if (log.isEnabledFor(Level.INFO)) {
-      log info s
+      if (e != null)
+        log.info(s, e)
+      else
+        log.info(s)
     }
   }
 
-  def warn(s: => String) {
+  def warn(s: => String, e: Exception = null) {
     if (log.isEnabledFor(Level.WARN)) {
-      log warn s
+      if (e != null)
+        log.warn(s, e)
+      else
+        log.warn(s)
     }
   }
 
-  def error(s: => String) {
+  def error(s: => String, e: Exception = null) {
     if (log.isEnabledFor(Level.ERROR)) {
-      log error s
+      if (e != null)
+        log.error(s, e)
+      else
+        log.error(s)
     }
   }
 
-  def fatal(s: => String) {
+  def fatal(s: => String, e: Exception = null) {
     if (log.isEnabledFor(Level.FATAL)) {
-      log fatal s
+      if (e != null)
+        log.fatal(s, e)
+      else
+        log.fatal(s)
     }
   }
 
-  def trace(s: => String) {
+  def trace(s: => String, e: Exception = null) {
     if (log.isEnabledFor(Level.TRACE)) {
-      log trace s
+      if (e != null)
+        log.trace(s, e)
+      else
+        log.trace(s)
     }
   }
 
-  def entry(l: Level, s: => String) {
+  def log(l: Level, s: => String, e: Exception = null) {
     if (log.isEnabledFor(l)) {
-      log.log(l, s)
+      if (e != null)
+        log.log(l, s, e)
+      else
+        log.log(l, s)
     }
   }
+
 }

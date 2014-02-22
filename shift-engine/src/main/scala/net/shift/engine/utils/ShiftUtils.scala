@@ -26,6 +26,4 @@ trait ShiftUtils extends HttpPredicates {
     input <- fileOf(folder + f)
   } yield service(resp => resp(new ImageResponse(input, "image/" + ext)))
 
-  def fromFile(path: Path): Try[Input] =
-    Try(Resource.fromInputStream(new BufferedInputStream(new FileInputStream(path toString))))
 }

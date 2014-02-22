@@ -44,7 +44,7 @@ import net.shift.common.Path
 import net.shift.common.Path
 import net.shift.loc.Language
 import scalax.io._
-import net.shift.engine.utils.ShiftUtils
+import net.shift.common.PathUtils
 
 object NettyServer {
 
@@ -76,7 +76,7 @@ private[netty] class HttpServerPipelineFactory(app: ShiftApplication) extends Ch
   }
 }
 
-private[netty] class HttpRequestHandler(app: ShiftApplication) extends SimpleChannelUpstreamHandler with StringUtils with ShiftUtils {
+private[netty] class HttpRequestHandler(app: ShiftApplication) extends SimpleChannelUpstreamHandler with StringUtils with PathUtils {
   import scala.collection.JavaConversions._
   import NettyHttpExtractor._
 
@@ -108,7 +108,7 @@ private[netty] class HttpRequestHandler(app: ShiftApplication) extends SimpleCha
       lazy val cookies = cookiesMap(cookiesSet)
       def cookie(name: String) = cookies.get(name)
       lazy val readBody = Resource.fromInputStream(buffer)
-      def resource(path: Path) = fromFile(path)
+      def resource(path: Path) = fromPath(path)
       lazy val language = Language("en")
     }
 

@@ -51,4 +51,16 @@ trait StringUtils {
     case e: NumberFormatException => d
   }
 
+  def toBool(s: String): Option[Boolean] = try {
+    Some(s.toBoolean)
+  } catch {
+    case e: Exception => None
+  }
+
+  def toBool(s: String, d: Boolean): Boolean = try {
+    s.toBoolean
+  } catch {
+    case e: Exception => d
+  }
+
 }
