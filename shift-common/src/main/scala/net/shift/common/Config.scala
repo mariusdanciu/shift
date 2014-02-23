@@ -29,4 +29,6 @@ object Config extends PathUtils with StringUtils {
 
   def string(p: String, d: String = ""): String = configs.get(p).getOrElse(d)
 
+  def list(p: String, d: List[String] = Nil): List[String] = configs.get(p).map(s => s.trim.split("\\s*,\\s*").toList).getOrElse(d)
+
 }

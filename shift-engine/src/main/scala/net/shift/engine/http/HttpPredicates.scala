@@ -4,15 +4,14 @@ package http
 
 import java.io.BufferedInputStream
 import java.io.FileInputStream
-
 import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
-
 import common._
 import common.State._
 import scalax.io.Input
 import scalax.io.Resource
+import java.io.FileNotFoundException
 
 trait HttpPredicates {
 
@@ -84,9 +83,17 @@ trait HttpPredicates {
 
   def fileOf(path: Path): State[Request, Input] = state {
     r =>
-      Try(Resource.fromInputStream(new BufferedInputStream(new FileInputStream(path toString)))) match {
-        case Success(input) => Success((r, input))
-        case Failure(f) => Failure(f)
+      {
+        val sp = path toString
+
+        if (scalax.file.Path.fromString(sp).exists)
+          Try(Resource.fromInputStream(new BufferedInputStream(new FileInputStream(sp)))) match {
+            case Success(input) => Success((r, input))
+            case Failure(f) => Failure(f)
+          }
+        else {
+          Failure(new FileNotFoundException(sp))
+        }
       }
   }
 
