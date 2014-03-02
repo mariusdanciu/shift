@@ -5,7 +5,6 @@ package test
 import net.shift.common._
 import State._
 import scala.xml._
-import java.util.Locale
 import net.shift.loc.Language
 import scala.util.Success
 

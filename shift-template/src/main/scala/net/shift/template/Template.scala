@@ -70,9 +70,9 @@ private[template] trait DefaultSnippets extends XmlUtils {
 
     s =>
       s match {
-        case SnipState(_, locale, e: Elem) =>
+        case SnipState(_, language, e: Elem) =>
           Try((for { l <- attribute(e, "data-loc") } yield {
-            (s, new Elem(e.prefix, e.label, e.attributes.remove("data-loc"), e.scope, Text(loc0(locale)(l).text)))
+            (s, new Elem(e.prefix, e.label, e.attributes.remove("data-loc"), e.scope, Text(loc0(language)(l).text)))
           }) get)
       }
   }
@@ -107,8 +107,8 @@ class Template[T](snippets: DynamicContent[T])(implicit selectors: List[Selector
       e match {
         case el: Elem =>
           val el1 = el.removeAttr("data-snip")
-          Success((SnipState(s.state, s.locale, el1.e), el1.e))
-        case n => Success((SnipState(s.state, s.locale, n), n))
+          Success((SnipState(s.state, s.language, el1.e), el1.e))
+        case n => Success((SnipState(s.state, s.language, n), n))
       }
   }
 
@@ -169,4 +169,4 @@ object SnipNode {
  * @param state - the user state that is propagated during the page rendering
  * @param node - the page element that needs to be transformed by this snippet
  */
-case class SnipState[T](state: T, locale: Language, node: NodeSeq)
+case class SnipState[T](state: T, language: Language, node: NodeSeq)

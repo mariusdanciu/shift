@@ -43,9 +43,9 @@ object Html5 extends XmlUtils with Selectors {
 
 }
 
-class Html5[T](initialState: T, locale: Language, content: DynamicContent[T])(implicit selector: Selectors#Selector[SnipState[T]]) {
+class Html5[T](initialState: T, language: Language, content: DynamicContent[T])(implicit selector: Selectors#Selector[SnipState[T]]) {
   def resolve(markup: NodeSeq): NodeSeq =
     (for {
-      c <- (Template[T](content) run markup)(SnipState(initialState, locale, NodeSeq.Empty))
+      c <- (Template[T](content) run markup)(SnipState(initialState, language, NodeSeq.Empty))
     } yield c._2) getOrElse NodeSeq.Empty
 }

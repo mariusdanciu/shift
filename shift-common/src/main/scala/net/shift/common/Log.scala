@@ -6,7 +6,7 @@ import org.apache.log4j.Level
 trait Log {
   val log = Logger.getLogger(getClass())
 
-  def debug(s: => String, e: Exception = null) {
+  def debug(s: => String, e: Throwable = null) {
     if (log.isEnabledFor(Level.DEBUG)) {
       if (e != null)
         log.debug(s, e)
@@ -15,7 +15,7 @@ trait Log {
     }
   }
 
-  def info(s: => String, e: Exception = null) {
+  def info(s: => String, e: Throwable = null) {
     if (log.isEnabledFor(Level.INFO)) {
       if (e != null)
         log.info(s, e)
@@ -24,7 +24,7 @@ trait Log {
     }
   }
 
-  def warn(s: => String, e: Exception = null) {
+  def warn(s: => String, e: Throwable = null) {
     if (log.isEnabledFor(Level.WARN)) {
       if (e != null)
         log.warn(s, e)
@@ -33,7 +33,7 @@ trait Log {
     }
   }
 
-  def error(s: => String, e: Exception = null) {
+  def error(s: => String, e: Throwable = null) {
     if (log.isEnabledFor(Level.ERROR)) {
       if (e != null)
         log.error(s, e)
@@ -42,7 +42,7 @@ trait Log {
     }
   }
 
-  def fatal(s: => String, e: Exception = null) {
+  def fatal(s: => String, e: Throwable = null) {
     if (log.isEnabledFor(Level.FATAL)) {
       if (e != null)
         log.fatal(s, e)
@@ -51,7 +51,7 @@ trait Log {
     }
   }
 
-  def trace(s: => String, e: Exception = null) {
+  def trace(s: => String, e: Throwable = null) {
     if (log.isEnabledFor(Level.TRACE)) {
       if (e != null)
         log.trace(s, e)
@@ -60,7 +60,7 @@ trait Log {
     }
   }
 
-  def log(l: Level, s: => String, e: Exception = null) {
+  def log(l: Level, s: => String, e: Throwable = null) {
     if (log.isEnabledFor(l)) {
       if (e != null)
         log.log(l, s, e)
