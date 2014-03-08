@@ -27,7 +27,7 @@ case class Snippet[T](name: String, f: State[SnipState[T], NodeSeq])
 trait DynamicContent[T] {
   def snippets: List[Snippet[T]]
 
-  def toMap: Map[String, State[SnipState[T], NodeSeq]] = snippets.map(s => (s.name, s.f)).toMap
+  def toMap: Map[String, State[SnipState[T], NodeSeq]] = snippets.map((s: Snippet[T]) => (s.name, s.f)).toMap
 }
 
 

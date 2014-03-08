@@ -12,40 +12,47 @@ import net.shift.engine.http.Html5Response
 import scala.util.Try
 import scala.util.Success
 
-object Html5 extends XmlUtils with Selectors {
+object Html5 extends XmlUtils with Selectors with PathUtils {
 
-  def apply(req: Request, path: Path,
-    snippets: DynamicContent[Request])(implicit selector: Selectors#Selector[SnipState[Request]]): Rule =
-    for {
-      input <- req.resource(path)
-      n <- load(input)
-      c <- apply(req, snippets, n)(selector)
-    } yield c
-
-  def apply(req: Request,
-    snippets: DynamicContent[Request],
-    content: NodeSeq)(implicit selector: Selectors#Selector[SnipState[Request]]): Rule =
-    Success(resp => resp(Html5Response(new Html5(req, req.language, snippets).resolve(content))))
-
-  def apply[T](req: Request, initial: Request => T,
+  def pageFromFile[T](initialState: T,
+    lang: Language,
     path: Path,
     snippets: DynamicContent[T])(implicit selector: Selectors#Selector[SnipState[T]]): Rule =
     for {
-      input <- req.resource(path)
-      n <- load(input)
-      c <- apply(req, initial, snippets, n)(selector)
-    } yield c
+      input <- fromPath(path)
+      content <- load(input)
+      n <- new Html5(initialState, lang, snippets).resolve(content)
+    } yield _(Html5Response(n._2))
 
-  def apply[T](req: Request, initial: Request => T,
-    snippets: DynamicContent[T],
-    content: NodeSeq)(implicit selector: Selectors#Selector[SnipState[T]]): Rule =
-    Success(resp => resp(Html5Response(new Html5(initial(req), req.language, snippets).resolve(content))))
+  def pageFromContent[T](initialState: T,
+    lang: Language,
+    content: => NodeSeq,
+    snippets: DynamicContent[T])(implicit selector: Selectors#Selector[SnipState[T]]): Rule =
+    for {
+      n <- new Html5(initialState, lang, snippets).resolve(content)
+    } yield _(Html5Response(n._2))
 
+  def runPageFromFile[T](initialState: T,
+    lang: Language,
+    path: Path,
+    snippets: DynamicContent[T])(implicit selector: Selectors#Selector[SnipState[T]]): Try[(SnipState[T], NodeSeq)] =
+    for {
+      input <- fromPath(path)
+      content <- load(input)
+      n <- new Html5(initialState, lang, snippets).resolve(content)
+    } yield n
+
+  def runPageFromContent[T](initialState: T,
+    lang: Language,
+    content: => NodeSeq,
+    snippets: DynamicContent[T])(implicit selector: Selectors#Selector[SnipState[T]]): Try[(SnipState[T], NodeSeq)] =
+    new Html5(initialState, lang, snippets).resolve(content)
 }
 
-class Html5[T](initialState: T, language: Language, content: DynamicContent[T])(implicit selector: Selectors#Selector[SnipState[T]]) {
-  def resolve(markup: NodeSeq): NodeSeq =
-    (for {
+class Html5[T](initialState: T, language: Language, content: DynamicContent[T])(implicit selector: Selectors#Selector[SnipState[T]]) extends Log {
+  def resolve(markup: NodeSeq): Try[(SnipState[T], NodeSeq)] = {
+    for {
       c <- (Template[T](content) run markup)(SnipState(initialState, language, NodeSeq.Empty))
-    } yield c._2) getOrElse NodeSeq.Empty
+    } yield c
+  }
 }

@@ -21,9 +21,7 @@ trait HttpPredicates {
 
   def path(path: String): State[Request, Request] = state {
     r =>
-      {
-        if (r.path == Path(path)) Success((r, r)) else ShiftFailure[Request]
-      }
+      if (r.path == Path(path)) Success((r, r)) else ShiftFailure[Request]
   }
 
   def path: State[Request, Path] = state {
@@ -70,11 +68,19 @@ trait HttpPredicates {
   }
 
   def xmlContent: State[Request, String] = state {
-    r => r.contentType.filter(c => c == "application/xml" || c == "text/xml").map(c => (r, c))
+    r =>
+      r.contentType.filter(c => c == "application/xml" || c == "text/xml").map(c => (r, c)) match {
+        case Some(s) => Success(s)
+        case _ => ShiftFailure[Request]
+      }
   }
 
   def jsonContent: State[Request, String] = state {
-    r => r.contentType.filter(c => c == "application/json" || c == "text/json").map(c => (r, c))
+    r =>
+      r.contentType.filter(c => c == "application/json" || c == "text/json").map(c => (r, c)) match {
+        case Some(s) => Success(s)
+        case _ => ShiftFailure[Request]
+      }
   }
 
   def req: State[Request, Request] = init[Request]

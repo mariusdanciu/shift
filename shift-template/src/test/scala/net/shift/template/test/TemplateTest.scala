@@ -35,13 +35,13 @@ object TemplateTest extends App with XmlUtils with Selectors {
   import Snippet._
   val snippets = new DynamicContent[String] {
     def snippets = List(
-      snip[String]("form1") {
+      snip("form1") {
         s =>
           Console println s.state
           val SnipNode(name, attrs, childs) = s.node
           Success(("form", <form>{ childs }</form>))
       },
-      snip[String]("email") {
+      snip("email") {
         s =>
           Console println s.state
           Success(("email", <input type="text" id="email1">Type email here</input>))

@@ -28,7 +28,7 @@ object Main extends App with HttpPredicates {
   def serveService(req: Request)(resp: AsyncResponse) {
     resp(TextResponse("serve invoked"))
   }
-  
+
   Config.load()
   println(Config.string("domain"))
 
@@ -49,7 +49,7 @@ object Main extends App with HttpPredicates {
       _ <- path("/page/first")
       r <- req(_ withLanguage Language("ro"))
     } yield {
-      Html5(r, Path("pages/first.html"), FirstPage)
+      Html5.pageFromFile(r, r.language, Path("pages/first.html"), FirstPage)
     }
 
     // Serve /?/y/z where first part can be anything
@@ -66,7 +66,7 @@ object Main extends App with HttpPredicates {
 
     val r0 = for {
       r <- path("/")
-    } yield Html5(r, Path("pages/first.html"), FirstPage)
+    } yield Html5.pageFromFile(r, r.language, Path("pages/first.html"), FirstPage)
 
     def servingRule = r0 |
       r1 |
