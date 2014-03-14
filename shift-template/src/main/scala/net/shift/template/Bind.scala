@@ -26,8 +26,8 @@ trait Binds {
   def nameOf(e: Elem) = if (e.prefix == null) e.label else e.prefix.mkString + ":" + e.label
 
   def bind(xml: NodeSeq)(bindFunc: PartialFunction[ToBind, NodeSeq]): Try[NodeSeq] = {
-    def _bind(_xml: NodeSeq): NodeSeq = {
-      _xml flatMap {
+    def _bind(xml: NodeSeq): NodeSeq = {
+      xml flatMap {
         case Group(nodes) => _bind(nodes)
         case el: Elem =>
           val v = (applyPf(ToBind(nameOf(el), BindMeta(el.attributes, el.child)))(bindFunc) getOrElse el)
@@ -55,9 +55,22 @@ object Binds extends Binds {
 }
 
 object Attrs {
-
-  def unapplySeq(a: Attributes): Option[Seq[(String, String)]] = { 
+  def unapplySeq(a: Attributes): Option[Seq[(String, String)]] = {
     Some(a.attrs.toList.sorted)
   }
+}
 
+object HasClass {
+  def unapply(a: Attributes): Option[(String, Attributes)] = a.attrs.get("class") map (v => (v, a))
+  def unapply(a: ToBind): Option[(String, Attributes)] = a.meta.attrs.attrs.get("class") map (v => (v, a.meta.attrs))
+}
+
+object HasClasses {
+  def unapply(a: Attributes): Option[(List[String], Attributes)] = a.attrs.get("class") map (v => (v.trim.split("\\s+").toList, a))
+  def unapply(a: ToBind): Option[(List[String], Attributes)] = a.meta.attrs.attrs.get("class") map (v => (v.trim.split("\\s+").toList, a.meta.attrs))
+}
+
+object HasId {
+  def unapply(a: Attributes): Option[(String, Attributes)] = a.attrs.get("id") map (v => (v, a))
+  def unapply(a: ToBind): Option[(String, Attributes)] = a.meta.attrs.attrs.get("id") map (v => (v, a.meta.attrs))
 }

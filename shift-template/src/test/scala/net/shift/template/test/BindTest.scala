@@ -10,6 +10,7 @@ object BindTest extends App {
                 <f:li>
                   <f:img class="thumb" id="ah"/>
                 </f:li>
+                <span id="1"></span>
               </ul>
             </div>
 
@@ -18,7 +19,8 @@ object BindTest extends App {
   val res = bind(xml) {
     case "ul" > (_ / childs) => <ul>{ childs }</ul>
     case "f:li" > (_ / childs) => childs
-    case "f:img" > (Attrs(("class", "thumb"), ("id", "ah")) / _) =>
+    case HasId("1") => <b>1</b>
+    case "f:img" > (HasClass("thumb") / _) =>
       images map { i =>
         <li>
           { <img src={ i }></img> }
