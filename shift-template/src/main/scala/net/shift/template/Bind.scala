@@ -50,7 +50,7 @@ trait Binds {
 }
 
 object Binds extends Binds {
-  val > = ToBind
+  val :/ = ToBind
   val / = BindMeta
 }
 
@@ -63,14 +63,17 @@ object Attrs {
 object HasClass {
   def unapply(a: Attributes): Option[(String, Attributes)] = a.attrs.get("class") map (v => (v, a))
   def unapply(a: ToBind): Option[(String, Attributes)] = a.meta.attrs.attrs.get("class") map (v => (v, a.meta.attrs))
+  def unapply(a: BindMeta): Option[(String, Attributes)] = a.attrs.attrs.get("class") map (v => (v, a.attrs))
 }
 
 object HasClasses {
   def unapply(a: Attributes): Option[(List[String], Attributes)] = a.attrs.get("class") map (v => (v.trim.split("\\s+").toList, a))
   def unapply(a: ToBind): Option[(List[String], Attributes)] = a.meta.attrs.attrs.get("class") map (v => (v.trim.split("\\s+").toList, a.meta.attrs))
+  def unapply(a: BindMeta): Option[(List[String], Attributes)] = a.attrs.attrs.get("class") map (v => (v.trim.split("\\s+").toList, a.attrs))
 }
 
 object HasId {
   def unapply(a: Attributes): Option[(String, Attributes)] = a.attrs.get("id") map (v => (v, a))
   def unapply(a: ToBind): Option[(String, Attributes)] = a.meta.attrs.attrs.get("id") map (v => (v, a.meta.attrs))
+  def unapply(a: BindMeta): Option[(String, Attributes)] = a.attrs.attrs.get("id") map (v => (v, a.attrs))
 }

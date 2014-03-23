@@ -17,10 +17,10 @@ object BindTest extends App {
   val images = List("a", "b", "c")
 
   val res = bind(xml) {
-    case "ul" > (_ / childs) => <ul>{ childs }</ul>
-    case "f:li" > (_ / childs) => childs
-    case HasId("1") => <b>1</b>
-    case "f:img" > (HasClass("thumb") / _) =>
+    case "ul" :/ _ / childs => <ul>{ childs }</ul>
+    case "f:li" :/ a / childs => childs
+    case HasId("1", a) => <b>1</b>
+    case "f:img" :/ HasClass("thumb", a) =>
       images map { i =>
         <li>
           { <img src={ i }></img> }
@@ -29,5 +29,5 @@ object BindTest extends App {
   }
 
   println(res)
-
+// <ul _ > _ </ul>
 }
