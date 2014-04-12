@@ -48,7 +48,7 @@ import net.shift.common.PathUtils
 
 object NettyServer {
 
-  def start(port: Int, app: ShiftApplication) {
+  def start(port: Int, app: ShiftApplication)(implicit ec: scala.concurrent.ExecutionContext) {
     val bootstrap = new ServerBootstrap(
       new NioServerSocketChannelFactory(
         Executors.newCachedThreadPool(),
@@ -64,7 +64,7 @@ object NettyServer {
 
 }
 
-private[netty] class HttpServerPipelineFactory(app: ShiftApplication) extends ChannelPipelineFactory {
+private[netty] class HttpServerPipelineFactory(app: ShiftApplication)(implicit ec: scala.concurrent.ExecutionContext) extends ChannelPipelineFactory {
 
   def getPipeline(): ChannelPipeline = {
     val pipe = pipeline();
@@ -76,7 +76,7 @@ private[netty] class HttpServerPipelineFactory(app: ShiftApplication) extends Ch
   }
 }
 
-private[netty] class HttpRequestHandler(app: ShiftApplication) extends SimpleChannelUpstreamHandler with StringUtils with PathUtils {
+private[netty] class HttpRequestHandler(app: ShiftApplication)(implicit ec: scala.concurrent.ExecutionContext) extends SimpleChannelUpstreamHandler with StringUtils with PathUtils {
   import scala.collection.JavaConversions._
   import NettyHttpExtractor._
 

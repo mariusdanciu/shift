@@ -10,6 +10,7 @@ import ShiftApplication._
 import net.shift.common.Path
 import net.shift.loc.Language
 import common.Config
+import scala.concurrent.ExecutionContext.global
 
 object Main extends App with HttpPredicates {
   println("Starting Netty server")
@@ -31,6 +32,8 @@ object Main extends App with HttpPredicates {
 
   Config.load()
   println(Config.string("domain"))
+
+  import scala.concurrent.ExecutionContext.Implicits.global
 
   NettyServer.start(8080, new ShiftApplication with Selectors {
 

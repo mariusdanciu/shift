@@ -29,5 +29,4 @@ object BindTest extends App {
   }
 
   println(res)
-// <ul _ > _ </ul>
 }
