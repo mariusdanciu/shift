@@ -100,7 +100,7 @@ case class Cookie(name: String,
   value: String,
   domain: Option[String],
   path: Option[String],
-  maxAge: Option[Int],
+  maxAge: Option[Long],
   version: Option[Int],
   secure: Boolean,
   httpOnly: Boolean)

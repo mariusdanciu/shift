@@ -12,6 +12,7 @@ import common.State._
 import scalax.io.Input
 import scalax.io.Resource
 import java.io.FileNotFoundException
+import net.shift.loc.Language
 
 trait HttpPredicates {
 
@@ -86,6 +87,8 @@ trait HttpPredicates {
   def req: State[Request, Request] = init[Request]
 
   def req(r: Request => Request): State[Request, Request] = initf[Request](r)
+
+  def withLanguage(l : Language): State[Request, Request] = initf[Request](_ withLanguage l)
 
   def fileOf(path: Path): State[Request, Input] = state {
     r =>

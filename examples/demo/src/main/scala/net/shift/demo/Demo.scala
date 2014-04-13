@@ -1,16 +1,16 @@
 package net.shift
 package demo
 
+import scala.concurrent.ExecutionContext.global
+import common.Config
 import engine.ShiftApplication
+import engine.ShiftApplication._
 import engine.http._
-import engine.page._
-import template._
-import netty.NettyServer
-import ShiftApplication._
 import net.shift.common.Path
 import net.shift.loc.Language
-import common.Config
-import scala.concurrent.ExecutionContext.global
+import netty.NettyServer
+import template._
+import net.shift.engine.page.Html5
 
 object Main extends App with HttpPredicates {
   println("Starting Netty server")
@@ -50,7 +50,7 @@ object Main extends App with HttpPredicates {
     // Serve /page/first page
     val r2 = for {
       _ <- path("/page/first")
-      r <- req(_ withLanguage Language("ro"))
+      r <- withLanguage(Language("ro"))
     } yield {
       Html5.pageFromFile(r, r.language, Path("pages/first.html"), FirstPage)
     }

@@ -135,7 +135,7 @@ private[netty] class HttpRequestHandler(app: ShiftApplication)(implicit ec: scal
         cookieEncoder.addCookie(new DefaultCookie(sc.name, sc.value) {
           override def getDomain(): String = sc.domain getOrElse null
           override def getPath(): String = sc.path getOrElse null
-          override def getMaxAge(): Int = sc.maxAge getOrElse 0
+          override def getMaxAge(): Int = (sc.maxAge getOrElse 0L).toInt
           override def getVersion(): Int = sc.version getOrElse 0
           override def isSecure(): Boolean = sc.secure
           override def isHttpOnly(): Boolean = sc.httpOnly
