@@ -20,8 +20,10 @@ trait PathUtils {
 }
 
 object FileSplit {
-  def unapply(s: String): Option[(String, String)] = s.split("\\.").toList match {
-    case name :: ext :: Nil => Some((name, ext))
-    case _ => None
+  def unapply(s: String): Option[(String, String)] = {
+    val parts = s.split("\\.").toList
+    if (parts.size > 1)
+      Some((parts.head, parts.last))
+    else None
   }
 }

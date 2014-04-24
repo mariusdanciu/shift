@@ -11,19 +11,18 @@ import scala.util.Try
 
 trait ShiftUtils extends HttpPredicates {
 
-  def cssFromFolder(folder: Path) = for {
-    Path("styles" :: file :: _) <- path
-    input <- fileOf(folder + file)
-  } yield service(resp => resp(new CSSResponse(input)))
+  def imageExtensions = Set("png", "jpg", "jpeg", "gif", "tif")
 
-  def jsFromFolder(folder: Path) = for {
-    Path("scripts" :: file :: _) <- path
-    input <- fileOf(folder + file)
-  } yield service(resp => resp(new JSResponse(input)))
-
-  def imagesFromFolder(folder: Path) = for {
-    Path("images" :: (f @ FileSplit(name, ext)) :: _) <- path
-    input <- fileOf(folder + f)
-  } yield service(resp => resp(new ImageResponse(input, "image/" + ext)))
+  def staticFiles(folder: Path) = for {
+    Path("static" :: path) <- path
+    input <- fileOf(folder + path.mkString("/", "/", ""))
+  } yield {
+    val FileSplit(name, ext) = path.last
+    if (ext == "css") service(resp => resp(new CSSResponse(input)))
+    else if (imageExtensions.contains(ext)) service(resp => resp(new ImageResponse(input, "image/" + ext)))
+    else if (ext == "js") service(resp => resp(new JSResponse(input)))
+    else if (ext == "html") service(resp => resp(new HtmlStaticResponse(input)))
+    else service(resp => resp(new TextResponse(input)))
+  }
 
 }

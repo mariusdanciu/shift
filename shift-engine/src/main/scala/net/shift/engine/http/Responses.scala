@@ -23,6 +23,17 @@ case class TextResponse(content: Input) extends Response {
   }
 }
 
+case class HtmlStaticResponse(content: Input) extends Response {
+  def code = 200
+  def reason = "OK"
+  def headers = Map.empty
+  def contentType = Some("text/html; charset=\"UTF-8\"")
+  def cookies = Nil
+  def writeBody(channel: Output) = {
+    content copyDataTo channel
+  }
+}
+
 case class Html5Response(content: NodeSeq) extends Response with XmlUtils {
   def code = 200
   def reason = "OK"

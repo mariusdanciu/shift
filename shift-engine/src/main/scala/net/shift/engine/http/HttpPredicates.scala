@@ -20,6 +20,14 @@ trait HttpPredicates {
     r => if (m is r.method) Success((r, r)) else ShiftFailure[Request]
   }
 
+  def ajax: State[Request, Request] = state {
+    r =>
+      r.headers.get("X-Requested-With") match {
+        case Some("XMLHttpRequest") => Success((r, r))
+        case _ => ShiftFailure[Request]
+      }
+  }
+
   def path(path: String): State[Request, Request] = state {
     r =>
       if (r.path == Path(path)) Success((r, r)) else ShiftFailure[Request]
@@ -41,6 +49,22 @@ trait HttpPredicates {
       }
   }
 
+  def param(name: String): State[Request, String] = state {
+    r =>
+      r.param(name) match {
+        case Some(v :: _) => Success((r, v))
+        case _ => ShiftFailure[Request]
+      }
+  }
+
+  def paramValues(name: String): State[Request, List[String]] = state {
+    r =>
+      r.param(name) match {
+        case Some(v) => Success((r, v))
+        case _ => ShiftFailure[Request]
+      }
+  }
+
   def hasAllHeaders(headers: List[String]): State[Request, List[String]] = state {
     r => if (headers.filter(p => r.headers.contains(p)).size != headers.size) ShiftFailure[Request] else Success((r, headers))
   }
@@ -50,6 +74,14 @@ trait HttpPredicates {
       headers.filter(p => r.headers.contains(p)) match {
         case Nil => ShiftFailure[Request]
         case p => Success((r, p))
+      }
+  }
+
+  def header(name: String): State[Request, String] = state {
+    r =>
+      r.header(name) match {
+        case Some(v) => Success((r, v))
+        case _ => ShiftFailure[Request]
       }
   }
 
@@ -88,7 +120,11 @@ trait HttpPredicates {
 
   def req(r: Request => Request): State[Request, Request] = initf[Request](r)
 
-  def withLanguage(l : Language): State[Request, Request] = initf[Request](_ withLanguage l)
+  def withLanguage(l: Language): State[Request, Request] = initf[Request](_ withLanguage l)
+
+  def language: State[Request, Language] = state {
+    r => Success((r, r.language))
+  }
 
   def fileOf(path: Path): State[Request, Input] = state {
     r =>

@@ -55,7 +55,7 @@ case class JsApply(name: String, params: JsExp*) extends JsExp {
 
 case class JsString(value: String) extends JsExp {
 
-  def toJsString = s""""$value"""";
+  def toJsString = s""""${value.replace("\"", "\\\"")}"""";
 }
 
 case class JsChain(elems: JsExp*) extends JsExp {

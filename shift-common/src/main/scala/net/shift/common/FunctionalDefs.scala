@@ -157,7 +157,7 @@ object State {
   def put[S, A](a: A) = state[S, A] {
     s => Success((s, a))
   }
-
+  
   def modify[S](f: S => S) = state[S, Unit] {
     s => Success((f(s), ()))
   }

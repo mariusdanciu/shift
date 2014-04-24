@@ -1,11 +1,13 @@
 package net.shift
 package netty
 
+import scala.collection.JavaConversions.asScalaBuffer
+
+import org.jboss.netty.handler.codec.http.{Cookie => NettyCookie}
+import org.jboss.netty.handler.codec.http.HttpRequest
+import org.jboss.netty.handler.codec.http.QueryStringDecoder
+
 import engine.http.Cookie
-import org.jboss.netty.handler.codec.http.{ Cookie => NettyCookie };
-import org.jboss.netty.handler.codec.http.HttpRequest;
-import org.jboss.netty.handler.codec.http.HttpResponse;
-import org.jboss.netty.handler.codec.http.QueryStringDecoder;
 
 object NettyHttpExtractor {
   import scala.collection.JavaConversions._

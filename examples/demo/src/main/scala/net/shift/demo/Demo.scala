@@ -11,8 +11,9 @@ import net.shift.loc.Language
 import netty.NettyServer
 import template._
 import net.shift.engine.page.Html5
+import net.shift.engine.utils.ShiftUtils
 
-object Main extends App with HttpPredicates {
+object Main extends App with HttpPredicates with ShiftUtils {
   println("Starting Netty server")
 
   def abcService(resp: AsyncResponse) {
@@ -76,6 +77,7 @@ object Main extends App with HttpPredicates {
       r2 |
       r3 |
       r4 |
+      staticFiles(Path("web")) |
       service(notFoundService)
   })
 

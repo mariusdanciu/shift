@@ -15,7 +15,7 @@ trait Request {
   def method: String
   def contextPath: Path
   def queryString: Option[String]
-  def param(name: String): List[String]
+  def param(name: String): Option[List[String]]
   def params: Map[String, List[String]]
   def header(name: String): Option[String]
   def headers: Map[String, String]

@@ -99,7 +99,7 @@ private[netty] class HttpRequestHandler(app: ShiftApplication)(implicit ec: scal
       def method = httpMethod
       def contextPath: Path = EmptyPath
       lazy val queryString = qs
-      def param(name: String) = params.get(name).getOrElse(Nil)
+      def param(name: String) = params.get(name)
       def params = httpParams
       def header(name: String) = heads.get(name)
       def headers = heads
