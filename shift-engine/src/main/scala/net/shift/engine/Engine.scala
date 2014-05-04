@@ -6,8 +6,9 @@ import net.shift.common.Log
 import scala.util.Success
 import scala.util.Failure
 import scala.concurrent._
+import net.shift.common.DefaultLog
 
-object Engine extends Log {
+object Engine extends DefaultLog {
 
   def run(app: ShiftApplication)(request: Request, response: AsyncResponse)(implicit ec: scala.concurrent.ExecutionContext) {
     future {

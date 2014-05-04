@@ -11,6 +11,7 @@ import net.shift.engine.http.Html5Response
 import net.shift.engine.http.Html5Response
 import scala.util.Try
 import scala.util.Success
+import net.shift.common.DefaultLog
 
 object Html5 extends XmlUtils with Selectors with PathUtils {
 
@@ -49,7 +50,7 @@ object Html5 extends XmlUtils with Selectors with PathUtils {
     new Html5(initialState, lang, snippets).resolve(content)
 }
 
-class Html5[T](initialState: T, language: Language, content: DynamicContent[T])(implicit selector: Selectors#Selector[SnipState[T]]) extends Log {
+class Html5[T](initialState: T, language: Language, content: DynamicContent[T])(implicit selector: Selectors#Selector[SnipState[T]]) extends DefaultLog {
   def resolve(markup: NodeSeq): Try[(SnipState[T], NodeSeq)] = {
     for {
       c <- (Template[T](content) run markup)(SnipState(initialState, language, NodeSeq.Empty))

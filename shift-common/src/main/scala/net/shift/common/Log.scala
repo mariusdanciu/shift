@@ -4,7 +4,10 @@ import org.apache.log4j.Logger
 import org.apache.log4j.Level
 
 trait Log {
-  val log = Logger.getLogger(getClass())
+
+  def loggerName: String
+
+  val log = Logger.getLogger(loggerName)
 
   def debug(s: => String, e: Throwable = null) {
     if (log.isEnabledFor(Level.DEBUG)) {
@@ -69,4 +72,8 @@ trait Log {
     }
   }
 
+}
+
+trait DefaultLog extends Log {
+  def loggerName = getClass().getName();
 }
