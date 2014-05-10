@@ -98,6 +98,26 @@ object Formlet {
     override def html = <input type="text" name={ name }/>
   }
 
+  def inputCheck[Env, Err](name: String, value: String)(f: Env => Validation[Err, Boolean]) = new Formlet[Boolean, Env, Err] {
+    val validate = f
+    override def html = <input type="checkbox" name={ name } value={value}/>
+  }
+  
+  def inputRadio[Env, Err](name: String, value: String)(f: Env => Validation[Err, Boolean]) = new Formlet[Boolean, Env, Err] {
+    val validate = f
+    override def html = <input type="checkbox" name={ name } value={value}/>
+  }
+
+  def inputHidden[Env, Err](name: String, value: String)(f: Env => Validation[Err, String]) = new Formlet[String, Env, Err] {
+    val validate = f
+    override def html = <input type="hidden" name={ name }  value={value}/>
+  }
+  
+  def inputPassword[Env, Err](name: String)(f: Env => Validation[Err, String]) = new Formlet[String, Env, Err] {
+    val validate = f
+    override def html = <input type="password" name={ name } />
+  }
+  
 }
 
 object Main extends App with XmlUtils {
