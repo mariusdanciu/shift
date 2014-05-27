@@ -11,6 +11,7 @@ import scala.util.Try
 trait XmlUtils {
 
   implicit def elem2NodeOps(e: Elem): NodeOps = new NodeOps(e)
+  implicit def nodeOps2Elem(n: NodeOps): Elem = n e
 
   def attribute(e: Elem, name: String): Option[String] = e.attributes.get(name).map(_ mkString)
 
@@ -30,10 +31,10 @@ trait XmlUtils {
     case _ => None
   }
 
-  def load(resource: Input): Try[NodeSeq] = 
+  def load(resource: Input): Try[NodeSeq] =
     Try(XML.load(new java.io.ByteArrayInputStream(resource.byteArray)))
 
-  def load(path: Path): Try[NodeSeq] = 
+  def load(path: Path): Try[NodeSeq] =
     Try(XML.load(new java.io.ByteArrayInputStream(Resource.fromInputStream(new FileInputStream(path.toString)).byteArray)))
 
   /**
@@ -77,4 +78,12 @@ case class NodeOps(e: Elem) {
 
   def removeAttr(name: String): NodeOps = new NodeOps(new Elem(e.prefix, e.label, e.attributes.remove(name), e.scope, e.child: _*))
 
+  def getAttr(name: String): Option[String] = e.attributes.get(name).map(_ mkString)
+
+  def getAttr(prefix: String, name: String): Option[String] = for (
+    ns <- e.attributes.find {
+      case PrefixedAttribute(p, k, _, _) => p == prefix && k == name
+      case _ => false
+    }
+  ) yield ns.value.mkString
 }

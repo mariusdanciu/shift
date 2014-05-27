@@ -52,8 +52,10 @@ object Html5 extends XmlUtils with Selectors with PathUtils {
 
 class Html5[T](initialState: T, language: Language, content: DynamicContent[T])(implicit selector: Selectors#Selector[SnipState[T]]) extends DefaultLog {
   def resolve(markup: NodeSeq): Try[(SnipState[T], NodeSeq)] = {
+    import Template._
+    lazy val t = Template[T](content) run markup
     for {
-      c <- (Template[T](content) run markup)(SnipState(initialState, language, NodeSeq.Empty))
+      c <- t(SnipState(initialState, language, NodeSeq.Empty))
     } yield c
   }
 }

@@ -33,7 +33,7 @@ trait Traversing[F[_]] {
 
 }
 
-trait TraversingSpec  {
+trait TraversingSpec {
 
   def listTraverse = new Traversing[List] {
     def traverse[A, B, M[_]](f: A => M[B])(fa: List[A])(implicit m: ApplicativeFunctor[M]): M[List[B]] = {
@@ -42,7 +42,7 @@ trait TraversingSpec  {
       })
     }
   }
-  
+
 }
 
 trait Combinators[M[_]] {
@@ -157,7 +157,15 @@ object State {
   def put[S, A](a: A) = state[S, A] {
     s => Success((s, a))
   }
-  
+
+  def putOpt[S, A](a: Option[A]) = state[S, A] {
+    s =>
+      a match {
+        case Some(v) => Success((s, v))
+        case _ => Failure(new RuntimeException with util.control.NoStackTrace)
+      }
+  }
+
   def modify[S](f: S => S) = state[S, Unit] {
     s => Success((f(s), ()))
   }

@@ -51,14 +51,13 @@ object TemplateTest extends App with XmlUtils with Selectors {
   implicit val sel = bySnippetAttr[SnipState[String]]
   val res = Template[String](snippets)
 
-  val e = for {
-    t <- res.run(page)
-  } yield {
-    mkString(t)
-  }
-  for {
+  import Template._
+
+  val e = res.run(page)
+  
+  val x = for {
     c <- e(SnipState("start", Language("ro"), NodeSeq.Empty))
-  } yield {
-    Console println c._2
-  }
+  } yield c
+
+  println(x)
 }
