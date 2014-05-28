@@ -33,6 +33,8 @@ object TemplateTest extends App with XmlUtils with Selectors {
              </html>
 
   import Snippet._
+  import Template._
+  
   val snippets = new DynamicContent[String] {
     def snippets = List(
       snip("form1") {

@@ -66,7 +66,7 @@ trait Selectors extends XmlUtils {
   }
 }
 
-private[template] trait DefaultSnippets extends XmlUtils {
+private[template] trait DefaultSnippets extends XmlUtils with PathUtils with TemplateUtils {
   import Loc._
 
   def locSnippet[T] = state[SnipState[T], NodeSeq] {
@@ -79,18 +79,51 @@ private[template] trait DefaultSnippets extends XmlUtils {
       }
   }
 
+  def templateSnippet[T](implicit template: Template[T], finder: TemplateFinder) = for {
+    SnipState(_, language, e @ TemplateAttr(t)) <- init[SnipState[T]]
+    n <- put[SnipState[T], NodeSeq](e removeAttr "data-template")
+    found <- find(t, finder)
+    r <- template.run(found, toReplacements(e))
+  } yield r
+
+  private def find[T](name: String, finder: TemplateFinder) = state[SnipState[T], NodeSeq] {
+    s => finder(name).map((s, _))
+  }
+
+  private def toReplacements(in: NodeSeq): Replacements = {
+
+    val Children(_, heads) = elemByName(in, "head") getOrElse <head></head>;
+    val Children(_, childs) = elemByName(in, "body") getOrElse <body></body>;
+
+    Replacements(heads, ((Map.empty: Map[String, NodeSeq]) /: childs) {
+      case (a, e @ IdAttr(id)) => a + ((id, e))
+      case (a, _) => a
+    })
+
+  }
+
 }
 
 object Template extends XmlUtils with DefaultSnippets with PathUtils {
 
-  def apply[T](snippets: DynamicContent[T])(implicit selector: Selectors#Selector[SnipState[T]]) =
-    new Template[T](snippets)(List(selector, byLocAttr))
+  def apply[T](snippets: DynamicContent[T])(implicit finder: TemplateFinder, selector: Selectors#Selector[SnipState[T]]) = {
+    val t = new Template[T](snippets)(finder, List(selector, byLocAttr))
+    new Template[T](snippets)(finder, List(selector, byLocAttr, byTemplateAttr(t, finder)))
+  }
 
   private def byLocAttr[T]: Selectors#Selector[SnipState[T]] = snippets => in => in match {
     case e: Elem =>
       for (
         value <- attribute(e, "data-loc")
       ) yield locSnippet[T]
+    case _ => None
+  }
+
+  private def byTemplateAttr[T](template: Template[T], finder: TemplateFinder): Selectors#Selector[SnipState[T]] = snippets => in => in match {
+    case e: Elem =>
+      for (
+        value <- attribute(e, "data-template")
+      ) yield templateSnippet[T](template, finder)
     case _ => None
   }
 
@@ -103,7 +136,7 @@ object Template extends XmlUtils with DefaultSnippets with PathUtils {
 /**
  * Template engine
  */
-class Template[T](snippets: DynamicContent[T])(implicit selectors: List[Selectors#Selector[SnipState[T]]]) extends XmlUtils with TemplateUtils {
+class Template[T](snippets: DynamicContent[T])(implicit finder: TemplateFinder, selectors: List[Selectors#Selector[SnipState[T]]]) extends XmlUtils {
   import Template._
 
   private val snippetsMap = snippets toMap
@@ -118,79 +151,49 @@ class Template[T](snippets: DynamicContent[T])(implicit selectors: List[Selector
       }
   }
 
-  private def find(name: String, finder: TemplateFinder) = state[SnipState[T], NodeSeq] {
-    s => finder(name).map((s, _))
-  }
+  private[template] def run(in: NodeSeq, replacements: Replacements): State[SnipState[T], NodeSeq] = in match {
+    case Group(childs) => run(childs, replacements)
+    case t: Text => put[SnipState[T], NodeSeq](t)
+    case t: Comment => put[SnipState[T], NodeSeq](t)
+    case t: PCData => put[SnipState[T], NodeSeq](t)
+    case Head(header) =>
+      put[SnipState[T], NodeSeq](<head>{ header ++ replacements.head }</head>)
+    case e: Elem =>
+      selectors.map(_(snippetsMap get)(e)).find(s => !s.isEmpty).flatten match {
+        case Some(snippet) =>
+          for {
+            _ <- pushNode[T](e)
+            snip <- snippet
+            r <- run(snip, replacements)
+          } yield r
+        case _ =>
+          val op1 = (for {
+            id <- putOpt[SnipState[T], String](e getAttr "id")
+            n <- putOpt[SnipState[T], NodeSeq](replacements(id))
+            r <- run(n, replacements - id)
+          } yield r)
 
-  private def toReplacements(in: NodeSeq): Replacements = {
+          val op2 = (for {
+            elem <- run(e.child, replacements)
+          } yield new Elem(e.prefix, e.label, e.attributes, e.scope, elem: _*))
 
-    val Children(_, heads) = in \ "head";
-    val Children(_, childs) = in \ "body";
-
-    Replacements(heads, ((Map.empty: Map[String, NodeSeq]) /: childs) {
-      case (a, e @ IdAttr(id)) => a + ((id, e))
-      case (a, _) => a
-    })
-    
+          op1 | op2
+      }
+    case n: NodeSeq =>
+      (State.put[SnipState[T], NodeSeq](NodeSeq.Empty) /: n)((a, e) =>
+        for {
+          as <- a
+          el <- run(e, replacements)
+        } yield as ++ el)
+    case e => pushNode[T](e)
   }
 
   /**
    * Run the template processing
    */
-  def run(in: NodeSeq)(implicit finder: TemplateFinder): State[SnipState[T], NodeSeq] = {
-    def nodeProc(n: NodeSeq)(replacements: Replacements): State[SnipState[T], NodeSeq] = {
-      n match {
-        case Group(childs) => nodeProc(childs)(replacements)
+  def run(in: NodeSeq): State[SnipState[T], NodeSeq] =
+    run(in, Replacements(NodeSeq.Empty, Map.empty))
 
-        case t: Text => put[SnipState[T], NodeSeq](t)
-
-        case t: Comment => put[SnipState[T], NodeSeq](t)
-
-        case e @ TemplateAttr(t) =>
-          for {
-            n <- put[SnipState[T], NodeSeq](e removeAttr "data-template")
-            template <- find(t, finder)
-            t <- nodeProc(template)(toReplacements(e))
-          } yield t
-
-        case Head(header) =>
-          put[SnipState[T], NodeSeq](<head>{ header ++ replacements.head }</head>)
-
-        case e: Elem =>
-          selectors.map(_(snippetsMap get)(e)).find(s => !s.isEmpty).flatten match {
-            case Some(snippet) =>
-              for {
-                _ <- pushNode[T](e)
-                snip <- snippet
-                r <- nodeProc(snip)(replacements)
-              } yield r
-            case _ =>
-              val op1 = (for {
-                id <- putOpt[SnipState[T], String](e getAttr "id")
-                n <- putOpt[SnipState[T], NodeSeq](replacements(id))
-                r <- nodeProc(n)(replacements - id)
-              } yield r)
-
-              val op2 = (for {
-                elem <- nodeProc(e.child)(replacements)
-              } yield new Elem(e.prefix, e.label, e.attributes, e.scope, elem: _*))
-
-              op1 | op2
-          }
-
-        case n: NodeSeq =>
-          (State.put[SnipState[T], NodeSeq](NodeSeq.Empty) /: n)((a, e) =>
-            for {
-              as <- a
-              el <- nodeProc(e)(replacements)
-            } yield as ++ el)
-
-        case e => pushNode[T](e)
-      }
-    }
-
-    nodeProc(in)(Replacements(NodeSeq.Empty, Map.empty))
-  }
 }
 
 case class Replacements(head: NodeSeq, fragments: Map[String, NodeSeq]) {

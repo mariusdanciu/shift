@@ -54,7 +54,9 @@ object TemplateBind extends App with Selectors {
 
     val elem1 = reqSnip("elem1") {
       s =>
-        Success((s.state, s.node ++ <p>Elem1</p>))
+        {
+          Success((s.state, s.node ++ <p>Elem1</p>))
+        }
     }
   }
 

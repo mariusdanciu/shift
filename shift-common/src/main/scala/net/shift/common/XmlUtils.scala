@@ -1,12 +1,13 @@
 package net.shift
 package common
 
-import scala.xml._
-import io._
-import java.io.Reader
-import scalax.io._
 import java.io.FileInputStream
+
+import scala.io._
 import scala.util.Try
+import scala.xml._
+
+import scalax.io._
 
 trait XmlUtils {
 
@@ -31,6 +32,21 @@ trait XmlUtils {
     case _ => None
   }
 
+  def elemByName(n: NodeSeq, name: String): Option[Elem] = {
+    n match {
+      case Group(g) => elemByName(g, name)
+      case e: Elem if (e.label == name) => Some(e)
+      case e: Elem => elemByName(e.child, name)
+      case e: Text => None
+      case e: Comment => None
+      case e: PCData => None
+      case e: NodeSeq => ((None: Option[Elem]) /: e)((a, el) => a match {
+        case Some(_) => a
+        case _ => elemByName(el, name)
+      })
+      case _ => None
+    }
+  }
   def load(resource: Input): Try[NodeSeq] =
     Try(XML.load(new java.io.ByteArrayInputStream(resource.byteArray)))
 
