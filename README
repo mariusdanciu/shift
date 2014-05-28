@@ -1,8 +1,8 @@
-Shift is a pure stateless and asynchronous web toolkit written in Scala and being inspired by LiftWeb.
+Shift is a pure stateless and asynchronous web toolkit written in Scala, being inspired by LiftWeb.
 
-- Uses state monads to process requests.
-- Uses state monads to propagate state between snippets in html templates (snippets à la LiftWeb ... but lifted).
-- Flexible way to invoke snippets from HTML (you can have your own representation)
-- Responses are async
-- Uses netty by default for HTTP stack
+- Uses state monads to process requests, specify routes etc.
+- Uses state monads to propagate state between snippets in html templates.
+- Lightweight template engine that supports merging templates leading to vast reuse of common templates
+- Responses are async by design
+- Uses netty by default for HTTP stack but virtuall any HTTP server can be integrated
 
