@@ -4,5 +4,5 @@ Shift is a pure stateless and asynchronous web toolkit written in Scala, being i
 - Uses state monads to propagate state between snippets in html templates.
 - Lightweight template engine that supports merging templates leading to vast reuse of common templates
 - Responses are async by design
-- Uses netty by default for HTTP stack but virtuall any HTTP server can be integrated
+- Uses netty by default for HTTP stack but virtualy any HTTP server can be integrated
 
