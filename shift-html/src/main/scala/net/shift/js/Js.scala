@@ -58,6 +58,11 @@ case class JsString(value: String) extends JsExp {
   def toJsString = s""""${value.replace("\"", "\\\"")}"""";
 }
 
+case class JsonString(value: String) extends JsExp {
+  def toJsString = s"${value.replace("\"", "\\\"")}";
+}
+
+
 case class JsChain(elems: JsExp*) extends JsExp {
   def toJsString = {
     val p = elems map { _ toJsString }
@@ -65,9 +70,15 @@ case class JsChain(elems: JsExp*) extends JsExp {
   }
 }
 
-case class JsStatement(exp: JsExp*) extends Js {
+case class JsStatement(exp: JsExp*) extends Js {self =>
   def toJsString = {
     ("" /: exp)((acc, l) => acc + l.toJsString + "; ")
+  }
+
+  def ~(stmt: JsStatement): JsStatement = new JsStatement {
+    override def toJsString = {
+      self.toJsString + stmt.toJsString
+    }
   }
 }
 
