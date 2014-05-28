@@ -151,41 +151,41 @@ class Template[T](snippets: DynamicContent[T])(implicit finder: TemplateFinder, 
       }
   }
 
-  private[template] def run(in: NodeSeq, replacements: Replacements): State[SnipState[T], NodeSeq] = in match {
-    case Group(childs) => run(childs, replacements)
-    case t: Text => put[SnipState[T], NodeSeq](t)
-    case t: Comment => put[SnipState[T], NodeSeq](t)
-    case t: PCData => put[SnipState[T], NodeSeq](t)
-    case Head(header) =>
-      put[SnipState[T], NodeSeq](<head>{ header ++ replacements.head }</head>)
-    case e: Elem =>
-      selectors.map(_(snippetsMap get)(e)).find(s => !s.isEmpty).flatten match {
-        case Some(snippet) =>
+  private[template] def run(in: NodeSeq, replacements: Replacements): State[SnipState[T], NodeSeq] = {
+    in match {
+      case Group(childs) => run(childs, replacements)
+      case t : Atom[_] => put[SnipState[T], NodeSeq](t)
+      case Head(header) =>
+        put[SnipState[T], NodeSeq](<head>{ header ++ replacements.head }</head>)
+      case e: Elem =>
+        selectors.map(_(snippetsMap get)(e)).find(s => !s.isEmpty).flatten match {
+          case Some(snippet) =>
+            for {
+              _ <- pushNode[T](e)
+              snip <- snippet
+              r <- run(snip, replacements)
+            } yield r
+          case _ =>
+            val op1 = (for {
+              id <- putOpt[SnipState[T], String](e getAttr "id")
+              n <- putOpt[SnipState[T], NodeSeq](replacements(id))
+              r <- run(n, replacements - id)
+            } yield r)
+
+            val op2 = (for {
+              elem <- run(e.child, replacements)
+            } yield new Elem(e.prefix, e.label, e.attributes, e.scope, elem: _*))
+
+            op1 | op2
+        }
+      case n: NodeSeq =>
+        (State.put[SnipState[T], NodeSeq](NodeSeq.Empty) /: n)((a, e) =>
           for {
-            _ <- pushNode[T](e)
-            snip <- snippet
-            r <- run(snip, replacements)
-          } yield r
-        case _ =>
-          val op1 = (for {
-            id <- putOpt[SnipState[T], String](e getAttr "id")
-            n <- putOpt[SnipState[T], NodeSeq](replacements(id))
-            r <- run(n, replacements - id)
-          } yield r)
-
-          val op2 = (for {
-            elem <- run(e.child, replacements)
-          } yield new Elem(e.prefix, e.label, e.attributes, e.scope, elem: _*))
-
-          op1 | op2
-      }
-    case n: NodeSeq =>
-      (State.put[SnipState[T], NodeSeq](NodeSeq.Empty) /: n)((a, e) =>
-        for {
-          as <- a
-          el <- run(e, replacements)
-        } yield as ++ el)
-    case e => pushNode[T](e)
+            as <- a
+            el <- run(e, replacements)
+          } yield as ++ el)
+      case e => pushNode[T](e)
+    }
   }
 
   /**

@@ -1,22 +1,21 @@
 <classpath>
-  <classpathentry output="target/scala-2.10/classes" path="src/main/scala" kind="src"></classpathentry>
-  <classpathentry output="target/scala-2.10/classes" path="src/main/java" kind="src"></classpathentry>
-  <classpathentry output="target/scala-2.10/test-classes" path="src/test/scala" kind="src"></classpathentry>
-  <classpathentry output="target/scala-2.10/test-classes" path="src/test/java" kind="src"></classpathentry>
-  <classpathentry kind="con" path="org.scala-ide.sdt.launching.SCALA_CONTAINER"></classpathentry>
-  <classpathentry path="/home/marius/.ivy2/cache/com.github.scala-incubator.io/scala-io-core_2.10/jars/scala-io-core_2.10-0.4.2.jar" kind="lib"></classpathentry>
-  <classpathentry path="/home/marius/.ivy2/cache/com.jsuereth/scala-arm_2.10/jars/scala-arm_2.10-1.3.jar" kind="lib"></classpathentry>
-  <classpathentry path="/home/marius/.ivy2/cache/com.github.scala-incubator.io/scala-io-file_2.10/jars/scala-io-file_2.10-0.4.2.jar" kind="lib"></classpathentry>
-  <classpathentry path="/home/marius/.ivy2/cache/org.json4s/json4s-native_2.10/jars/json4s-native_2.10-3.2.5.jar" kind="lib"></classpathentry>
-  <classpathentry path="/home/marius/.ivy2/cache/org.json4s/json4s-core_2.10/jars/json4s-core_2.10-3.2.5.jar" kind="lib"></classpathentry>
-  <classpathentry path="/home/marius/.ivy2/cache/org.json4s/json4s-ast_2.10/jars/json4s-ast_2.10-3.2.5.jar" kind="lib"></classpathentry>
-  <classpathentry path="/home/marius/.ivy2/cache/com.thoughtworks.paranamer/paranamer/jars/paranamer-2.5.6.jar" kind="lib"></classpathentry>
-  <classpathentry path="/home/marius/.ivy2/cache/org.mockito/mockito-all/jars/mockito-all-1.9.0.jar" kind="lib"></classpathentry>
-  <classpathentry path="/home/marius/.ivy2/cache/org.scala-lang/scalap/jars/scalap-2.10.0.jar" kind="lib"></classpathentry>
-  <classpathentry kind="con" path="org.scala-ide.sdt.launching.SCALA_COMPILER_CONTAINER"></classpathentry>
-  <classpathentry path="/home/marius/.ivy2/cache/org.scala-lang/scala-reflect/jars/scala-reflect-2.10.1.jar" kind="lib"></classpathentry>
-  <classpathentry path="/home/marius/.ivy2/cache/log4j/log4j/bundles/log4j-1.2.17.jar" kind="lib"></classpathentry>
-  <classpathentry exported="true" path="/shift-common" kind="src" combineaccessrules="false"></classpathentry>
-  <classpathentry path="org.eclipse.jdt.launching.JRE_CONTAINER" kind="con"></classpathentry>
-  <classpathentry path="bin" kind="output"></classpathentry>
+  <classpathentry kind="src" path="src/main/scala" output="target/scala-2.10/classes"/>
+  <classpathentry kind="src" path="src/main/java" output="target/scala-2.10/classes"/>
+  <classpathentry kind="src" path="src/test/scala" output="target/scala-2.10/test-classes"/>
+  <classpathentry kind="src" path="src/test/java" output="target/scala-2.10/test-classes"/>
+  <classpathentry kind="lib" path="/home/marius/.ivy2/cache/org.scala-lang/scala-library/jars/scala-library-2.10.1.jar"/>
+  <classpathentry kind="lib" path="/home/marius/.ivy2/cache/com.github.scala-incubator.io/scala-io-core_2.10/jars/scala-io-core_2.10-0.4.2.jar"/>
+  <classpathentry kind="lib" path="/home/marius/.ivy2/cache/com.jsuereth/scala-arm_2.10/jars/scala-arm_2.10-1.3.jar"/>
+  <classpathentry kind="lib" path="/home/marius/.ivy2/cache/org.json4s/json4s-native_2.10/jars/json4s-native_2.10-3.2.5.jar"/>
+  <classpathentry kind="lib" path="/home/marius/.ivy2/cache/org.json4s/json4s-core_2.10/jars/json4s-core_2.10-3.2.5.jar"/>
+  <classpathentry kind="lib" path="/home/marius/.ivy2/cache/org.json4s/json4s-ast_2.10/jars/json4s-ast_2.10-3.2.5.jar"/>
+  <classpathentry kind="lib" path="/home/marius/.ivy2/cache/com.thoughtworks.paranamer/paranamer/jars/paranamer-2.5.6.jar"/>
+  <classpathentry kind="lib" path="/home/marius/.ivy2/cache/org.mockito/mockito-all/jars/mockito-all-1.9.0.jar"/>
+  <classpathentry kind="lib" path="/home/marius/.ivy2/cache/org.scala-lang/scalap/jars/scalap-2.10.0.jar"/>
+  <classpathentry kind="lib" path="/home/marius/.ivy2/cache/org.scala-lang/scala-compiler/jars/scala-compiler-2.10.0.jar"/>
+  <classpathentry kind="lib" path="/home/marius/.ivy2/cache/org.scala-lang/scala-reflect/jars/scala-reflect-2.10.0.jar"/>
+  <classpathentry kind="lib" path="/home/marius/.ivy2/cache/log4j/log4j/bundles/log4j-1.2.17.jar"/>
+  <classpathentry kind="src" path="/shift-common" exported="true" combineaccessrules="false"/>
+  <classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+  <classpathentry kind="output" path="bin"/>
 </classpath>
