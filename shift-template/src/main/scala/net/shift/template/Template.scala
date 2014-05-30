@@ -128,7 +128,7 @@ object Template extends XmlUtils with DefaultSnippets with PathUtils {
   }
 
   implicit val defaultTemplateFinder: TemplateFinder = name => for {
-    input <- fromPath(Path(s"templates/$name.html"))
+    input <- fromPath(Path(s"web/templates/$name.html"))
     content <- load(input)
   } yield content
 }

@@ -59,7 +59,7 @@ class CSSResponse(content: Input) extends Response {
   }
 }
 
-object JsResponse {
+object JSResponse {
   def apply(text: String) = new JSResponse(text.getBytes("UTF8").asInput)
 }
 
