@@ -59,11 +59,11 @@ class CSSResponse(content: Input) extends Response {
   }
 }
 
-object JSResponse {
-  def apply(text: String) = new JSResponse(text.getBytes("UTF8").asInput)
+object JsResponse {
+  def apply(text: String) = new JsResponse(text.getBytes("UTF8").asInput)
 }
 
-class JSResponse(content: Input) extends Response {
+class JsResponse(content: Input) extends Response {
   def code = 200
   def reason = "OK"
   def headers = Map.empty

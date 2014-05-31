@@ -20,7 +20,7 @@ trait ShiftUtils extends HttpPredicates {
     val FileSplit(name, ext) = path.last
     if (ext == "css") service(resp => resp(new CSSResponse(input)))
     else if (imageExtensions.contains(ext)) service(resp => resp(new ImageResponse(input, "image/" + ext)))
-    else if (ext == "js") service(resp => resp(new JSResponse(input)))
+    else if (ext == "js") service(resp => resp(new JsResponse(input)))
     else if (ext == "html") service(resp => resp(new HtmlStaticResponse(input)))
     else service(resp => resp(new TextResponse(input)))
   }
