@@ -4,7 +4,7 @@ organization := "shift"
 
 version := "0.1"
 
-scalaVersion := "2.10.1"
+scalaVersion := "2.11.2"
 
 libraryDependencies += "org.jboss.netty" % "netty" % "3.2.6.Final"
 
