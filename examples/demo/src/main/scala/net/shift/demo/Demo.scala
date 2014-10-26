@@ -72,11 +72,33 @@ object Main extends App with HttpPredicates with ShiftUtils {
       r <- path("/")
     } yield Html5.pageFromFile(r, r.language, Path("pages/first.html"), FirstPage)
 
+    val multi = for {
+      _ <- path("/form")
+      r <- req
+      mp <- multipartForm
+    } yield {
+      println(mp)
+      for { p <- mp.parts } yield {
+        p match {
+          case b @ BinaryPart(h, content) => 
+            for {
+              cd <-h.get("Content-Disposition")
+              fn <- cd.params.get("filename")
+            } yield {
+              scalax.file.Path(fn).write(content)
+            }
+          case t @ TextPart(h, content) => println(t)
+        }
+      }
+      Html5.pageFromFile(r, r.language, Path("pages/first.html"), FirstPage)
+    }
+
     def servingRule = r0 |
       r1 |
       r2 |
       r3 |
       r4 |
+      multi |
       staticFiles(Path("web")) |
       service(notFoundService)
   })

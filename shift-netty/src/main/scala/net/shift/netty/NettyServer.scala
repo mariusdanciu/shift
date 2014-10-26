@@ -45,6 +45,8 @@ import net.shift.common.Path
 import net.shift.loc.Language
 import scalax.io._
 import net.shift.common.PathUtils
+import org.jboss.netty.handler.codec.http.DefaultHttpChunk
+import org.jboss.netty.handler.codec.http.HttpChunkAggregator
 
 object NettyServer {
 
@@ -69,6 +71,7 @@ private[netty] class HttpServerPipelineFactory(app: ShiftApplication)(implicit e
   def getPipeline(): ChannelPipeline = {
     val pipe = pipeline();
     pipe.addLast("decoder", new HttpRequestDecoder());
+    pipe.addLast("aggregator", new HttpChunkAggregator(1048576));
     pipe.addLast("encoder", new HttpResponseEncoder());
     pipe.addLast("handler", new HttpRequestHandler(app));
 
@@ -81,14 +84,16 @@ private[netty] class HttpRequestHandler(app: ShiftApplication)(implicit ec: scal
   import NettyHttpExtractor._
 
   override def messageReceived(ctx: ChannelHandlerContext, e: MessageEvent) {
-    val request = e.getMessage().asInstanceOf[HttpRequest]
+
+    val msg = e.getMessage()
+    val request = msg.asInstanceOf[HttpRequest]
     val uriStr = request.getUri()
     val queryStringDecoder = new QueryStringDecoder(uriStr);
     val cookieDecoder = new CookieDecoder();
     val httpMethod = request.getMethod().getName();
     val httpParams = parameters(queryStringDecoder)
     val heads = headers(request)
-    val cookiesSet = heads.get("Cookie").map(c => asScalaSet(cookieDecoder.decode(c)));
+    val cookiesSet = heads.get("Cookie").map(c => asScalaSet(cookieDecoder.decode(c.value)));
     val qs = queryString(uriStr)
 
     val buffer = new ChannelBufferInputStream(request.getContent())
@@ -101,10 +106,11 @@ private[netty] class HttpRequestHandler(app: ShiftApplication)(implicit ec: scal
       lazy val queryString = qs
       def param(name: String) = params.get(name)
       def params = httpParams
-      def header(name: String) = heads.get(name)
+      def header(name: String) =
+        heads.get(name)
       def headers = heads
-      lazy val contentLength = header("Content-Length").map(toLong(_, 0))
-      def contentType = header("Content-Type")
+      lazy val contentLength = header("Content-Length").map(h => toLong(h.value, 0))
+      def contentType = header("Content-Type").map(_.value)
       lazy val cookies = cookiesMap(cookiesSet)
       def cookie(name: String) = cookies.get(name)
       lazy val readBody = Resource.fromInputStream(buffer)

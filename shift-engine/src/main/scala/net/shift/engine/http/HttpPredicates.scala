@@ -13,8 +13,9 @@ import scalax.io.Input
 import scalax.io.Resource
 import java.io.FileNotFoundException
 import net.shift.loc.Language
+import scala.util.parsing.combinator._
 
-trait HttpPredicates {
+trait HttpPredicates extends TimeUtils {
 
   implicit def httpMethod2State(m: HttpMethod): State[Request, Request] = state {
     r => if (m is r.method) Success((r, r)) else ShiftFailure[Request]
@@ -22,8 +23,22 @@ trait HttpPredicates {
 
   def ajax: State[Request, Request] = state {
     r =>
-      r.headers.get("X-Requested-With") match {
-        case Some("XMLHttpRequest") => Success((r, r))
+      r.header("X-Requested-With") match {
+        case Some(Header(_, "XMLHttpRequest", _)) => Success((r, r))
+        case _                                    => ShiftFailure[Request]
+      }
+  }
+
+  def multipartForm: State[Request, MultiPartBody] = state {
+    r =>
+      r.header("Content-Type") match {
+        case Some(Header(_, "multipart/form-data", params)) =>
+          params.get("boundary") match {
+            case Some(b) =>
+              val arr = (r readBody).byteArray
+              MultipartParser(b).parse(arr).map(e => (r, e))
+            case None => ShiftFailure[Request]
+          }
         case _ => ShiftFailure[Request]
       }
   }
@@ -45,7 +60,7 @@ trait HttpPredicates {
     r =>
       params.filter(p => r.params.contains(p)) match {
         case Nil => ShiftFailure[Request]
-        case p => Success((r, p))
+        case p   => Success((r, p))
       }
   }
 
@@ -53,7 +68,7 @@ trait HttpPredicates {
     r =>
       r.param(name) match {
         case Some(v :: _) => Success((r, v))
-        case _ => ShiftFailure[Request]
+        case _            => ShiftFailure[Request]
       }
   }
 
@@ -61,7 +76,7 @@ trait HttpPredicates {
     r =>
       r.param(name) match {
         case Some(v) => Success((r, v))
-        case _ => ShiftFailure[Request]
+        case _       => ShiftFailure[Request]
       }
   }
 
@@ -73,15 +88,15 @@ trait HttpPredicates {
     r =>
       headers.filter(p => r.headers.contains(p)) match {
         case Nil => ShiftFailure[Request]
-        case p => Success((r, p))
+        case p   => Success((r, p))
       }
   }
 
-  def header(name: String): State[Request, String] = state {
+  def header(name: String): State[Request, Header] = state {
     r =>
       r.header(name) match {
         case Some(v) => Success((r, v))
-        case _ => ShiftFailure[Request]
+        case _       => ShiftFailure[Request]
       }
   }
 
@@ -104,7 +119,7 @@ trait HttpPredicates {
     r =>
       r.contentType.filter(c => c.startsWith("application/xml") || c.startsWith("text/xml")).map(c => (r, c)) match {
         case Some(s) => Success(s)
-        case _ => ShiftFailure[Request]
+        case _       => ShiftFailure[Request]
       }
   }
 
@@ -112,7 +127,7 @@ trait HttpPredicates {
     r =>
       r.contentType.filter(c => c.startsWith("application/json") || c.startsWith("text/json")).map(c => (r, c)) match {
         case Some(s) => Success(s)
-        case _ => ShiftFailure[Request]
+        case _       => ShiftFailure[Request]
       }
   }
 
@@ -134,7 +149,7 @@ trait HttpPredicates {
         if (scalax.file.Path.fromString(sp).exists)
           Try(Resource.fromInputStream(new BufferedInputStream(new FileInputStream(sp)))) match {
             case Success(input) => Success((r, input))
-            case Failure(f) => Failure(f)
+            case Failure(f)     => Failure(f)
           }
         else {
           Failure(new FileNotFoundException(sp))

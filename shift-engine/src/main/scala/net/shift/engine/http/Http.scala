@@ -17,8 +17,8 @@ trait Request {
   def queryString: Option[String]
   def param(name: String): Option[List[String]]
   def params: Map[String, List[String]]
-  def header(name: String): Option[String]
-  def headers: Map[String, String]
+  def header(name: String): Option[Header]
+  def headers: Map[String, Header]
   def contentLength: Option[Long]
   def contentType: Option[String]
   def cookies: Map[String, Cookie]
@@ -47,6 +47,13 @@ class RequestShell(in: Request) extends Request {
   def language: Language = in language
 }
 
+object Header {
+  def apply(key: String, value: String) = new Header(key, value, Map.empty)
+}
+
+case class Header(key: String, value: String, params: Map[String, String])
+
+
 object Request {
   implicit def augmentRequest(r: Request): RichRequest = RichRequest(r)
 }
@@ -56,7 +63,7 @@ case class RichRequest(r: Request) {
     override val language = l
   }
 
-  def withHeader(prop: (String, String)) = new RequestShell(r) {
+  def withHeader(prop: (String, Header)) = new RequestShell(r) {
     override val headers = r.headers + prop
   }
 
@@ -125,8 +132,54 @@ case object HEAD extends HttpMethod {
 }
 
 object RuleException {
- def apply() = new RuleException("");  
+  def apply() = new RuleException("");
 }
 
 class RuleException(msg: String) extends RuntimeException(msg) with util.control.NoStackTrace
+
+trait HttpUtils {
+
+  def extractHeader(line: String) = {
+    for {
+      (h, t) <- kvSlice(line, "\\s*:\\s*")
+      (v, p) <- listSlice(t, "\\s*;\\s*")
+      map <- mapSlice(p, "\\s*=\\s*")
+    } yield {
+      Header(h, v, map)
+    }
+
+  }
+  
+  def extractHeaderValue(k: String, line: String) = {
+    for {
+      (v, p) <- listSlice(line, "\\s*;\\s*")
+      map <- mapSlice(p, "\\s*=\\s*")
+    } yield {
+      Header(k, v, map)
+    }
+
+  }
+
+  
+  private def kvSlice(in: String, split: String) = {
+      in.split(split).toList match {
+        case k :: v :: Nil => Some((k, v))
+        case l => None
+      }
+    }
+
+    private def listSlice(in: String, split: String) = in.split(split).toList match {
+      case h :: t => Some((h, t))
+      case _ => None
+    }
+
+    private def mapSlice(in: List[String], split: String) = Some(Map((for {
+      item <- in
+      p <- kvSlice(item, split)
+    } yield {
+      (p._1, unquote(p._2))
+    }): _*))
+
+    private def unquote(in: String) = if (in.head == '\"' && in.last == '\"') in.tail.dropRight(1) else in
+}
 

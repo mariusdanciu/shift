@@ -2,14 +2,14 @@ package net.shift
 package netty
 
 import scala.collection.JavaConversions.asScalaBuffer
-
 import org.jboss.netty.handler.codec.http.{Cookie => NettyCookie}
 import org.jboss.netty.handler.codec.http.HttpRequest
 import org.jboss.netty.handler.codec.http.QueryStringDecoder
-
 import engine.http.Cookie
+import net.shift.engine.http.HttpUtils
+import net.shift.engine.http.Header
 
-object NettyHttpExtractor {
+object NettyHttpExtractor extends HttpUtils {
   import scala.collection.JavaConversions._
 
   def parameters(q: QueryStringDecoder): Map[String, List[String]] = {
@@ -23,13 +23,13 @@ object NettyHttpExtractor {
     pm.toMap
   }
 
-  def headers(r: HttpRequest): Map[String, String] = {
+  def headers(r: HttpRequest): Map[String, Header] = {
     val it = r.getHeaders().iterator()
-    val pm = new scala.collection.mutable.LinkedHashMap[String, String]()
+    val pm = new scala.collection.mutable.LinkedHashMap[String, Header]()
 
     while (it.hasNext()) {
       val entry = it.next();
-      pm += entry.getKey -> entry.getValue()
+      extractHeaderValue(entry.getKey, entry.getValue()).map(h => pm += (h.key -> h)) 
     }
     pm.toMap
   }
