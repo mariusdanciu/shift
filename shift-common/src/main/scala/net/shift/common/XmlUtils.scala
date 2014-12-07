@@ -20,29 +20,29 @@ trait XmlUtils {
     for (
       ns <- e.attributes.find {
         case PrefixedAttribute(p, k, _, _) => p == prefix && k == name
-        case _ => false
+        case _                             => false
       }
     ) yield ns.value.mkString
 
   def elemByAttr(e: NodeSeq, attr: (String, String)): Option[Elem] = (e find {
     case x: Elem => !attribute(x, attr._1).filter(_ == attr._2).isEmpty
-    case _ => false
+    case _       => false
   }) match {
     case Some(e: Elem) => Some(e)
-    case _ => None
+    case _             => None
   }
 
   def elemByName(n: NodeSeq, name: String): Option[Elem] = {
     n match {
-      case Group(g) => elemByName(g, name)
+      case Group(g)                     => elemByName(g, name)
       case e: Elem if (e.label == name) => Some(e)
-      case e: Elem => elemByName(e.child, name)
-      case e: Text => None
-      case e: Comment => None
-      case e: PCData => None
+      case e: Elem                      => elemByName(e.child, name)
+      case e: Text                      => None
+      case e: Comment                   => None
+      case e: PCData                    => None
       case e: NodeSeq => ((None: Option[Elem]) /: e)((a, el) => a match {
         case Some(_) => a
-        case _ => elemByName(el, name)
+        case _       => elemByName(el, name)
       })
       case _ => None
     }
@@ -53,17 +53,21 @@ trait XmlUtils {
   def load(path: Path): Try[NodeSeq] =
     Try(XML.load(new java.io.ByteArrayInputStream(Resource.fromInputStream(new FileInputStream(path.toString)).byteArray)))
 
+  def load(in: String): Try[NodeSeq] = load(in.getBytes("utf-8"))
+
+  def load(in: Array[Byte]): Try[NodeSeq] = Try(XML.load(new java.io.ByteArrayInputStream(in)))
+
   /**
    * Returns the String representation of the 'nodes'
    *
    */
   def mkString(nodes: NodeSeq): String = (nodes flatMap {
     case Group(childs) => mkString(childs)
-    case Text(str) => escape(str)
-    case e: Unparsed => e mkString
-    case e: PCData => e mkString
-    case e: Atom[_] => escape(e.data.toString)
-    case e: Comment => e mkString
+    case Text(str)     => escape(str)
+    case e: Unparsed   => e mkString
+    case e: PCData     => e mkString
+    case e: Atom[_]    => escape(e.data.toString)
+    case e: Comment    => e mkString
     case e: Elem => {
       val name = if (e.prefix eq null) e.label else e.prefix + ":" + e.label
       val attrs = if (e.attributes ne null) e.attributes.toString
@@ -88,7 +92,20 @@ trait XmlUtils {
 
 }
 
+object NodeOps {
+  def node(name: String): Elem = node(name, Map.empty)
+
+  def node(name: String, attrs: Map[String, String]): Elem = new Elem(null,
+    name,
+    ((Null: MetaData) /: attrs)((a, e) => MetaData.concatenate(a, new UnprefixedAttribute(e._1, e._2, Null))),
+    TopScope,
+    NodeSeq.Empty.toSeq: _*)
+
+}
+
 case class NodeOps(e: Elem) {
+
+  def wrap(ns: NodeSeq): NodeOps = new NodeOps(new Elem(e.prefix, e.label, e.attributes, e.scope, (e.child ++ ns): _*))
 
   def attr(name: String, value: String): NodeOps = new NodeOps(e % new UnprefixedAttribute(name, value, Null))
 
@@ -99,7 +116,7 @@ case class NodeOps(e: Elem) {
   def getAttr(prefix: String, name: String): Option[String] = for (
     ns <- e.attributes.find {
       case PrefixedAttribute(p, k, _, _) => p == prefix && k == name
-      case _ => false
+      case _                             => false
     }
   ) yield ns.value.mkString
 }

@@ -3,8 +3,11 @@ package template
 package test
 
 import Binds._
+import net.shift.common.NodeOps._
+import net.shift.common.NodeOps
+import net.shift.common.XmlUtils
 
-object BindTest extends App {
+object BindTest extends App with XmlUtils {
   val xml = <div class="images">
               <ul>
                 <f:li>
@@ -17,7 +20,7 @@ object BindTest extends App {
   val images = List("a", "b", "c")
 
   val res = bind(xml) {
-    case "ul" :/ _ / childs => <ul>{ childs }</ul>
+    case "ul" :/ _ / childs => node("ul") wrap childs
     case "f:li" :/ a / childs => childs
     case HasId("1", a) => <b>1</b>
     case "f:img" :/ HasClass("thumb", a) =>

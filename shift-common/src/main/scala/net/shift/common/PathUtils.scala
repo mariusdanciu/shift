@@ -11,7 +11,7 @@ trait PathUtils {
 
   def pathToList(path: String) = (path split "/").toList match {
     case "" :: rest => rest
-    case e => e
+    case e          => e
   }
 
   def fromPath(path: Path): Try[Input] =
@@ -20,10 +20,15 @@ trait PathUtils {
 }
 
 object FileSplit {
+
+  def unapply(s: Path): Option[(String, String)] = unapply(s.toString())
+
   def unapply(s: String): Option[(String, String)] = {
-    val parts = s.split("\\.").toList
-    if (parts.size > 1)
-      Some((parts.head, parts.last))
-    else None
+    val pos = s.lastIndexOf(".")
+    if (pos > -1) {
+      val t = s.splitAt(pos + 1)
+      Some((t._1.dropRight(1), t._2))
+    } else None
   }
+
 }

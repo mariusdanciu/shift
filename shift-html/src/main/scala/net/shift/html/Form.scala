@@ -8,12 +8,12 @@ import common._
 sealed trait Validation[+E, +A] {
   def map[B](f: A => B): Validation[E, B] = this match {
     case f @ Failure(e) => f
-    case _ => Success(f(get))
+    case _              => Success(f(get))
   }
 
   def flatMap[AA >: A, EE >: E, B](f: AA => Validation[EE, B]): Validation[EE, B] = this match {
     case f @ Failure(e) => f
-    case _ => f(get)
+    case _              => f(get)
   }
 
   def isError: Boolean
@@ -38,8 +38,8 @@ class ReversedApplicativeForm[A, Env, Err](form: Formlet[A, Env, Err]) {
     override val validate: Env => Validation[Err, Y] = env => {
       (form.validate(env), f.validate(env)) match {
         case (Failure(e1), Failure(e2)) => Failure(s append (e1, e2))
-        case (_, Failure(e)) => Failure(e)
-        case (Failure(e), _) => Failure(e)
+        case (_, Failure(e))            => Failure(e)
+        case (Failure(e), _)            => Failure(e)
         case (Success(a1), Success(a2)) => Success(a1(a2))
       }
     }
@@ -64,7 +64,7 @@ trait Formlet[A, Env, Err] { me =>
     def validate = me validate
     override def html: NodeSeq = me.html match {
       case elem: Elem => elem % new UnprefixedAttribute(name, value, Null)
-      case e => e
+      case e          => e
     }
   }
 
@@ -88,7 +88,12 @@ object Formlet {
     override def html = NodeSeq.Empty
   }
 
-  def inputText[Env, Err](name: String)(f: Env => Validation[Err, String]) = new Formlet[String, Env, Err] {
+  def inputText[Env, Err, S](name: String)(f: Env => Validation[Err, S]) = new Formlet[S, Env, Err] {
+    val validate = f
+    override def html = <input type="text" name={ name }/>
+  }
+
+  def inputDouble[Env, Err](name: String)(f: Env => Validation[Err, Double]) = new Formlet[Double, Env, Err] {
     val validate = f
     override def html = <input type="text" name={ name }/>
   }
@@ -100,24 +105,34 @@ object Formlet {
 
   def inputCheck[Env, Err](name: String, value: String)(f: Env => Validation[Err, Boolean]) = new Formlet[Boolean, Env, Err] {
     val validate = f
-    override def html = <input type="checkbox" name={ name } value={value}/>
-  }
-  
-  def inputRadio[Env, Err](name: String, value: String)(f: Env => Validation[Err, Boolean]) = new Formlet[Boolean, Env, Err] {
-    val validate = f
-    override def html = <input type="checkbox" name={ name } value={value}/>
+    override def html = <input type="checkbox" name={ name } value={ value }/>
   }
 
-  def inputHidden[Env, Err](name: String, value: String)(f: Env => Validation[Err, String]) = new Formlet[String, Env, Err] {
+  def inputRadio[Env, Err](name: String, value: String)(f: Env => Validation[Err, Boolean]) = new Formlet[Boolean, Env, Err] {
     val validate = f
-    override def html = <input type="hidden" name={ name }  value={value}/>
+    override def html = <input type="checkbox" name={ name } value={ value }/>
   }
-  
+
+  def inputHidden[Env, Err, S](name: String, value: String)(f: Env => Validation[Err, S]) = new Formlet[S, Env, Err] {
+    val validate = f
+    override def html = <input type="hidden" name={ name } value={ value }/>
+  }
+
   def inputPassword[Env, Err](name: String)(f: Env => Validation[Err, String]) = new Formlet[String, Env, Err] {
     val validate = f
-    override def html = <input type="password" name={ name } />
+    override def html = <input type="password" name={ name }/>
   }
-  
+
+  def inputSelect[Env, Err, S](name: String, options: List[(String, String)])(f: Env => Validation[Err, S]) = new Formlet[S, Env, Err] {
+    val validate = f
+    override def html = <select name={ name }>{ options.map { o => <option name={ o._1 }>{ o._2 }</option> } }</select>
+  }
+
+  def inputFile[Env, Err, S](name: String)(f: Env => Validation[Err, S]) = new Formlet[S, Env, Err] {
+    val validate = f
+    override def html = <input type="file" name={ name }/>
+  }
+
 }
 
 object Main extends App with XmlUtils {
@@ -132,7 +147,7 @@ object Main extends App with XmlUtils {
 
   def validName(name: String): Map[String, String] => Validation[List[String], String] = env => env.get(name) match {
     case Some(n) => Success(n);
-    case _ => Failure(List("Missing name value"))
+    case _       => Failure(List("Missing name value"))
   }
 
   def validAge: Map[String, String] => Validation[List[String], Int] = env => env.get("age") match {
