@@ -105,7 +105,7 @@ object NodeOps {
 
 case class NodeOps(e: Elem) {
 
-  def wrap(ns: NodeSeq): NodeOps = new NodeOps(new Elem(e.prefix, e.label, e.attributes, e.scope, (e.child ++ ns): _*))
+  def /(ns: NodeSeq): NodeOps = new NodeOps(new Elem(e.prefix, e.label, e.attributes, e.scope, (e.child ++ ns): _*))
 
   def attr(name: String, value: String): NodeOps = new NodeOps(e % new UnprefixedAttribute(name, value, Null))
 

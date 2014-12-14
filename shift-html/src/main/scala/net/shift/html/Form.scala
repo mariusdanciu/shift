@@ -98,6 +98,11 @@ object Formlet {
     override def html = <input type="text" name={ name }/>
   }
 
+  def inputOptional[Env, Err, T](name: String)(f: Env => Validation[Err, Option[T]]) = new Formlet[Option[T], Env, Err] {
+    val validate = f
+    override def html = <input type="text" name={ name }/>
+  }
+
   def inputInt[Env, Err](name: String)(f: Env => Validation[Err, Int]) = new Formlet[Int, Env, Err] {
     val validate = f
     override def html = <input type="text" name={ name }/>

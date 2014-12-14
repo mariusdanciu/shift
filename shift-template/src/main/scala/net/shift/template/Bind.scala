@@ -50,7 +50,7 @@ trait Binds {
 }
 
 object Binds extends Binds {
-  val :/ = ToBind
+  val - = ToBind
   val / = BindMeta
 }
 
