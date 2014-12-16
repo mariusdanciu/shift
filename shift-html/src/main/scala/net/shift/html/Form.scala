@@ -16,6 +16,8 @@ sealed trait Validation[+E, +A] {
     case _              => f(get)
   }
 
+  def postValidate[EE >: E, AA >: A](e: A => Validation[EE, AA]): Validation[EE, AA] = e(get)
+
   def isError: Boolean
   protected def get: A
 }
@@ -35,6 +37,7 @@ case class FormletErr(name: String, message: String)
 class ReversedApplicativeForm[A, Env, Err](form: Formlet[A, Env, Err]) {
 
   def <*>[X, Y](f: Formlet[X, Env, Err])(implicit e: A <:< (X => Y), s: Semigroup[Err]): Formlet[Y, Env, Err] = new Formlet[Y, Env, Err] {
+
     override val validate: Env => Validation[Err, Y] = env => {
       (form.validate(env), f.validate(env)) match {
         case (Failure(e1), Failure(e2)) => Failure(s append (e1, e2))
@@ -174,7 +177,10 @@ object Main extends App with XmlUtils {
 
   println(form html)
 
-  val p = form validate Map(("name" -> "marius"), ("age" -> "33"))
+  val p = (form validate Map(("name" -> "marius"), ("age" -> "33"))) postValidate {
+    case p @ Person("marius", age) => Failure(List("Unacceptable person"))
+    case p                         => Success(p)
+  }
 
   println(p)
 
