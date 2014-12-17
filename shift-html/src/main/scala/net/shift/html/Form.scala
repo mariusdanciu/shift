@@ -11,12 +11,10 @@ sealed trait Validation[+E, +A] {
     case _              => Success(f(get))
   }
 
-  def flatMap[AA >: A, EE >: E, B](f: AA => Validation[EE, B]): Validation[EE, B] = this match {
+  def flatMap[AA >: A, EE >: E, B](f: A => Validation[EE, B]): Validation[EE, B] = this match {
     case f @ Failure(e) => f
     case _              => f(get)
   }
-
-  def postValidate[EE >: E, AA >: A](e: A => Validation[EE, AA]): Validation[EE, AA] = e(get)
 
   def isError: Boolean
   protected def get: A
@@ -177,7 +175,7 @@ object Main extends App with XmlUtils {
 
   println(form html)
 
-  val p = (form validate Map(("name" -> "marius"), ("age" -> "33"))) postValidate {
+  val p = (form validate Map(("name" -> "marius"), ("age" -> "33"))) flatMap {
     case p @ Person("marius", age) => Failure(List("Unacceptable person"))
     case p                         => Success(p)
   }
