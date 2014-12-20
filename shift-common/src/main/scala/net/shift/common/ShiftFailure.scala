@@ -1,5 +1,5 @@
 package net.shift
-package engine
+package common
 
 object ShiftFailure {
   def apply[T] = new ShiftFailure[T]("Not found")

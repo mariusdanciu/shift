@@ -4,21 +4,60 @@ package http
 
 import java.io.BufferedInputStream
 import java.io.FileInputStream
+import java.io.FileNotFoundException
 import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
+import scala.util.matching.Regex
 import common._
 import common.State._
+import net.shift.common.ShiftFailure
+import net.shift.loc.Language
+import net.shift.security.HMac
+import net.shift.security.Organization
+import net.shift.security.Permission
+import net.shift.security.User
 import scalax.io.Input
 import scalax.io.Resource
-import java.io.FileNotFoundException
-import net.shift.loc.Language
-import scala.util.parsing.combinator._
+import net.shift.security.SecurityFailure
+import net.shift.security.BasicCredentials
+import net.shift.security.Credentials
+import net.shift.security.Users
 
 trait HttpPredicates extends TimeUtils {
+  val Pattern = new Regex("""\w+:\w*:w*""")
 
   implicit def httpMethod2State(m: HttpMethod): State[Request, Request] = state {
     r => if (m is r.method) Success((r, r)) else ShiftFailure[Request]
+  }
+
+  def authenticate(implicit login: Credentials => Option[User]): State[Request, User] = state {
+    r =>
+      {
+        (r.header("Authorization"), r.cookie("identity"), r.cookie("secret")) match {
+
+          case (_, Some(Cookie(_, Base64(identity), _, _, _, _, _, _)), Some(Cookie(_, secret, _, _, _, _, _, _))) =>
+            val computedSecret = Base64.encode(HMac.encodeSHA256(identity, Config.string("hmac.auth.salt", "SHIFT-HMAC-SALT")))
+            if (computedSecret == secret) {
+              identity match {
+                case Users(u) => Success((r, u))
+                case _        => Failure(SecurityFailure[User]("Incorrect identity"))
+              }
+            } else {
+              Failure(SecurityFailure[User]("Secret does not match"))
+            }
+
+          case (Some(Authorization(creds @ BasicCredentials(user, password))), None, None) =>
+            login(creds) match {
+              case Some(u) =>
+                Success((r, u))
+              case _ =>
+                Failure(SecurityFailure[User]("Login failed"))
+            }
+
+          case _ => Failure(SecurityFailure[User]("Cannot authenticate"))
+        }
+      }
   }
 
   def ajax: State[Request, Request] = state {

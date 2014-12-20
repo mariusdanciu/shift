@@ -5,6 +5,7 @@ import scala.concurrent.ExecutionContext.global
 import common.Config
 import engine.ShiftApplication
 import engine.ShiftApplication._
+import engine.http.Response._
 import engine.http._
 import net.shift.common.Path
 import net.shift.loc.Language
@@ -12,6 +13,17 @@ import netty.NettyServer
 import template._
 import net.shift.engine.page.Html5
 import net.shift.engine.utils.ShiftUtils
+import net.shift.security.Credentials
+import net.shift.security.User
+import net.shift.common.ShiftFailure
+import scala.util.Success
+import net.shift.common.State
+import net.shift.common.Base64
+import net.shift.security.BasicCredentials
+import scala.util.Failure
+import net.shift.security.HMac
+import net.shift.security.SecurityFailure
+import net.shift.security.Users
 
 object Main extends App with HttpPredicates with ShiftUtils {
   println("Starting Netty server")
@@ -27,12 +39,11 @@ object Main extends App with HttpPredicates with ShiftUtils {
     resp(TextResponse("Sorry ... service not found"))
   }
 
-  def serveService(req: Request)(resp: AsyncResponse) {
+  def serveService(resp: AsyncResponse) {
     resp(TextResponse("serve invoked"))
   }
 
   Config.load()
-  println(Config.string("domain"))
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -66,7 +77,7 @@ object Main extends App with HttpPredicates with ShiftUtils {
     val r4 = for {
       Path("1" :: a :: b :: "3" :: Nil) <- tailPath
       r <- req
-    } yield service(serveService(r))
+    } yield service(serveService)
 
     val r0 = for {
       r <- path("/")
@@ -77,12 +88,11 @@ object Main extends App with HttpPredicates with ShiftUtils {
       r <- req
       mp <- multipartForm
     } yield {
-      println(mp)
       for { p <- mp.parts } yield {
         p match {
-          case b @ BinaryPart(h, content) => 
+          case b @ BinaryPart(h, content) =>
             for {
-              cd <-h.get("Content-Disposition")
+              cd <- h.get("Content-Disposition")
               fn <- cd.params.get("filename")
             } yield {
               scalax.file.Path(fn).write(content)
@@ -93,13 +103,29 @@ object Main extends App with HttpPredicates with ShiftUtils {
       Html5.pageFromFile(r, r.language, Path("pages/first.html"), FirstPage)
     }
 
-    def servingRule = r0 |
+    val admin = for {
+      _ <- path("/admin")
+      user <- authenticate
+    } yield {
+      println("Got user " + user)
+      service(_(TextResponse("admin").withSecurityCookies(user)))
+    }
+
+    implicit def login(creds: Credentials): Option[User] = {
+      creds match {
+        case BasicCredentials("marius", "boot") => Some(User("marius", None, Set.empty))
+        case _                                  => None
+      }
+    }
+
+    def servingRule = staticFiles(Path("web")) |
+      r0 |
       r1 |
       r2 |
       r3 |
-      r4 |
       multi |
-      staticFiles(Path("web")) |
+      admin |
+      r4 |
       service(notFoundService)
   })
 

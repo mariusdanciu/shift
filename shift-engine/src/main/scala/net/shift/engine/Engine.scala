@@ -7,16 +7,22 @@ import scala.util.Success
 import scala.util.Failure
 import scala.concurrent._
 import net.shift.common.DefaultLog
+import net.shift.security.SecurityFailure
+import net.shift.common.Config
 
 object Engine extends DefaultLog {
 
   def run(app: ShiftApplication)(request: Request, response: AsyncResponse)(implicit ec: scala.concurrent.ExecutionContext) {
-    future {
-      app.servingRule.map {
-        case Success(f) => f(response)
-        case Failure(t) => error("Fail processing the request", t)
-      }(request)
+
+    Future {
+      app.servingRule(request) match {
+        case Success((_, Success(f))) => f(response)
+        case Failure(SecurityFailure(msg)) =>
+          warn(s"Authentication failure $msg")
+          response(Resp.basicAuthRequired(Config.string("auth.realm", "shift")))
+        case Failure(t) =>
+          error("Fail processing the request " + t)
+      }
     }
   }
-
 }

@@ -4,6 +4,7 @@ package common
 import scala.util.Try
 import scala.util.Success
 import scala.util.Failure
+import net.shift.security.SecurityFailure
 
 trait Functor[F[_]] {
   def unit[A](a: A): F[A]
@@ -77,8 +78,9 @@ trait State[S, +A] {
   def |[B >: A](other: State[S, B]): State[S, B] = state {
     x =>
       apply(x) match {
-        case Failure(_) => other apply x
-        case s => s
+        case f @ Failure(SecurityFailure(msg)) => f
+        case f @ Failure(_)                    => other apply x
+        case s                                 => s
       }
   }
 
@@ -162,7 +164,7 @@ object State {
     s =>
       a match {
         case Some(v) => Success((s, v))
-        case _ => Failure(new RuntimeException with util.control.NoStackTrace)
+        case _       => Failure(new RuntimeException with util.control.NoStackTrace)
       }
   }
 

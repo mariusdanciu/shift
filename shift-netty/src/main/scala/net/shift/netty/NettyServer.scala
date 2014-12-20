@@ -47,6 +47,7 @@ import scalax.io._
 import net.shift.common.PathUtils
 import org.jboss.netty.handler.codec.http.DefaultHttpChunk
 import org.jboss.netty.handler.codec.http.HttpChunkAggregator
+import net.shift.engine.http.Header
 
 object NettyServer {
 
@@ -84,7 +85,6 @@ private[netty] class HttpRequestHandler(app: ShiftApplication)(implicit ec: scal
   import NettyHttpExtractor._
 
   override def messageReceived(ctx: ChannelHandlerContext, e: MessageEvent) {
-
     val msg = e.getMessage()
     val request = msg.asInstanceOf[HttpRequest]
     val uriStr = request.getUri()
@@ -93,7 +93,23 @@ private[netty] class HttpRequestHandler(app: ShiftApplication)(implicit ec: scal
     val httpMethod = request.getMethod().getName();
     val httpParams = parameters(queryStringDecoder)
     val heads = headers(request)
-    val cookiesSet = heads.get("Cookie").map(c => asScalaSet(cookieDecoder.decode(c.value)));
+
+    val nettyCookie = request.getHeader("Cookie")
+    val cookiesSet = if (nettyCookie != null) {
+      (asScalaSet(cookieDecoder.decode(nettyCookie)).map { nc =>
+        (nc.getName(), Cookie(nc.getName(),
+          nc.getValue(),
+          Option(nc.getDomain()),
+          Option(nc.getPath()),
+          Option(nc.getMaxAge()),
+          Option(nc.getVersion()),
+          nc.isSecure(),
+          nc.isHttpOnly()))
+      }).toMap
+    } else {
+      Map.empty[String, Cookie]
+    }
+
     val qs = queryString(uriStr)
 
     val buffer = new ChannelBufferInputStream(request.getContent())
@@ -106,12 +122,11 @@ private[netty] class HttpRequestHandler(app: ShiftApplication)(implicit ec: scal
       lazy val queryString = qs
       def param(name: String) = params.get(name)
       def params = httpParams
-      def header(name: String) =
-        heads.get(name)
+      def header(name: String) = heads.get(name)
       def headers = heads
       lazy val contentLength = header("Content-Length").map(h => toLong(h.value, 0))
       def contentType = header("Content-Type").map(_.value)
-      lazy val cookies = cookiesMap(cookiesSet)
+      lazy val cookies = cookiesSet
       def cookie(name: String) = cookies.get(name)
       lazy val readBody = Resource.fromInputStream(buffer)
       def resource(path: Path) = fromPath(path)
@@ -131,13 +146,17 @@ private[netty] class HttpRequestHandler(app: ShiftApplication)(implicit ec: scal
     resp.writeBody(Resource.fromOutputStream(out))
     response.setContent(buf)
 
+    for ((k, Header(n, v, params)) <- resp.headers) {
+      response.addHeader(k, v);
+    }
+
     resp.contentType.map(c => response.setHeader("Content-Type", c))
 
     response.setHeader("Content-Length", response.getContent().readableBytes())
 
-    val cookieEncoder = new CookieEncoder(true);
     if (!resp.cookies.isEmpty) {
       for (sc <- resp.cookies) {
+        val cookieEncoder = new CookieEncoder(true);
         cookieEncoder.addCookie(new DefaultCookie(sc.name, sc.value) {
           override def getDomain(): String = sc.domain getOrElse null
           override def getPath(): String = sc.path getOrElse null
@@ -146,8 +165,8 @@ private[netty] class HttpRequestHandler(app: ShiftApplication)(implicit ec: scal
           override def isSecure(): Boolean = sc.secure
           override def isHttpOnly(): Boolean = sc.httpOnly
         })
+        response.addHeader("Set-Cookie", cookieEncoder.encode());
       }
-      response.setHeader("Set-Cookie", cookieEncoder.encode());
     }
 
     val future = e.getChannel().write(response);

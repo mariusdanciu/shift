@@ -11,7 +11,7 @@ import scala.util.parsing.input.Reader
 import net.shift.common.Log
 import net.shift.common.TimeUtils
 import scalax.io.Input
-import net.shift.engine.ShiftFailure
+import net.shift.common.ShiftFailure
 
 sealed trait MultiPart
 

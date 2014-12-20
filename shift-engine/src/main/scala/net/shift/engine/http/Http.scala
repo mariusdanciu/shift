@@ -8,6 +8,12 @@ import scalax.io._
 import common.Path
 import net.shift.loc.Language
 import scala.util.Try
+import net.shift.common.Base64
+import net.shift.security.Credentials
+import net.shift.security.BasicCredentials
+import net.shift.security.User
+import net.shift.security.HMac
+import net.shift.common.Config
 
 trait Request {
   def path: Path
@@ -53,9 +59,12 @@ object Header {
 
 case class Header(key: String, value: String, params: Map[String, String])
 
-
 object Request {
   implicit def augmentRequest(r: Request): RichRequest = RichRequest(r)
+}
+
+object Response {
+  implicit def augmentResponse(r: Response): RichResponse = RichResponse(r)
 }
 
 case class RichRequest(r: Request) {
@@ -80,13 +89,45 @@ case class RichRequest(r: Request) {
   }
 }
 
+case class RichResponse(r: Response) {
+
+  def withHeaders(prop: (String, Header)*) = new ResponseShell(r) {
+    override val headers = r.headers ++ Map(prop: _*)
+  }
+
+  def withCookies(c: Cookie*) = new ResponseShell(r) {
+    override val cookies = r.cookies ++ c
+  }
+
+  def withSecurityCookies(user: User): Response = {
+    val org = user.org.map(_.name) getOrElse ""
+    val identity = s"${user.name}:$org:${user.permissions.mkString(",")}"
+    val computedSecret = Base64.encode(HMac.encodeSHA256(identity, Config.string("auth.hmac.salt", "SHIFT-HMAC-SALT")))
+
+    withCookies(
+      Cookie("identity", Base64.encodeString(identity), None, None, Some(Config.long("auth.ttl", 3600000)), None, false, true),
+      Cookie("secret", computedSecret, None, None, Some(Config.long("auth.ttl", 3600000)), None, false, true))
+  }
+
+}
+
 trait Response {
   def code: Int
   def reason: String
-  def headers: Map[String, String]
+  def headers: Map[String, Header]
   def contentType: Option[String]
   def cookies: List[Cookie]
   def writeBody(channel: Output)
+}
+
+class ResponseShell(in: Response) extends Response {
+  def code = in code
+  def reason = in reason
+  def headers = in headers
+  def contentType = in contentType
+  def cookies = in cookies
+  def writeBody(channel: Output) = in writeBody channel
+
 }
 
 trait Context {
@@ -103,14 +144,18 @@ object Cookie {
     new Cookie(name, value, None, None, Some(maxAge), None, false, false)
 }
 
+object Base64Cookie {
+  def unapply(c: Cookie): Option[String] = Some(new String(Base64.decode(c.value)))
+}
+
 case class Cookie(name: String,
-  value: String,
-  domain: Option[String],
-  path: Option[String],
-  maxAge: Option[Long],
-  version: Option[Int],
-  secure: Boolean,
-  httpOnly: Boolean)
+                  value: String,
+                  domain: Option[String],
+                  path: Option[String],
+                  maxAge: Option[Long],
+                  version: Option[Int],
+                  secure: Boolean,
+                  httpOnly: Boolean)
 
 sealed trait HttpMethod {
   def is(name: String): Boolean
@@ -149,7 +194,7 @@ trait HttpUtils {
     }
 
   }
-  
+
   def extractHeaderValue(k: String, line: String) = {
     for {
       (v, p) <- listSlice(line, "\\s*;\\s*")
@@ -160,26 +205,34 @@ trait HttpUtils {
 
   }
 
-  
   private def kvSlice(in: String, split: String) = {
-      in.split(split).toList match {
-        case k :: v :: Nil => Some((k, v))
-        case l => None
-      }
+    in.split(split).toList match {
+      case k :: v :: Nil => Some((k, v))
+      case l             => None
     }
+  }
 
-    private def listSlice(in: String, split: String) = in.split(split).toList match {
-      case h :: t => Some((h, t))
-      case _ => None
-    }
+  private def listSlice(in: String, split: String) = in.split(split).toList match {
+    case h :: t => Some((h, t))
+    case _      => None
+  }
 
-    private def mapSlice(in: List[String], split: String) = Some(Map((for {
-      item <- in
-      p <- kvSlice(item, split)
-    } yield {
-      (p._1, unquote(p._2))
-    }): _*))
+  private def mapSlice(in: List[String], split: String) = Some(Map((for {
+    item <- in
+    p <- kvSlice(item, split)
+  } yield {
+    (p._1, unquote(p._2))
+  }): _*))
 
-    private def unquote(in: String) = if (in.head == '\"' && in.last == '\"') in.tail.dropRight(1) else in
+  private def unquote(in: String) = if (in.head == '\"' && in.last == '\"') in.tail.dropRight(1) else in
 }
 
+object Authorization {
+  def unapply(h: Header): Option[Credentials] =
+    if (h.key.equals("Authorization") && h.value.startsWith("Basic ")) {
+      Base64.decodeString(h.value.substring(6)).split(":").toList match {
+        case user :: password :: Nil => Some(BasicCredentials(user, password))
+        case _                       => None
+      }
+    } else None
+}
