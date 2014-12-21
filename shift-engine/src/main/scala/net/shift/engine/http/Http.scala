@@ -101,12 +101,12 @@ case class RichResponse(r: Response) {
 
   def withSecurityCookies(user: User): Response = {
     val org = user.org.map(_.name) getOrElse ""
-    val identity = s"${user.name}:$org:${user.permissions.mkString(",")}"
+    val identity = s"${user.name}:$org:${user.permissions.map(_.name).mkString(",")}"
     val computedSecret = Base64.encode(HMac.encodeSHA256(identity, Config.string("auth.hmac.salt", "SHIFT-HMAC-SALT")))
 
     withCookies(
-      Cookie("identity", Base64.encodeString(identity), None, None, Some(Config.long("auth.ttl", 3600000)), None, false, true),
-      Cookie("secret", computedSecret, None, None, Some(Config.long("auth.ttl", 3600000)), None, false, true))
+      Cookie("identity", Base64.encodeString(identity), None, Some("/"), Some(Config.long("auth.ttl", 3600000)), None, false, true),
+      Cookie("secret", computedSecret, None, Some("/"), Some(Config.long("auth.ttl", 3600000)), None, false, true))
   }
 
 }

@@ -7,12 +7,12 @@ import scala.util.Success
 
 object ShiftApplication {
 
-  implicit def rule(r: Rule) = State.gets[Request, Rule](req => r)
+  implicit def rule(r: Attempt) = State.gets[Request, Attempt](req => r)
 
-  def service(in: AsyncResponse => Unit): Rule = Success(in)
+  def service(in: AsyncResponse => Unit): Attempt = Success(in)
 
 }
 
 trait ShiftApplication {
-  def servingRule: State[Request, Rule]
+  def servingRule: State[Request, Attempt]
 }

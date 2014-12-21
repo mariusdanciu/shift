@@ -17,11 +17,15 @@ object Engine extends DefaultLog {
     Future {
       app.servingRule(request) match {
         case Success((_, Success(f))) => f(response)
+        case Success((_, Failure(t))) =>
+          error("Fail processing the request " + t)
+          response(Resp.serverError)
         case Failure(SecurityFailure(msg)) =>
           warn(s"Authentication failure $msg")
           response(Resp.basicAuthRequired(Config.string("auth.realm", "shift")))
         case Failure(t) =>
           error("Fail processing the request " + t)
+          response(Resp.serverError)
       }
     }
   }

@@ -18,7 +18,7 @@ object Html5 extends XmlUtils with Selectors with PathUtils {
   def pageFromFile[T](initialState: T,
     lang: Language,
     path: Path,
-    snippets: DynamicContent[T])(implicit selector: Selectors#Selector[SnipState[T]]): Rule =
+    snippets: DynamicContent[T])(implicit selector: Selectors#Selector[SnipState[T]]): Attempt =
     for {
       input <- fromPath(path)
       content <- load(input)
@@ -28,7 +28,7 @@ object Html5 extends XmlUtils with Selectors with PathUtils {
   def pageFromContent[T](initialState: T,
     lang: Language,
     content: => NodeSeq,
-    snippets: DynamicContent[T])(implicit selector: Selectors#Selector[SnipState[T]]): Rule =
+    snippets: DynamicContent[T])(implicit selector: Selectors#Selector[SnipState[T]]): Attempt =
     for {
       n <- new Html5(initialState, lang, snippets).resolve(content)
     } yield _(Html5Response(n._2))

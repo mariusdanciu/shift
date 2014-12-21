@@ -20,10 +20,10 @@ object BindTest extends App with XmlUtils {
   val images = List("a", "b", "c")
 
   val res = bind(xml) {
-    case "ul" - _ / childs   => node("ul") / childs
-    case "f:li" - a / childs => childs
-    case HasId("1", a)       => <b>1</b>
-    case "f:img" - HasClass("thumb", a) =>
+    case "ul" attributes _ / childs   => node("ul") / childs
+    case "f:li" attributes a / childs => childs
+    case HasId("1", a)                => <b>1</b>
+    case "f:img" attributes HasClass("thumb", a) =>
       images map { i =>
         <li>
           { <img src={ i }></img> }

@@ -63,8 +63,11 @@ object Main extends App with HttpPredicates with ShiftUtils {
     val r2 = for {
       _ <- path("/page/first")
       r <- withLanguage(Language("ro"))
+      user <- authenticate
     } yield {
-      Html5.pageFromFile(r, r.language, Path("pages/first.html"), FirstPage)
+      Html5.pageFromFile(r, r.language, Path("pages/first.html"), FirstPage).map {
+        _ withResponse (_ withSecurityCookies user)
+      }
     }
 
     // Serve /?/y/z where first part can be anything
@@ -103,12 +106,15 @@ object Main extends App with HttpPredicates with ShiftUtils {
       Html5.pageFromFile(r, r.language, Path("pages/first.html"), FirstPage)
     }
 
+    def augmentRule(rule: Service, f: Response => Response): Service =
+      (ar: AsyncResponse) => rule((r: Response) => ar(f(r)))
+
     val admin = for {
       _ <- path("/admin")
-      user <- authenticate
+      u <- user
     } yield {
-      println("Got user " + user)
-      service(_(TextResponse("admin").withSecurityCookies(user)))
+      println("Got user " + u)
+      service(_(TextResponse("admin")))
     }
 
     implicit def login(creds: Credentials): Option[User] = {

@@ -5,6 +5,8 @@ import scala.util.Try
 package object http {
 
   type AsyncResponse = Response => Unit
-  type Rule = Try[AsyncResponse => Unit]
+  type Service = AsyncResponse => Unit
+  type Attempt = Try[Service]
 
+  implicit def serviceServiceUtils(s: Service): ServiceUtils = new ServiceUtils(s)
 }

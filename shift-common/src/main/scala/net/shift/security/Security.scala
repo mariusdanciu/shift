@@ -4,16 +4,18 @@ package security
 import scala.util.Failure
 import scala.util.Try
 import scala.util.matching.Regex
-
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 import net.shift.common.ShiftFailure
+import net.shift.common.Implicits
 
 trait Credentials
 
 sealed case class BasicCredentials(userName: String, password: String) extends Credentials
 
-case class SecurityFailure[+T](msg: String) extends RuntimeException(msg) with util.control.NoStackTrace
+case class SecurityFailure[+T](msg: String) extends RuntimeException(msg) with util.control.NoStackTrace {
+  def toFailure = Failure(this)
+}
 
 object Permissions {
   def unapplySeq(s: String): Option[Seq[Permission]] = Some(s.split(",").toList.map(Permission(_)))
@@ -39,12 +41,11 @@ object Users {
 }
 
 case class User(name: String, org: Option[Organization], permissions: Set[Permission]) {
-
   def requireAll[T](perms: Permission*)(f: => T): Try[T] = {
     if (perms.toSet diff permissions isEmpty) {
       Try(f)
     } else {
-      Failure(ShiftFailure[T]("not.enough.permissions"))
+      ShiftFailure[T]("not.enough.permissions").toFailure
     }
   }
 
@@ -54,7 +55,7 @@ case class User(name: String, org: Option[Organization], permissions: Set[Permis
     if (diff.size < perms.size) {
       Try(f)
     } else {
-      Failure(ShiftFailure[T]("not.enough.permissions"))
+      ShiftFailure[T]("not.enough.permissions").toFailure
     }
   }
 
