@@ -19,11 +19,11 @@
 	<classpathentry kind="lib" path="/home/marius/.ivy2/cache/org.scala-lang.modules/scala-xml_2.11/bundles/scala-xml_2.11-1.0.1.jar"/>
 	<classpathentry kind="lib" path="/home/marius/.ivy2/cache/org.json4s/json4s-native_2.11/jars/json4s-native_2.11-3.2.10.jar"/>
 	<classpathentry kind="lib" path="/home/marius/.ivy2/cache/log4j/log4j/bundles/log4j-1.2.17.jar"/>
-	<classpathentry kind="lib" path="/home/marius/.ivy2/local/shift/shift-template_2.11/0.1/jars/shift-template_2.11.jar"/>
 	<classpathentry kind="lib" path="/home/marius/.ivy2/cache/org.jboss.netty/netty/bundles/netty-3.2.6.Final.jar"/>
 	<classpathentry combineaccessrules="false" exported="true" kind="src" path="/shift-netty"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
 	<classpathentry combineaccessrules="false" kind="src" path="/shift-engine"/>
 	<classpathentry combineaccessrules="false" kind="src" path="/shift-common"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/shift-template"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

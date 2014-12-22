@@ -34,7 +34,7 @@ object TemplateTest extends App with XmlUtils with Selectors {
 
   import Snippet._
   import Template._
-  
+
   val snippets = new DynamicContent[String] {
     def snippets = List(
       snip("form1") {
@@ -56,9 +56,9 @@ object TemplateTest extends App with XmlUtils with Selectors {
   import Template._
 
   val e = res.run(page)
-  
+
   val x = for {
-    c <- e(SnipState("start", Language("ro"), NodeSeq.Empty))
+    c <- e(SnipState(PageState("start", Language("ro"), None), NodeSeq.Empty))
   } yield c
 
   println(x)

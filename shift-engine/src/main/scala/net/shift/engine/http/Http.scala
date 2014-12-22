@@ -229,10 +229,15 @@ trait HttpUtils {
 
 object Authorization {
   def unapply(h: Header): Option[Credentials] =
-    if (h.key.equals("Authorization") && h.value.startsWith("Basic ")) {
-      Base64.decodeString(h.value.substring(6)).split(":").toList match {
-        case user :: password :: Nil => Some(BasicCredentials(user, password))
-        case _                       => None
-      }
-    } else None
+    try {
+      if (h.key.equals("Authorization") && h.value.startsWith("Basic ")) {
+        Base64.decodeString(h.value.substring(6)).split(":").toList match {
+          case user :: password :: Nil =>
+            Some(BasicCredentials(user, password))
+          case _ => None
+        }
+      } else None
+    } catch {
+      case e: Exception => e.printStackTrace(); throw e
+    }
 }

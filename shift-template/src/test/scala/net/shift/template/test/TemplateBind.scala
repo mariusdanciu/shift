@@ -10,6 +10,7 @@ import net.shift.template.SnipState
 import net.shift.template.Template
 import net.shift.template.TemplateFinder
 import net.shift.template.Snippet
+import net.shift.template.PageState
 
 object TemplateBind extends App with Selectors {
 
@@ -54,13 +55,13 @@ object TemplateBind extends App with Selectors {
 
     val elem1 = reqSnip("elem1") {
       s =>
-        Success((s.state, s.node ++ <p>Elem1</p>))
+        Success((s.state.initialState, s.node ++ <p>Elem1</p>))
     }
   }
 
   lazy val t = Template[String](content) run page
   val res = for {
-    c <- t(SnipState("", Language("ro"), NodeSeq.Empty))
+    c <- t(SnipState(PageState("", Language("ro"), None), NodeSeq.Empty))
   } yield c
 
   println(res)

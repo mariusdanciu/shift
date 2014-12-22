@@ -2,31 +2,28 @@ package net.shift
 package demo
 
 import scala.concurrent.ExecutionContext.global
+import org.apache.log4j.BasicConfigurator
 import common.Config
 import engine.ShiftApplication
 import engine.ShiftApplication._
-import engine.http.Response._
 import engine.http._
+import engine.http.Response._
 import net.shift.common.Path
+import net.shift.common.State
+import net.shift.engine.utils.ShiftUtils
 import net.shift.loc.Language
+import net.shift.security.Credentials
+import net.shift.security.User
 import netty.NettyServer
 import template._
 import net.shift.engine.page.Html5
-import net.shift.engine.utils.ShiftUtils
-import net.shift.security.Credentials
-import net.shift.security.User
-import net.shift.common.ShiftFailure
-import scala.util.Success
-import net.shift.common.State
-import net.shift.common.Base64
 import net.shift.security.BasicCredentials
-import scala.util.Failure
-import net.shift.security.HMac
-import net.shift.security.SecurityFailure
-import net.shift.security.Users
+import net.shift.security.Permission
 
 object Main extends App with HttpPredicates with ShiftUtils {
   println("Starting Netty server")
+
+  BasicConfigurator.configure
 
   def abcService(resp: AsyncResponse) {
     resp(TextResponse("abc service executed."))
@@ -65,7 +62,8 @@ object Main extends App with HttpPredicates with ShiftUtils {
       r <- withLanguage(Language("ro"))
       user <- authenticate
     } yield {
-      Html5.pageFromFile(r, r.language, Path("pages/first.html"), FirstPage).map {
+      println("Page first")
+      Html5.pageFromFile(PageState(r, r.language, Some(user)), Path("pages/first.html"), FirstPage).map {
         _ withResponse (_ withSecurityCookies user)
       }
     }
@@ -84,7 +82,7 @@ object Main extends App with HttpPredicates with ShiftUtils {
 
     val r0 = for {
       r <- path("/")
-    } yield Html5.pageFromFile(r, r.language, Path("pages/first.html"), FirstPage)
+    } yield Html5.pageFromFile(PageState(r, r.language), Path("pages/first.html"), FirstPage)
 
     val multi = for {
       _ <- path("/form")
@@ -103,11 +101,8 @@ object Main extends App with HttpPredicates with ShiftUtils {
           case t @ TextPart(h, content) => println(t)
         }
       }
-      Html5.pageFromFile(r, r.language, Path("pages/first.html"), FirstPage)
+      Html5.pageFromFile(PageState(r, r.language), Path("pages/first.html"), FirstPage)
     }
-
-    def augmentRule(rule: Service, f: Response => Response): Service =
-      (ar: AsyncResponse) => rule((r: Response) => ar(f(r)))
 
     val admin = for {
       _ <- path("/admin")
@@ -119,8 +114,11 @@ object Main extends App with HttpPredicates with ShiftUtils {
 
     implicit def login(creds: Credentials): Option[User] = {
       creds match {
-        case BasicCredentials("marius", "boot") => Some(User("marius", None, Set.empty))
-        case _                                  => None
+        case BasicCredentials("marius", "boot") => Some(User("marius", None, Set(Permission("read"), Permission("write"))))
+        case BasicCredentials("ali", "boot")    => Some(User("ali", None, Set(Permission("read"))))
+        case c =>
+          println(c)
+          None
       }
     }
 

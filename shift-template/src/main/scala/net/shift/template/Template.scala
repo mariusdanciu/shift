@@ -19,6 +19,8 @@ import net.shift.common.XmlUtils
 import net.shift.loc.Language
 import net.shift.loc.Loc
 import net.shift.loc.Loc.loc0
+import net.shift.security.Permission
+import net.shift.security.User
 
 /**
  * Holds various strategies on matching page nodes with snippets
@@ -72,15 +74,33 @@ private[template] trait DefaultSnippets extends XmlUtils with PathUtils with Tem
   def locSnippet[T] = state[SnipState[T], NodeSeq] {
     s =>
       s match {
-        case SnipState(_, language, e: Elem) =>
+        case SnipState(PageState(_, language, _), e: Elem) =>
           Try((for { l <- attribute(e, "data-loc") } yield {
             (s, new Elem(e.prefix, e.label, e.attributes.remove("data-loc"), e.scope, Text(loc0(language)(l).text)))
           }) get)
       }
   }
 
+  def permissionSnippet[T] = state[SnipState[T], NodeSeq] {
+    s =>
+      s match {
+        case SnipState(PageState(_, language, user), e: Elem) =>
+          Try((for { l <- attribute(e, "data-permissions") } yield {
+            val otherPerms = l.split("\\s*,\\s*").map(Permission(_))
+
+            user match {
+              case Some(u) => (u.requireAll(otherPerms: _*) {
+                (s, new Elem(e.prefix, e.label, e.attributes.remove("data-permissions"), e.scope, e.child:_*))
+              }).getOrElse((s, NodeSeq.Empty))
+              case None => (s, NodeSeq.Empty)
+            }
+
+          }) get)
+      }
+  }
+
   def templateSnippet[T](implicit template: Template[T], finder: TemplateFinder) = for {
-    SnipState(_, language, e @ TemplateAttr(t)) <- init[SnipState[T]]
+    SnipState(PageState(_, language, _), e @ TemplateAttr(t)) <- init[SnipState[T]]
     n <- put[SnipState[T], NodeSeq](e removeAttr "data-template")
     found <- find(t, finder)
     r <- template.run(found, toReplacements(e))
@@ -97,7 +117,7 @@ private[template] trait DefaultSnippets extends XmlUtils with PathUtils with Tem
 
     Replacements(heads, ((Map.empty: Map[String, NodeSeq]) /: childs) {
       case (a, e @ IdAttr(id)) => a + ((id, e))
-      case (a, _) => a
+      case (a, _)              => a
     })
 
   }
@@ -108,7 +128,15 @@ object Template extends XmlUtils with DefaultSnippets with PathUtils {
 
   def apply[T](snippets: DynamicContent[T])(implicit finder: TemplateFinder, selector: Selectors#Selector[SnipState[T]]) = {
     val t = new Template[T](snippets)(finder, List(selector, byLocAttr))
-    new Template[T](snippets)(finder, List(selector, byLocAttr, byTemplateAttr(t, finder)))
+    new Template[T](snippets)(finder, List(selector, byLocAttr, byTemplateAttr(t, finder), byPermissionsAttr))
+  }
+
+  private def byPermissionsAttr[T]: Selectors#Selector[SnipState[T]] = snippets => in => in match {
+    case e: Elem =>
+      for (
+        value <- attribute(e, "data-permissions")
+      ) yield permissionSnippet[T]
+    case _ => None
   }
 
   private def byLocAttr[T]: Selectors#Selector[SnipState[T]] = snippets => in => in match {
@@ -146,15 +174,15 @@ class Template[T](snippets: DynamicContent[T])(implicit finder: TemplateFinder, 
       e match {
         case el: Elem =>
           val el1 = el.removeAttr("data-snip")
-          Success((SnipState(s.state, s.language, el1.e), el1.e))
-        case n => Success((SnipState(s.state, s.language, n), n))
+          Success((SnipState(s.state, el1.e), el1.e))
+        case n => Success((SnipState(s.state, n), n))
       }
   }
 
   private[template] def run(in: NodeSeq, replacements: Replacements): State[SnipState[T], NodeSeq] = {
     in match {
       case Group(childs) => run(childs, replacements)
-      case t : Atom[_] => put[SnipState[T], NodeSeq](t)
+      case t: Atom[_]    => put[SnipState[T], NodeSeq](t)
       case Head(header) =>
         put[SnipState[T], NodeSeq](<head>{ header ++ replacements.head }</head>)
       case e: Elem =>
@@ -213,14 +241,23 @@ object SnipNode {
   def unapply(n: NodeSeq): Option[(String, Map[String, String], NodeSeq)] = {
     n match {
       case e: Elem => Some((e.label, e.attributes.asAttrMap, e.child))
-      case _ => None
+      case _       => None
     }
   }
 }
 
 /**
- * @param state - the user state that is propagated during the page rendering
+ * @param initialState - the user state that is propagated during the page rendering
  * @param language - the language used for potential localization
+ * @param user - the User context
+ */
+case class PageState[T](initialState: T, lang: Language, user: Option[User])
+
+object PageState {
+  def apply[T](initialState: T, lang: Language) = new PageState(initialState, lang, None)
+}
+
+/**
  * @param node - the page element that needs to be transformed by this snippet
  */
-case class SnipState[T](state: T, language: Language, node: NodeSeq)
+case class SnipState[T](state: PageState[T], node: NodeSeq)
