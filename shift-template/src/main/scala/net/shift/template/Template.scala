@@ -90,7 +90,7 @@ private[template] trait DefaultSnippets extends XmlUtils with PathUtils with Tem
 
             user match {
               case Some(u) => (u.requireAll(otherPerms: _*) {
-                (s, new Elem(e.prefix, e.label, e.attributes.remove("data-permissions"), e.scope, e.child:_*))
+                (s, new Elem(e.prefix, e.label, e.attributes.remove("data-permissions"), e.scope, e.child: _*))
               }).getOrElse((s, NodeSeq.Empty))
               case None => (s, NodeSeq.Empty)
             }
@@ -184,7 +184,7 @@ class Template[T](snippets: DynamicContent[T])(implicit finder: TemplateFinder, 
       case Group(childs) => run(childs, replacements)
       case t: Atom[_]    => put[SnipState[T], NodeSeq](t)
       case Head(header) =>
-        put[SnipState[T], NodeSeq](<head>{ header ++ replacements.head }</head>)
+        run(header ++ replacements.head, replacements).map { n => <head>{ n }</head> }
       case e: Elem =>
         selectors.map(_(snippetsMap get)(e)).find(s => !s.isEmpty).flatten match {
           case Some(snippet) =>

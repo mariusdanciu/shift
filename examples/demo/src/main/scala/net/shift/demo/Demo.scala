@@ -82,7 +82,8 @@ object Main extends App with HttpPredicates with ShiftUtils {
 
     val r0 = for {
       r <- path("/")
-    } yield Html5.pageFromFile(PageState(r, r.language), Path("pages/first.html"), FirstPage)
+      u <- user
+    } yield Html5.pageFromFile(PageState(r, r.language, u), Path("pages/first.html"), FirstPage)
 
     val multi = for {
       _ <- path("/form")
