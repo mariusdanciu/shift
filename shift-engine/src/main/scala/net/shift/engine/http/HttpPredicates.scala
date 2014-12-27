@@ -57,6 +57,14 @@ trait HttpPredicates extends TimeUtils {
       {
         (r.header("Authorization"), r.cookie("identity"), r.cookie("secret")) match {
 
+          case (Some(Authorization(creds @ BasicCredentials(user, password))), _, _) =>
+            login(creds) match {
+              case Some(u) =>
+                Success((r, u))
+              case _ =>
+                Failure(SecurityFailure[User](failMsg))
+            }
+            
           case (_, Some(Cookie(_, Base64(identity), _, _, _, _, _, _)), Some(Cookie(_, secret, _, _, _, _, _, _))) =>
             val computedSecret = Base64.encode(HMac.encodeSHA256(identity, Config.string("hmac.auth.salt", "SHIFT-HMAC-SALT")))
             if (computedSecret == secret) {
@@ -66,14 +74,6 @@ trait HttpPredicates extends TimeUtils {
               }
             } else {
               Failure(SecurityFailure[User](failMsg))
-            }
-
-          case (Some(Authorization(creds @ BasicCredentials(user, password))), _, _) =>
-            login(creds) match {
-              case Some(u) =>
-                Success((r, u))
-              case _ =>
-                Failure(SecurityFailure[User](failMsg))
             }
 
           case _ => Failure(SecurityFailure[User](failMsg))

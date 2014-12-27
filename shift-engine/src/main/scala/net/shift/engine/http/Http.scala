@@ -3,17 +3,18 @@ package net.shift
 package engine
 package http
 
-import scala.xml.Node
-import scalax.io._
-import common.Path
-import net.shift.loc.Language
 import scala.util.Try
+import scala.xml.Node
+
+import common.Path
 import net.shift.common.Base64
-import net.shift.security.Credentials
-import net.shift.security.BasicCredentials
-import net.shift.security.User
-import net.shift.security.HMac
 import net.shift.common.Config
+import net.shift.loc.Language
+import net.shift.security.BasicCredentials
+import net.shift.security.Credentials
+import net.shift.security.HMac
+import net.shift.security.User
+import scalax.io._
 
 trait Request {
   def path: Path
@@ -234,16 +235,22 @@ trait HttpUtils {
 }
 
 object Authorization {
+
   def unapply(h: Header): Option[Credentials] =
     try {
       if (h.key.equals("Authorization") && h.value.startsWith("Basic ")) {
         Base64.decodeString(h.value.substring(6)).split(":").toList match {
+          case Nil =>
+            Some(BasicCredentials("", ""))
+          case u :: Nil =>
+            Some(BasicCredentials(u, ""))
           case user :: password :: Nil =>
             Some(BasicCredentials(user, password))
           case _ => None
         }
       } else None
     } catch {
-      case e: Exception => e.printStackTrace(); throw e
+      case e: Exception => None
     }
+    
 }
