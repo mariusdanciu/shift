@@ -112,7 +112,12 @@ object Resp {
   def redirect(location: String) = Resp(302, None, Map("Location" -> Header("Location", location)), Nil, None)
 
   def badRequest = Resp(400)
-  def basicAuthRequired(realm: String) = new Resp(401, None, Map("WWW-Authenticate" -> Header("WWW-Authenticate", s"""Basic realm="$realm"""")), Nil, None)
+  def basicAuthRequired(msg: String, realm: String) =
+    new Resp(401, None, Map("WWW-Authenticate" -> Header("WWW-Authenticate", s"""Basic realm="$realm"""")), Nil, Some(msg.getBytes("UTF8").asInput)) {
+      override def contentType = Some("text/plain; charset=\"UTF-8\"")
+    }
+  def basicAuthRequired(realm: String) =
+    new Resp(401, None, Map("WWW-Authenticate" -> Header("WWW-Authenticate", s"""Basic realm="$realm"""")), Nil, None)
   def paymentRequired = Resp(402)
   def forbidden = Resp(403)
   def notFound = Resp(404)

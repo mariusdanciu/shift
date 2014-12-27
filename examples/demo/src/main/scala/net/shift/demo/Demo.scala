@@ -60,7 +60,7 @@ object Main extends App with HttpPredicates with ShiftUtils {
     val r2 = for {
       _ <- path("/page/first")
       r <- withLanguage(Language("ro"))
-      user <- authenticate
+      user <- authenticate("Login failed")
     } yield {
       println("Page first")
       Html5.pageFromFile(PageState(r, r.language, Some(user)), Path("pages/first.html"), FirstPage).map {

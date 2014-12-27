@@ -52,7 +52,7 @@ trait HttpPredicates extends TimeUtils {
       }
   }
 
-  def authenticate(implicit login: Credentials => Option[User]): State[Request, User] = state {
+  def authenticate(failMsg: => String)(implicit login: Credentials => Option[User]): State[Request, User] = state {
     r =>
       {
         (r.header("Authorization"), r.cookie("identity"), r.cookie("secret")) match {
@@ -62,21 +62,21 @@ trait HttpPredicates extends TimeUtils {
             if (computedSecret == secret) {
               identity match {
                 case Users(u) => Success((r, u))
-                case _        => Failure(SecurityFailure[User]("Incorrect identity"))
+                case _        => Failure(SecurityFailure[User](failMsg))
               }
             } else {
-              Failure(SecurityFailure[User]("Secret does not match"))
+              Failure(SecurityFailure[User](failMsg))
             }
 
-          case (Some(Authorization(creds @ BasicCredentials(user, password))), None, None) =>
+          case (Some(Authorization(creds @ BasicCredentials(user, password))), _, _) =>
             login(creds) match {
               case Some(u) =>
                 Success((r, u))
               case _ =>
-                Failure(SecurityFailure[User]("Login failed"))
+                Failure(SecurityFailure[User](failMsg))
             }
 
-          case _ => Failure(SecurityFailure[User]("Cannot authenticate"))
+          case _ => Failure(SecurityFailure[User](failMsg))
         }
       }
   }

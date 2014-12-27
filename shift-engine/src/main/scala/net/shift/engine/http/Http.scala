@@ -109,6 +109,12 @@ case class RichResponse(r: Response) {
       Cookie("secret", computedSecret, None, Some("/"), Some(Config.long("auth.ttl", 3600000)), None, false, true))
   }
 
+  def withoutSecurityCookies: Response = {
+    withCookies(
+      Cookie("identity", "", None, Some("/"), Some(-1), None, false, true),
+      Cookie("secret", "", None, Some("/"), Some(-1), None, false, true))
+  }
+
 }
 
 trait Response {

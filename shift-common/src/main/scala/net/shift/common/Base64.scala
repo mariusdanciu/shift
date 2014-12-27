@@ -8,7 +8,7 @@ import net.shift.security.Permission
 object Base64 {
   val base64chars: String = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 
-  def unapply(msg: String): Option[String] = Some(new String(decode(msg), "UTF-8"))
+  def unapply(msg: String): Option[String] = if (msg == "") None else Some(new String(decode(msg), "UTF-8"))
 
   def encodeString(src: String) = encode(src.getBytes("UTF-8"))
 

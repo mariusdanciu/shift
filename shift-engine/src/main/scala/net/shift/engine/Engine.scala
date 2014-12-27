@@ -23,7 +23,7 @@ object Engine extends DefaultLog {
             response(Resp.serverError)
           case Failure(SecurityFailure(msg)) =>
             warn(s"Authentication failure $msg")
-            response(Resp.basicAuthRequired(Config.string("auth.realm", "shift")))
+            response(Resp.basicAuthRequired(msg, Config.string("auth.realm", "shift")))
           case Failure(t) =>
             error("Fail processing the request " + t)
             response(Resp.serverError)
