@@ -153,8 +153,8 @@ private[netty] class HttpRequestHandler(app: ShiftApplication)(implicit ec: scal
     resp.writeBody(Resource.fromOutputStream(out))
     response.setContent(buf)
 
-    for ((k, Header(n, v, params)) <- resp.headers) {
-      response.addHeader(k, v);
+    for (h @ Header(n, v, params) <- resp.headers) {
+      response.addHeader(n, h.stringValue);
     }
 
     resp.contentType.map(c => response.setHeader("Content-Type", c))

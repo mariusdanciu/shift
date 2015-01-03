@@ -9,11 +9,16 @@ import java.io.FileInputStream
 
 trait PathUtils {
 
-  def pathToList(path: String) = (path split "/").toList match {
-    case "" :: rest => rest
-    case e          => e
+  def pathToList(path: String) = {
+    val l = (path split "/").toList match {
+      case "" :: rest => rest
+      case e          => e
+    }
+    if (path.endsWith("/"))
+      l ::: List("")
+    else
+      l
   }
-
   def fromPath(path: Path): Try[Input] =
     Try(Resource.fromInputStream(new BufferedInputStream(new FileInputStream(path toString))))
 

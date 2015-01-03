@@ -16,7 +16,7 @@ object TextResponse {
 case class TextResponse(content: Input) extends Response {
   def code = 200
   def reason = "OK"
-  def headers = Map.empty
+  def headers = Nil
   def contentType = Some("text/plain; charset=\"UTF-8\"")
   def cookies = Nil
   def writeBody(channel: Output) = {
@@ -27,7 +27,7 @@ case class TextResponse(content: Input) extends Response {
 case class HtmlStaticResponse(content: Input) extends Response {
   def code = 200
   def reason = "OK"
-  def headers = Map.empty
+  def headers = Nil
   def contentType = Some("text/html; charset=\"UTF-8\"")
   def cookies = Nil
   def writeBody(channel: Output) = {
@@ -38,7 +38,7 @@ case class HtmlStaticResponse(content: Input) extends Response {
 case class Html5Response(content: NodeSeq) extends Response with XmlUtils {
   def code = 200
   def reason = "OK"
-  def headers = Map.empty
+  def headers = Nil
   def contentType = Some("text/html; charset=\"UTF-8\"")
   def cookies = Nil
   def writeBody(channel: Output) = {
@@ -52,7 +52,7 @@ object CSSResponse {
 class CSSResponse(content: Input) extends Response {
   def code = 200
   def reason = "OK"
-  def headers = Map.empty
+  def headers = Nil
   def contentType = Some("text/css; charset=\"UTF-8\"")
   def cookies = Nil
   def writeBody(channel: Output) = {
@@ -67,7 +67,7 @@ object JsResponse {
 class JsResponse(content: Input) extends Response {
   def code = 200
   def reason = "OK"
-  def headers = Map.empty
+  def headers = Nil
   def contentType = Some("text/javascript; charset=\"UTF-8\"")
   def cookies = Nil
   def writeBody(channel: Output) = {
@@ -78,7 +78,7 @@ class JsResponse(content: Input) extends Response {
 class ImageResponse(content: Input, mime: String) extends Response {
   def code = 200
   def reason = "OK"
-  def headers = Map.empty
+  def headers = Nil
   def contentType = Some(mime)
   def cookies = Nil
   def writeBody(channel: Output) = {
@@ -93,7 +93,7 @@ object JsonResponse {
 case class JsonResponse(content: Input) extends Response {
   def code = 200
   def reason = "OK"
-  def headers = Map.empty
+  def headers = Nil
   def contentType = Some("application/json; charset=\"UTF-8\"")
   def cookies = Nil
   def writeBody(channel: Output) = {
@@ -101,23 +101,23 @@ case class JsonResponse(content: Input) extends Response {
   }
 }
 object Resp {
-  def apply(status: Int) = new Resp(status, None, Map.empty, Nil, None)
-  def apply(status: Int, headers: Map[String, Header]) = new Resp(status, None, headers, Nil, None)
-  def apply(status: Int, mime: String, content: Input) = new Resp(status, Some(mime), Map.empty, Nil, Some(content))
+  def apply(status: Int) = new Resp(status, None, Nil, Nil, None)
+  def apply(status: Int, headers: Header*) = new Resp(status, None, List(headers:_*), Nil, None)
+  def apply(status: Int, mime: String, content: Input) = new Resp(status, Some(mime), Nil, Nil, Some(content))
 
   def ok = Resp(200)
   def created = Resp(201)
   def accepted = Resp(202)
 
-  def redirect(location: String) = Resp(302, None, Map("Location" -> Header("Location", location)), Nil, None)
+  def redirect(location: String) = Resp(302, None, List(Header("Location", location)), Nil, None)
 
   def badRequest = Resp(400)
   def basicAuthRequired(msg: String, realm: String) =
-    new Resp(401, None, Map("WWW-Authenticate" -> Header("WWW-Authenticate", s"""Basic realm="$realm"""")), Nil, Some(msg.getBytes("UTF8").asInput)) {
+    new Resp(401, None, List(Header("WWW-Authenticate", s"""Basic realm="$realm"""")), Nil, Some(msg.getBytes("UTF8").asInput)) {
       override def contentType = Some("text/plain; charset=\"UTF-8\"")
     }
   def basicAuthRequired(realm: String) =
-    new Resp(401, None, Map("WWW-Authenticate" -> Header("WWW-Authenticate", s"""Basic realm="$realm"""")), Nil, None)
+    new Resp(401, None, List(Header("WWW-Authenticate", s"""Basic realm="$realm"""")), Nil, None)
   def paymentRequired = Resp(402)
   def forbidden = Resp(403)
   def notFound = Resp(404)
@@ -129,7 +129,7 @@ object Resp {
 
 }
 
-case class Resp(status: Int, mime: Option[String], heads: Map[String, Header], cooks: List[Cookie], content: Option[Input]) extends Response {
+case class Resp(status: Int, mime: Option[String], heads: List[Header], cooks: List[Cookie], content: Option[Input]) extends Response {
   def code = status
   def reason = "OK"
   def headers = heads

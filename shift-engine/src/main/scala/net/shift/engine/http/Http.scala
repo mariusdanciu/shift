@@ -58,7 +58,13 @@ object Header {
   def apply(key: String, value: String) = new Header(key, value, Map.empty)
 }
 
-case class Header(key: String, value: String, params: Map[String, String])
+case class Header(key: String, value: String, params: Map[String, String]) {
+  def stringValue =
+    if (!params.isEmpty)
+      value + ";" + params.mkString(",")
+    else
+      value
+}
 
 object Request {
   implicit def augmentRequest(r: Request): RichRequest = RichRequest(r)
@@ -92,8 +98,8 @@ case class RichRequest(r: Request) {
 
 case class RichResponse(r: Response) {
 
-  def withHeaders(prop: (String, Header)*) = new ResponseShell(r) {
-    override val headers = r.headers ++ Map(prop: _*)
+  def withHeaders(prop: (Header)*) = new ResponseShell(r) {
+    override val headers = r.headers ++ List(prop: _*)
   }
 
   def withCookies(c: Cookie*) = new ResponseShell(r) {
@@ -118,19 +124,40 @@ case class RichResponse(r: Response) {
 
   def withBody(body: String): Response = new ResponseShell(r) {
     import JavaConverters._
-    override def writeBody(channel: Output) = withBody(body.getBytes("UTF-8").asInput)
+    override def writeBody(channel: Output) = body.getBytes("UTF-8").asInput copyDataTo channel
   }
 
   def withBody(body: Input): Response = new ResponseShell(r) {
     override def writeBody(channel: Output) = body copyDataTo channel
   }
 
+  def asText: Response = new ResponseShell(r) {
+    override def contentType = Some("text/plain; charset=\"UTF-8\"")
+  }
+  def asHtml5: Response = new ResponseShell(r) {
+    override def contentType = Some("text/html; charset=\"UTF-8\"")
+  }
+  def asXml: Response = new ResponseShell(r) {
+    override def contentType = Some("text/xml; charset=\"UTF-8\"")
+  }
+  def asJson: Response = new ResponseShell(r) {
+    override def contentType = Some("application/json; charset=\"UTF-8\"")
+  }
+  def asJavaScript: Response = new ResponseShell(r) {
+    override def contentType = Some("text/javascript; charset=\"UTF-8\"")
+  }
+  def asCSS: Response = new ResponseShell(r) {
+    override def contentType = Some("text/css; charset=\"UTF-8\"")
+  }
+  def asBinary: Response = new ResponseShell(r) {
+    override def contentType = Some("application/octet-stream")
+  }
 }
 
 trait Response {
   def code: Int
   def reason: String
-  def headers: Map[String, Header]
+  def headers: List[Header]
   def contentType: Option[String]
   def cookies: List[Cookie]
   def writeBody(channel: Output)
