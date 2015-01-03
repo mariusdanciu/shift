@@ -91,8 +91,17 @@ private[netty] class HttpRequestHandler(app: ShiftApplication)(implicit ec: scal
     val queryStringDecoder = new QueryStringDecoder(uriStr);
     val cookieDecoder = new CookieDecoder();
     val httpMethod = request.getMethod().getName();
-    val httpParams = parameters(queryStringDecoder)
+    var httpParams = parameters(queryStringDecoder)
     val heads = headers(request)
+    val buffer = new ChannelBufferInputStream(request.getContent())
+
+    httpParams ++= (heads.get("Content-Type") match {
+      case Some(Header(_, "application/x-www-form-urlencoded", _)) =>
+        val body =  new String(Resource.fromInputStream(buffer).byteArray, "UTF-8")
+        parameters(new QueryStringDecoder(s"/?$body"))
+      case _ =>
+        Map.empty
+    })
 
     val nettyCookie = request.getHeader("Cookie")
     val cookiesSet = if (nettyCookie != null) {
@@ -111,8 +120,6 @@ private[netty] class HttpRequestHandler(app: ShiftApplication)(implicit ec: scal
     }
 
     val qs = queryString(uriStr)
-
-    val buffer = new ChannelBufferInputStream(request.getContent())
 
     val shiftRequest = new Request {
       lazy val path = Path(uriPath(uriStr))
