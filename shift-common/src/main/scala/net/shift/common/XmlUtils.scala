@@ -63,7 +63,7 @@ trait XmlUtils {
    */
   def mkString(nodes: NodeSeq): String = (nodes flatMap {
     case Group(childs) => mkString(childs)
-    case Text(str)     => escape(str)
+    case Text(str)     => escapeButAmp(str)
     case e: Unparsed   => e mkString
     case e: PCData     => e mkString
     case e: Atom[_]    => escape(e.data.toString)
@@ -77,11 +77,23 @@ trait XmlUtils {
   }) mkString
 
   private def escape(str: String): String = ("" /: str)(_ + escape(_))
+  private def escapeButAmp(str: String): String = ("" /: str)(_ + escapeButAmp(_))
 
   private def escape(c: Char): String = c match {
     case '<' => "&lt;"
     case '>' => "&gt;"
     case '&' => "&amp;"
+    case '"' => "&quot;"
+    case '\n' => "\n"
+    case '\r' => "\r"
+    case '\t' => "\t"
+    case c if (c >= ' ' && c != '\u0085' && !(c >= '\u007f' && c <= '\u0095')) => c toString
+    case _ => ""
+  }
+
+  private def escapeButAmp(c: Char): String = c match {
+    case '<' => "&lt;"
+    case '>' => "&gt;"
     case '"' => "&quot;"
     case '\n' => "\n"
     case '\r' => "\r"
