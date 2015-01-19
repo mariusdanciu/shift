@@ -2,4 +2,6 @@
 **/target
 **/bin
 **/.cache
+**/.classpath
+**/.project
 
