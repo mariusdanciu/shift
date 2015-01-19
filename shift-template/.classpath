@@ -1,9 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <classpath>
 	<classpathentry kind="src" output="target/scala-2.11/classes" path="src/main/scala"/>
-	<classpathentry kind="src" output="target/scala-2.11/classes" path="src/main/java"/>
 	<classpathentry kind="src" output="target/scala-2.11/test-classes" path="src/test/scala"/>
-	<classpathentry kind="src" output="target/scala-2.11/test-classes" path="src/test/java"/>
 	<classpathentry kind="lib" path="/home/marius/.ivy2/cache/org.scala-lang/scala-library/jars/scala-library-2.11.2.jar"/>
 	<classpathentry kind="lib" path="/home/marius/.ivy2/cache/com.github.scala-incubator.io/scala-io-core_2.11/jars/scala-io-core_2.11-0.4.3.jar"/>
 	<classpathentry kind="lib" path="/home/marius/.ivy2/cache/org.scala-lang.modules/scala-parser-combinators_2.11/bundles/scala-parser-combinators_2.11-1.0.1.jar"/>

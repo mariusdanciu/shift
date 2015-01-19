@@ -64,7 +64,7 @@ object Main extends App with HttpPredicates with ShiftUtils {
     } yield {
       println("Page first")
       Html5.pageFromFile(PageState(r, r.language, Some(user)), Path("pages/first.html"), FirstPage).map {
-        _ withResponse (_ withSecurityCookies user)
+        _ withResponse (_ securityCookies user)
       }
     }
 

@@ -98,36 +98,36 @@ case class RichRequest(r: Request) {
 
 case class RichResponse(r: Response) {
 
-  def withHeaders(prop: (Header)*) = new ResponseShell(r) {
+  def headers(prop: (Header)*) = new ResponseShell(r) {
     override val headers = r.headers ++ List(prop: _*)
   }
 
-  def withCookies(c: Cookie*) = new ResponseShell(r) {
+  def cookies(c: Cookie*) = new ResponseShell(r) {
     override val cookies = r.cookies ++ c
   }
 
-  def withSecurityCookies(user: User): Response = {
+  def securityCookies(user: User): Response = {
     val org = user.org.map(_.name) getOrElse ""
     val identity = s"${user.name}:$org:${user.permissions.map(_.name).mkString(",")}"
     val computedSecret = Base64.encode(HMac.encodeSHA256(identity, Config.string("auth.hmac.salt", "SHIFT-HMAC-SALT")))
 
-    withCookies(
+    cookies(
       Cookie("identity", Base64.encodeString(identity), None, Some("/"), Some(Config.long("auth.ttl", 1800)), None, false, true),
       Cookie("secret", computedSecret, None, Some("/"), Some(Config.long("auth.ttl", 1800)), None, false, true))
   }
 
-  def withoutSecurityCookies: Response = {
-    withCookies(
+  def dropSecurityCookies: Response = {
+    cookies(
       Cookie("identity", "", None, Some("/"), Some(0), None, false, true),
       Cookie("secret", "", None, Some("/"), Some(0), None, false, true))
   }
 
-  def withBody(body: String): Response = new ResponseShell(r) {
+  def body(body: String): Response = new ResponseShell(r) {
     import JavaConverters._
     override def writeBody(channel: Output) = body.getBytes("UTF-8").asInput copyDataTo channel
   }
 
-  def withBody(body: Input): Response = new ResponseShell(r) {
+  def body(body: Input): Response = new ResponseShell(r) {
     override def writeBody(channel: Output) = body copyDataTo channel
   }
 
