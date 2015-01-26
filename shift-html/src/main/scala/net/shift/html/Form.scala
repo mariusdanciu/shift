@@ -7,12 +7,12 @@ import common._
 
 sealed trait Validation[+E, +A] {
   def map[B](f: A => B): Validation[E, B] = this match {
-    case f @ Failure(e) => f
-    case _              => Success(f(get))
+    case f @ Invalid(e) => f
+    case _              => Valid(f(get))
   }
 
   def flatMap[AA >: A, EE >: E, B](f: A => Validation[EE, B]): Validation[EE, B] = this match {
-    case f @ Failure(e) => f
+    case f @ Invalid(e) => f
     case _              => f(get)
   }
 
@@ -20,12 +20,12 @@ sealed trait Validation[+E, +A] {
   protected def get: A
 }
 
-case class Failure[E](e: E) extends Validation[E, Nothing] {
+case class Invalid[E](e: E) extends Validation[E, Nothing] {
   val isError = true
   protected def get = throw new UnsupportedOperationException
 }
 
-case class Success[A](a: A) extends Validation[Nothing, A] {
+case class Valid[A](a: A) extends Validation[Nothing, A] {
   val isError = false
   protected def get = a
 }
@@ -38,10 +38,10 @@ class ReversedApplicativeForm[A, Env, Err](form: Formlet[A, Env, Err]) {
 
     override val validate: Env => Validation[Err, Y] = env => {
       (form.validate(env), f.validate(env)) match {
-        case (Failure(e1), Failure(e2)) => Failure(s append (e1, e2))
-        case (_, Failure(e))            => Failure(e)
-        case (Failure(e), _)            => Failure(e)
-        case (Success(a1), Success(a2)) => Success(a1(a2))
+        case (Invalid(e1), Invalid(e2)) => Invalid(s append (e1, e2))
+        case (_, Invalid(e))            => Invalid(e)
+        case (Invalid(e), _)            => Invalid(e)
+        case (Valid(a1), Valid(a2))     => Valid(a1(a2))
       }
     }
     override def html = form.html ++ f.html
@@ -85,7 +85,7 @@ object Formlet {
   }
 
   def apply[A, Env, Err](a: => A): Formlet[A, Env, Err] = new Formlet[A, Env, Err] {
-    val validate: Env => Validation[Err, A] = env => Success(a)
+    val validate: Env => Validation[Err, A] = env => Valid(a)
     override def html = NodeSeq.Empty
   }
 
@@ -152,21 +152,21 @@ object Main extends App with XmlUtils {
   import Formlet._
 
   def validName(name: String): Map[String, String] => Validation[List[String], String] = env => env.get(name) match {
-    case Some(n) => Success(n);
-    case _       => Failure(List("Missing name value"))
+    case Some(n) => Valid(n);
+    case _       => Invalid(List("Missing name value"))
   }
 
   def validAge: Map[String, String] => Validation[List[String], Int] = env => env.get("age") match {
     case Some(age) => try {
       val intAge = age.toInt
       if (intAge >= 18)
-        Success(intAge)
+        Valid(intAge)
       else
-        Failure(List("Age must be higher than 18"))
+        Invalid(List("Age must be higher than 18"))
     } catch {
-      case e: Exception => Failure(List(age + " is not a number"))
+      case e: Exception => Invalid(List(age + " is not a number"))
     }
-    case _ => Failure(List("Missing name value"))
+    case _ => Invalid(List("Missing name value"))
   }
 
   val form = Formlet(person) <*>
@@ -176,8 +176,8 @@ object Main extends App with XmlUtils {
   println(form html)
 
   val p = (form validate Map(("name" -> "marius"), ("age" -> "33"))) flatMap {
-    case p @ Person("marius", age) => Failure(List("Unacceptable person"))
-    case p                         => Success(p)
+    case p @ Person("marius", age) => Invalid(List("Unacceptable person"))
+    case p                         => Valid(p)
   }
 
   println(p)

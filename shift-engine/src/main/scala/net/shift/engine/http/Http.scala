@@ -98,6 +98,10 @@ case class RichRequest(r: Request) {
 
 case class RichResponse(r: Response) {
 
+  def code(statusCode: Int) = new ResponseShell(r) {
+    override val code = statusCode
+  }
+  
   def headers(prop: (Header)*) = new ResponseShell(r) {
     override val headers = r.headers ++ List(prop: _*)
   }

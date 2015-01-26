@@ -72,6 +72,12 @@ object HasClasses {
   def unapply(a: BindMeta): Option[(List[String], Attributes)] = a.attrs.attrs.get("class") map (v => (v.trim.split("\\s+").toList, a.attrs))
 }
 
+object HasName  {
+  def unapply(a: Attributes): Option[(String, Attributes)] = a.attrs.get("name") map (v => (v, a))
+  def unapply(a: ToBind): Option[(String, Attributes)] = a.meta.attrs.attrs.get("name") map (v => (v, a.meta.attrs))
+  def unapply(a: BindMeta): Option[(String, Attributes)] = a.attrs.attrs.get("name") map (v => (v, a.attrs))
+}
+
 object HasId {
   def unapply(a: Attributes): Option[(String, Attributes)] = a.attrs.get("id") map (v => (v, a))
   def unapply(a: ToBind): Option[(String, Attributes)] = a.meta.attrs.attrs.get("id") map (v => (v, a.meta.attrs))

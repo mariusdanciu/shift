@@ -31,6 +31,31 @@ trait HttpPredicates extends TimeUtils {
     r => if (m is r.method) Success((r, r)) else ShiftFailure[Request]
   }
 
+  def userRequired(failMsg: => String)(implicit login: Credentials => Option[User]): State[Request, User] = state {
+    r =>
+      {
+        val res = (r.header("Authorization"), r.cookie("identity"), r.cookie("secret")) match {
+          case (_, Some(Cookie(_, Base64(identity), _, _, _, _, _, _)), Some(Cookie(_, secret, _, _, _, _, _, _))) =>
+            val computedSecret = Base64.encode(HMac.encodeSHA256(identity, Config.string("hmac.auth.salt", "SHIFT-HMAC-SALT")))
+            if (computedSecret == secret) {
+              identity match {
+                case Users(u) => Some(u)
+                case _        => None
+              }
+            } else {
+              None
+            }
+          case (Some(Authorization(creds @ BasicCredentials(user, password))), None, None) =>
+            login(creds)
+          case _ => None
+        }
+        res match {
+          case Some(u) => Success((r, u))
+          case None    => ShiftFailure(failMsg).toFailure
+        }
+      }
+  }
+
   def user(implicit login: Credentials => Option[User]): State[Request, Option[User]] = state {
     r =>
       {
@@ -64,7 +89,7 @@ trait HttpPredicates extends TimeUtils {
               case _ =>
                 Failure(SecurityFailure[User](failMsg))
             }
-            
+
           case (_, Some(Cookie(_, Base64(identity), _, _, _, _, _, _)), Some(Cookie(_, secret, _, _, _, _, _, _))) =>
             val computedSecret = Base64.encode(HMac.encodeSHA256(identity, Config.string("hmac.auth.salt", "SHIFT-HMAC-SALT")))
             if (computedSecret == secret) {
