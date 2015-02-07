@@ -26,7 +26,7 @@ object Loc {
     }
 
     val t2 = Try {
-      Resource.fromInputStream(new FileInputStream(s"$location$name${l.language}.json")).string
+      Resource.fromInputStream(new FileInputStream(s"$location$name${l.name}.json")).string
     }
 
     (t1 orElse t2) map { s =>
@@ -57,13 +57,13 @@ object Loc {
 case class LocEntry(code: String, name: String, text: String)
 case class Text(code: String, text: String)
 
-case class Language(language: String, country: Option[String] = None, variant: Option[String] = None) {
+case class Language(name: String, country: Option[String] = None, variant: Option[String] = None) {
   override def toString = { 
     (country, variant) match {
-      case (Some(c), Some(v)) => s"${language}_${c}_${v}"
-      case (Some(c), None) => s"${language}_${c}"
-      case (None, Some(v)) => s"${language}__${v}"
-      case (None, None) => s"${language}"
+      case (Some(c), Some(v)) => s"${name}_${c}_${v}"
+      case (Some(c), None) => s"${name}_${c}"
+      case (None, Some(v)) => s"${name}__${v}"
+      case (None, None) => s"${name}"
     }
   }
 }
