@@ -2,7 +2,7 @@ name := "shift-netty"
 
 organization := "shift"
 
-version := "0.1"
+version := buildProps.getProperty("version") + "." + buildProps.getProperty("build")
 
 scalaVersion := "2.11.2"
 
