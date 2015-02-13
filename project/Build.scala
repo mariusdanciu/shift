@@ -5,7 +5,10 @@ import io._
 object ShiftNettyBuild extends Build {
 
   val distDir = new File("./dist")
+  val distSrcDir = new File("./distSrc")
   val libDir = distDir / "lib"
+  val buildPropsFile = new File("./build.properties")
+
 
   val distShiftCommon = TaskKey[File]("distShiftCommon", "")
   val distShiftEngine = TaskKey[File]("distShiftEngine", "")
@@ -14,16 +17,36 @@ object ShiftNettyBuild extends Build {
   val distShiftHtml = TaskKey[File]("distShiftHtml", "")
   val distShiftDemo = TaskKey[File]("distShiftDemo", "")
   val dist = TaskKey[Unit]("dist", "")
+  val distSrc = TaskKey[Unit]("distSrc", "")
+  val inc = TaskKey[Unit]("inc", "")
+
+  val incSetting = inc := {
+    buildProps.setProperty("build", buildProps.getProperty("build").toInt + 1 + "");
+    IO.write(buildProps, "", buildPropsFile)
+  }
+
+  val distSrcSetting = distSrc <<= (scalaVersion, version) map { (sv, v) =>
+    IO.delete(distSrcDir)
+    IO.createDirectory(distSrcDir)
+    IO.copyDirectory(new File("shift-common") / "src", distSrcDir / "shit-common" / "src")
+    IO.copyDirectory(new File("shift-engine") / "src", distSrcDir / "shit-engine" / "src")
+    IO.copyDirectory(new File("shift-html") / "src", distSrcDir / "shit-html" / "src")
+    IO.copyDirectory(new File("shift-netty") / "src", distSrcDir / "shit-netty" / "src")
+    IO.copyDirectory(new File("shift-template") / "src", distSrcDir / "shit-template" / "src")
+    IO.copyDirectory(new File("examples/demo") / "src", distSrcDir / "examples" / "demo" / "src")
+ 
+    IO.copyFile(new File("./LICENSE.txt"), distSrcDir / "LICENSE.txt");
+
+    TarGzBuilder.makeTarGZ("target/shift_src_" + sv + "_" + v + "_.tar.gz", "./distSrc" )
+ 
+  }
+
+
 
   val buildProps = {
     import java.util.Properties
- 
     val prop = new Properties()
-    val file = new File("./build.properties")
-    
-    IO.load(prop, file)
-    prop.setProperty("build", prop.getProperty("build").toInt + 1 + "");
-    IO.write(prop, "", file)
+    IO.load(prop, buildPropsFile)
     prop
   }
 
@@ -35,8 +58,8 @@ object ShiftNettyBuild extends Build {
   val distSetting = dist <<= (target, managedClasspath in Runtime, scalaVersion, version, 
                               distShiftCommon in shift_common, distShiftEngine in shift_engine, 
                               distShiftTemplate in shift_template, distShiftNetty in shift_netty, 
-                              distShiftHtml in shift_html, distShiftDemo in shift_demo) map {
-    (target, cp, sv, v, common, engine, template, netty, html, demo) => {
+                              distShiftHtml in shift_html, distShiftDemo in shift_demo, distSrc) map {
+    (target, cp, sv, v, common, engine, template, netty, html, demo, src) => {
       println("dist > shift")
 
       IO.copyFile(common, libDir / common.name);
@@ -46,7 +69,9 @@ object ShiftNettyBuild extends Build {
       IO.copyFile(html, libDir / html.name);
       IO.copyFile(demo, libDir / demo.name);
 
-      TarGzBuilder.makeTarGZ("target/shift_" + sv + "_" + v + "_.tar.gz")
+      IO.copyFile(new File("./LICENSE.txt"), distDir / "LICENSE.txt");
+
+      TarGzBuilder.makeTarGZ("target/shift_" + sv + "_" + v + "_.tar.gz", "./dist")
     }
   }
 
@@ -113,9 +138,9 @@ object ShiftNettyBuild extends Build {
 
   lazy val root = Project(id = "shift",
                           base = file("."),
-                          settings = Defaults.defaultSettings ++ Seq(distSetting, distShiftCommonSetting, 
+                          settings = Defaults.defaultSettings ++ Seq(incSetting, distSrcSetting, distSetting, distShiftCommonSetting, 
                                      distShiftEngineSetting, distShiftTemplateSetting, distShiftNettySetting,
-                                     distShiftHtmlSetting, distShiftDemoSetting)) aggregate(shift_common, shift_engine, shift_netty, shift_template, shift_html)
+                                     distShiftHtmlSetting, distShiftDemoSetting)) aggregate(shift_common, shift_engine, shift_netty, shift_template, shift_html, shift_demo)
 
   lazy val shift_common = Project(id = "shift-common",
 				  base = file("shift-common"),
@@ -152,10 +177,10 @@ object TarGzBuilder {
   import org.apache.commons.compress.compressors.gzip._
   
   
-  def makeTarGZ(name: String) {
+  def makeTarGZ(name: String, src: String) {
      val tOut = new TarArchiveOutputStream(new GzipCompressorOutputStream(new BufferedOutputStream(new FileOutputStream(new File(name)))))
      try {
-       populateTarGz(tOut, "./dist")
+       populateTarGz(tOut, src)
      } finally {
        tOut.close();
      } 
@@ -183,3 +208,4 @@ object TarGzBuilder {
   }
   
 }
+
