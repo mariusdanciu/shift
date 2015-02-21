@@ -81,6 +81,30 @@ private[template] trait DefaultSnippets extends XmlUtils with PathUtils with Tem
       }
   }
 
+  def uniqueUrlSnippet[T] = state[SnipState[T], NodeSeq] {
+    s =>
+      s match {
+        case SnipState(PageState(_, language, _), e: Elem) =>
+          import Binds._
+          import net.shift.common.NodeOps._
+          import net.shift.common.NodeOps
+          import net.shift.common.XmlUtils
+
+          val ne = bind(e) {
+            case n attributes a / _ => {
+              val u = a.attrs.get("data-unique")
+
+              val attrs = (a.attrs - "data-unique").map {
+                case (k, v) if (!u.find(_ == k).isEmpty) => (k, v + "?q=" + System.currentTimeMillis())
+                case (k, v)     => (k, v)
+              }
+              node(n, attrs)
+            }
+          }
+          ne.map((s, _))
+      }
+  }
+
   def permissionSnippet[T] = state[SnipState[T], NodeSeq] {
     s =>
       s match {
@@ -127,8 +151,8 @@ private[template] trait DefaultSnippets extends XmlUtils with PathUtils with Tem
 object Template extends XmlUtils with DefaultSnippets with PathUtils {
 
   def apply[T](snippets: DynamicContent[T])(implicit finder: TemplateFinder, selector: Selectors#Selector[SnipState[T]]) = {
-    val t = new Template[T](snippets)(finder, List(selector, byLocAttr))
-    new Template[T](snippets)(finder, List(selector, byLocAttr, byTemplateAttr(t, finder), byPermissionsAttr))
+    val t = new Template[T](snippets)(finder, List(selector, byLocAttr, byUniqueAttr, byPermissionsAttr))
+    new Template[T](snippets)(finder, List(selector, byLocAttr, byUniqueAttr, byTemplateAttr(t, finder), byPermissionsAttr))
   }
 
   private def byPermissionsAttr[T]: Selectors#Selector[SnipState[T]] = snippets => in => in match {
@@ -146,6 +170,15 @@ object Template extends XmlUtils with DefaultSnippets with PathUtils {
       ) yield locSnippet[T]
     case _ => None
   }
+
+  private def byUniqueAttr[T]: Selectors#Selector[SnipState[T]] = snippets => in =>
+    in match {
+      case e: Elem =>
+        for (
+          value <- attribute(e, "data-unique")
+        ) yield uniqueUrlSnippet[T]
+      case _ => None
+    }
 
   private def byTemplateAttr[T](template: Template[T], finder: TemplateFinder): Selectors#Selector[SnipState[T]] = snippets => in => in match {
     case e: Elem =>
