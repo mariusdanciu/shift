@@ -1,13 +1,13 @@
 package net.shift
 package template
 
-import scala.xml.NodeSeq
-import net.shift.common.XmlUtils
 import scala.xml.Elem
-import scala.xml.Node
+import scala.xml.NodeSeq
+
+import net.shift.common.XmlUtils.attribute
 
 trait TemplateUtils {
-  object IdAttr extends XmlUtils {
+  object IdAttr {
     def unapply(e: Elem): Option[String] = for {
       wrp <- attribute(e, "id")
     } yield wrp
@@ -16,7 +16,7 @@ trait TemplateUtils {
   object Head {
     def unapply(n: NodeSeq): Option[NodeSeq] = n match {
       case Children("head", childs) => Some(childs)
-      case _ => None
+      case _                        => None
     }
   }
 
@@ -26,7 +26,7 @@ trait TemplateUtils {
       case e =>
         val res = (n map {
           case e: Elem => Some((e.label, NodeSeq.fromSeq(e.child)))
-          case _ => None
+          case _       => None
         })
         if (res.isEmpty) None else res.head
     }

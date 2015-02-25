@@ -10,8 +10,10 @@ import scala.util.parsing.input.Position
 import scala.util.parsing.input.Reader
 import net.shift.common.Log
 import net.shift.common.TimeUtils
-import scalax.io.Input
 import net.shift.common.ShiftFailure
+import TimeUtils._
+import net.shift.io._
+import IO._
 
 sealed trait MultiPart
 
@@ -27,7 +29,7 @@ object MultipartParser {
   def apply(boundry: String) = new MultipartParser(boundry.getBytes("UTF-8"))
 }
 
-class MultipartParser(boundary: Array[Byte]) extends Parsers with TimeUtils with Log {
+class MultipartParser(boundary: Array[Byte]) extends Parsers with Log {
   type Elem = Byte
 
   def loggerName = "MultipartParser"
@@ -54,7 +56,7 @@ class MultipartParser(boundary: Array[Byte]) extends Parsers with TimeUtils with
 
   def crlf = Array[Byte](13, 10)
 
-  def parse(in: scalax.io.Input): Try[MultiPartBody] = parse(in.byteArray)
+  def parse(in: BinProducer): Try[MultiPartBody] = toArray(in) flatMap { parse(_) }
 
   def parse(in: Array[Byte]): Try[MultiPartBody] = duration {
     multiParser(BinReader(in, 0)) match {
@@ -122,7 +124,7 @@ class MultipartParser(boundary: Array[Byte]) extends Parsers with TimeUtils with
 }
 
 object BinReader {
-  def apply(in: scalax.io.Input) = new BinReader(in.byteArray, 0)
+  def apply(in: BinProducer) = toArray(in) map { new BinReader(_, 0) }
 }
 
 case class BinReader(in: Array[Byte], position: Int) extends Reader[Byte] {

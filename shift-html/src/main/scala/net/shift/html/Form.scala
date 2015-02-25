@@ -141,58 +141,7 @@ object Formlet {
 
 }
 
-object Main extends App with XmlUtils {
 
-  case class Person(name: String, age: Int)
-  case class Subject(person: Person, userName: String)
-
-  val person = (Person(_, _)).curried
-  val subject = (Subject(_, _)).curried
-
-  import Formlet._
-
-  def validName(name: String): Map[String, String] => Validation[List[String], String] = env => env.get(name) match {
-    case Some(n) => Valid(n);
-    case _       => Invalid(List("Missing name value"))
-  }
-
-  def validAge: Map[String, String] => Validation[List[String], Int] = env => env.get("age") match {
-    case Some(age) => try {
-      val intAge = age.toInt
-      if (intAge >= 18)
-        Valid(intAge)
-      else
-        Invalid(List("Age must be higher than 18"))
-    } catch {
-      case e: Exception => Invalid(List(age + " is not a number"))
-    }
-    case _ => Invalid(List("Missing name value"))
-  }
-
-  val form = Formlet(person) <*>
-    inputText("name")(validName("name")).label("id", "User name: ") <*>
-    inputInt("age")(validAge).attr("id", "ageId")
-
-  println(form html)
-
-  val p = (form validate Map(("name" -> "marius"), ("age" -> "33"))) flatMap {
-    case p @ Person("marius", age) => Invalid(List("Unacceptable person"))
-    case p                         => Valid(p)
-  }
-
-  println(p)
-
-  // Now let's compose forms
-
-  val subjectForm = Formlet(subject) <*> form <*> inputText("address")(validName("userName"))
-  val markup = subjectForm.html
-  println(markup)
-  println(elemByAttr(markup, ("id", "ageId")))
-  println(elemByAttr(markup, ("name", "address")))
-
-  println(subjectForm validate Map(("name" -> "marius"), ("userName" -> "mda"), ("age" -> "33")))
-
-}
 
 
 

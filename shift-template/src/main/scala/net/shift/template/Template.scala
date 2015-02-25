@@ -21,12 +21,14 @@ import net.shift.loc.Loc
 import net.shift.loc.Loc.loc0
 import net.shift.security.Permission
 import net.shift.security.User
+import XmlUtils._
+import PathUtils._
 
 /**
  * Holds various strategies on matching page nodes with snippets
  *
  */
-trait Selectors extends XmlUtils {
+trait Selectors {
 
   type LookUp[T] = String => Option[State[T, NodeSeq]]
   type Selector[T] = (LookUp[T]) => NodeSeq => Option[State[T, NodeSeq]]
@@ -68,7 +70,7 @@ trait Selectors extends XmlUtils {
   }
 }
 
-private[template] trait DefaultSnippets extends XmlUtils with PathUtils with TemplateUtils {
+private[template] trait DefaultSnippets extends TemplateUtils {
   import Loc._
 
   def locSnippet[T] = state[SnipState[T], NodeSeq] {
@@ -124,7 +126,7 @@ private[template] trait DefaultSnippets extends XmlUtils with PathUtils with Tem
 
 }
 
-object Template extends XmlUtils with DefaultSnippets with PathUtils {
+object Template extends DefaultSnippets {
 
   def apply[T](snippets: DynamicContent[T])(implicit finder: TemplateFinder, selector: Selectors#Selector[SnipState[T]]) = {
     val t = new Template[T](snippets)(finder, List(selector, byLocAttr))
@@ -164,7 +166,7 @@ object Template extends XmlUtils with DefaultSnippets with PathUtils {
 /**
  * Template engine
  */
-class Template[T](snippets: DynamicContent[T])(implicit finder: TemplateFinder, selectors: List[Selectors#Selector[SnipState[T]]]) extends XmlUtils {
+class Template[T](snippets: DynamicContent[T])(implicit finder: TemplateFinder, selectors: List[Selectors#Selector[SnipState[T]]]) {
   import Template._
 
   private val snippetsMap = snippets toMap
@@ -229,7 +231,7 @@ case class Replacements(head: NodeSeq, fragments: Map[String, NodeSeq]) {
   def apply(id: String) = fragments get id
 }
 
-object TemplateAttr extends XmlUtils {
+object TemplateAttr {
   def unapply(e: Elem): Option[String] = for {
     wrp <- attribute(e, "data-template")
   } yield wrp

@@ -17,14 +17,15 @@ import net.shift.security.HMac
 import net.shift.security.Organization
 import net.shift.security.Permission
 import net.shift.security.User
-import scalax.io.Input
-import scalax.io.Resource
 import net.shift.security.SecurityFailure
 import net.shift.security.BasicCredentials
 import net.shift.security.Credentials
 import net.shift.security.Users
+import net.shift.io.IO._
+import net.shift.common.FileUtils
+import TimeUtils._
 
-trait HttpPredicates extends TimeUtils {
+trait HttpPredicates {
   val Pattern = new Regex("""\w+:\w*:w*""")
 
   implicit def httpMethod2State(m: HttpMethod): State[Request, Request] = state {
@@ -120,8 +121,10 @@ trait HttpPredicates extends TimeUtils {
         case Some(Header(_, "multipart/form-data", params)) =>
           params.get("boundary") match {
             case Some(b) =>
-              val arr = (r readBody).byteArray
-              MultipartParser(b).parse(arr).map(e => (r, e))
+              (toArray(r.readBody)) match {
+                case Success(arr) => MultipartParser(b).parse(arr).map(e => (r, e))
+                case _            => ShiftFailure[Request]
+              }
             case None => ShiftFailure[Request]
           }
         case _ => ShiftFailure[Request]
@@ -226,18 +229,13 @@ trait HttpPredicates extends TimeUtils {
     r => Success((r, r.language))
   }
 
-  def fileOf(path: Path): State[Request, Input] = state {
+  def fileOf(path: Path): State[Request, BinProducer] = state {
     r =>
       {
-        val sp = path toString
-
-        if (scalax.file.Path.fromString(sp).exists)
-          Try(Resource.fromInputStream(new BufferedInputStream(new FileInputStream(sp)))) match {
-            case Success(input) => Success((r, input))
-            case Failure(f)     => Failure(f)
-          }
-        else {
-          Failure(new FileNotFoundException(sp))
+        if (FileUtils.exists(path)) {
+          fileProducer(path).map((r, _))
+        } else {
+          Failure(new FileNotFoundException(path toString))
         }
       }
   }

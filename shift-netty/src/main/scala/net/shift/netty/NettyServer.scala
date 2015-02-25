@@ -33,6 +33,7 @@ import org.jboss.netty.handler.codec.http.QueryStringDecoder
 import common._
 import engine.Engine
 import engine.ShiftApplication
+import engine.http._
 import engine.http.Cookie
 import engine.http.Request
 import engine.http.Response
@@ -43,11 +44,14 @@ import net.shift.common.Path
 import net.shift.common.Path
 import net.shift.common.Path
 import net.shift.loc.Language
-import scalax.io._
 import net.shift.common.PathUtils
 import org.jboss.netty.handler.codec.http.DefaultHttpChunk
 import org.jboss.netty.handler.codec.http.HttpChunkAggregator
 import net.shift.engine.http.Header
+import net.shift.io.Iteratee
+import net.shift.io.IO
+import PathUtils._
+import StringUtils._
 
 object NettyServer {
 
@@ -72,7 +76,7 @@ private[netty] class HttpServerPipelineFactory(app: ShiftApplication)(implicit e
   def getPipeline(): ChannelPipeline = {
     val pipe = pipeline();
     pipe.addLast("decoder", new HttpRequestDecoder());
-    pipe.addLast("aggregator", new HttpChunkAggregator(1048576));
+    pipe.addLast("aggregator", new HttpChunkAggregator(67108864));
     pipe.addLast("encoder", new HttpResponseEncoder());
     pipe.addLast("handler", new HttpRequestHandler(app));
 
@@ -80,7 +84,7 @@ private[netty] class HttpServerPipelineFactory(app: ShiftApplication)(implicit e
   }
 }
 
-private[netty] class HttpRequestHandler(app: ShiftApplication)(implicit ec: scala.concurrent.ExecutionContext) extends SimpleChannelUpstreamHandler with StringUtils with PathUtils {
+private[netty] class HttpRequestHandler(app: ShiftApplication)(implicit ec: scala.concurrent.ExecutionContext) extends SimpleChannelUpstreamHandler {
   import scala.collection.JavaConversions._
   import NettyHttpExtractor._
 
@@ -97,8 +101,12 @@ private[netty] class HttpRequestHandler(app: ShiftApplication)(implicit ec: scal
 
     httpParams ++= (heads.get("Content-Type") match {
       case Some(Header(_, "application/x-www-form-urlencoded", _)) =>
-        val body =  new String(Resource.fromInputStream(buffer).byteArray, "UTF-8")
-        parameters(new QueryStringDecoder(s"/?$body"))
+        (IO.toArray(IO.inputStreamProducer(buffer)) map { arr =>
+          {
+            val body = new String(arr, "UTF-8")
+            parameters(new QueryStringDecoder(s"/?$body"))
+          }
+        }) getOrElse { Map.empty }
       case _ =>
         Map.empty
     })
@@ -135,8 +143,10 @@ private[netty] class HttpRequestHandler(app: ShiftApplication)(implicit ec: scal
       def contentType = header("Content-Type").map(_.value)
       lazy val cookies = cookiesSet
       def cookie(name: String) = cookies.get(name)
-      lazy val readBody = Resource.fromInputStream(buffer)
-      def resource(path: Path) = fromPath(path)
+
+      def readBody = IO.inputStreamProducer(buffer)
+      def resource(path: Path) = IO.fileProducer(path)
+
       lazy val language = Language("en")
     }
 
@@ -150,7 +160,10 @@ private[netty] class HttpRequestHandler(app: ShiftApplication)(implicit ec: scal
     val buf = ChannelBuffers.dynamicBuffer(32768)
     val out = new ChannelBufferOutputStream(buf)
 
-    resp.writeBody(Resource.fromOutputStream(out))
+    val bodyProducer = resp.body
+
+    bodyProducer(Iteratee.foldLeft(out)((acc, e) => { acc.write(e); acc }))
+
     response.setContent(buf)
 
     for (h @ Header(n, v, params) <- resp.headers) {

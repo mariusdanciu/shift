@@ -4,17 +4,21 @@ package common
 import java.util.Properties
 import java.io.ByteArrayInputStream
 import scala.collection.JavaConverters._
+import PathUtils._
+import StringUtils._
+import net.shift.io.IO._
 
-object Config extends PathUtils with StringUtils {
+object Config {
 
   private var configs: Map[String, String] = Map.empty;
 
   def load(profile: String = "") {
     for {
       in <- fromPath(Path(s"config/config$profile.properties"))
+      arr <- toArray(in)
     } {
       val p = new Properties();
-      p.load(new ByteArrayInputStream(in.byteArray))
+      p.load(new ByteArrayInputStream(arr))
       configs ++= p.asScala
     }
   }

@@ -5,9 +5,9 @@ package test
 import Binds._
 import net.shift.common.NodeOps._
 import net.shift.common.NodeOps
-import net.shift.common.XmlUtils
+import net.shift.common.XmlUtils._
 
-object BindTest extends App with XmlUtils {
+object BindTest extends App {
   val xml = <div class="images">
               <ul>
                 <f:li>

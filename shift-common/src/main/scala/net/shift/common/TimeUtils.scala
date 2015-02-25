@@ -2,7 +2,7 @@ package net.shift.common
 
 import scala.concurrent.duration._
 
-trait TimeUtils {
+object TimeUtils {
 
   def duration[T](f: => T)(g: Duration => Unit) = {
     val start = System.currentTimeMillis()

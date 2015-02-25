@@ -13,8 +13,10 @@ import scala.util.Try
 import scala.util.Success
 import net.shift.common.DefaultLog
 import net.shift.security.User
+import XmlUtils._
+import net.shift.common.PathUtils._
 
-object Html5 extends XmlUtils with Selectors with PathUtils {
+object Html5 extends Selectors {
 
   def pageFromFile[T](state: PageState[T],
                       path: Path,

@@ -8,7 +8,7 @@ import scala.xml._
 import net.shift.loc.Language
 import scala.util.Success
 
-object TemplateTest extends App with XmlUtils with Selectors {
+object TemplateTest extends App with Selectors {
   val page = <html>
                <head>
                </head>

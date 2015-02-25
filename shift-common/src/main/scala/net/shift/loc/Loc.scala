@@ -2,14 +2,12 @@ package net.shift
 package loc
 
 import java.io.FileInputStream
-
 import scala.util.Try
 import scala.util.control.Exception._
-
 import org.json4s._
 import org.json4s.native.JsonMethods._
-
-import scalax.io.Resource
+import io.IO._
+import net.shift.common.Path
 
 object Loc {
 
@@ -19,15 +17,16 @@ object Loc {
 
   implicit val formats = DefaultFormats
 
+  private def stringify(p: Path, l: Language) = for {
+    prod <- fileProducer(p)
+    arr <- toArray(prod)
+  } yield { new String(arr, "utf-8") }
+
   private def load(name: String, l: Language) {
 
-    val t1 = Try {
-      Resource.fromInputStream(new FileInputStream(s"$location$name${l}.json")).string
-    }
+    val t1 = stringify(Path(s"$location$name${l}.json"), l)
 
-    val t2 = Try {
-      Resource.fromInputStream(new FileInputStream(s"$location$name${l.name}.json")).string
-    }
+    val t2 = stringify(Path(s"$location$name${l.name}.json"), l)
 
     (t1 orElse t2) map { s =>
       val entries = (parse(s).extract[List[LocEntry]]).map(e => (e.name, e)).toMap
@@ -58,12 +57,12 @@ case class LocEntry(code: String, name: String, text: String)
 case class Text(code: String, text: String)
 
 case class Language(name: String, country: Option[String] = None, variant: Option[String] = None) {
-  override def toString = { 
+  override def toString = {
     (country, variant) match {
       case (Some(c), Some(v)) => s"${name}_${c}_${v}"
-      case (Some(c), None) => s"${name}_${c}"
-      case (None, Some(v)) => s"${name}__${v}"
-      case (None, None) => s"${name}"
+      case (Some(c), None)    => s"${name}_${c}"
+      case (None, Some(v))    => s"${name}__${v}"
+      case (None, None)       => s"${name}"
     }
   }
 }

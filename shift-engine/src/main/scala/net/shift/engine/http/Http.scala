@@ -3,18 +3,22 @@ package net.shift
 package engine
 package http
 
+import scala.annotation.tailrec
 import scala.util.Try
 import scala.xml.Node
 
 import common.Path
 import net.shift.common.Base64
 import net.shift.common.Config
+import net.shift.io.Cont
+import net.shift.io.Data
+import net.shift.io.IO.BinConsumer
+import net.shift.io.IO.BinProducer
 import net.shift.loc.Language
 import net.shift.security.BasicCredentials
 import net.shift.security.Credentials
 import net.shift.security.HMac
 import net.shift.security.User
-import scalax.io._
 
 trait Request {
   def path: Path
@@ -30,8 +34,8 @@ trait Request {
   def contentType: Option[String]
   def cookies: Map[String, Cookie]
   def cookie(name: String): Option[Cookie]
-  def readBody: Input
-  def resource(path: Path): Try[Input]
+  def readBody: BinProducer
+  def resource(path: Path): Try[BinProducer]
   def language: Language
 }
 
@@ -49,9 +53,27 @@ class RequestShell(in: Request) extends Request {
   def contentType = in contentType
   def cookies = in cookies
   def cookie(name: String) = in cookie name
-  def readBody = in readBody
+  def readBody = in.readBody
   def resource(path: Path) = in resource path
   def language: Language = in language
+}
+
+trait Response {
+  def code: Int
+  def reason: String
+  def headers: List[Header]
+  def contentType: Option[String]
+  def cookies: List[Cookie]
+  def body: BinProducer
+}
+
+class ResponseShell(in: Response) extends Response {
+  def code = in code
+  def reason = in reason
+  def headers = in headers
+  def contentType = in contentType
+  def cookies = in cookies
+  def body = in.body
 }
 
 object Header {
@@ -101,7 +123,7 @@ case class RichResponse(r: Response) {
   def code(statusCode: Int) = new ResponseShell(r) {
     override val code = statusCode
   }
-  
+
   def headers(prop: (Header)*) = new ResponseShell(r) {
     override val headers = r.headers ++ List(prop: _*)
   }
@@ -126,13 +148,43 @@ case class RichResponse(r: Response) {
       Cookie("secret", "", None, Some("/"), Some(0), None, false, true))
   }
 
-  def body(body: String): Response = new ResponseShell(r) {
-    import JavaConverters._
-    override def writeBody(channel: Output) = body.getBytes("UTF-8").asInput copyDataTo channel
+  def body(content: String): Response = new ResponseShell(r) {
+    override def body = new BinProducer {
+
+      def apply[O](in: BinConsumer[O]): BinConsumer[O] = in match {
+        case Cont(f) => f(Data(content.getBytes("UTF-8")))
+        case r       => r
+      }
+    }
   }
 
-  def body(body: Input): Response = new ResponseShell(r) {
-    override def writeBody(channel: Output) = body copyDataTo channel
+  def body(content: Array[Byte]): Response = new ResponseShell(r) {
+    override def body = new BinProducer {
+
+      def apply[O](in: BinConsumer[O]): BinConsumer[O] = in match {
+        case Cont(f) => f(Data(content))
+        case r       => r
+      }
+    }
+  }
+
+  def body(content: Iterator[Array[Byte]]): Response = new ResponseShell(r) {
+    override def body = {
+
+      @tailrec
+      def step[O](it: Iterator[Array[Byte]], in: BinConsumer[O]): BinConsumer[O] = {
+        in match {
+          case Cont(f) if (it.hasNext) => step(it, f(Data(it.next)))
+          case r                       => r
+        }
+      }
+
+      new BinProducer {
+        def apply[O](in: BinConsumer[O]): BinConsumer[O] = {
+          step(content, in)
+        }
+      }
+    }
   }
 
   def asText: Response = new ResponseShell(r) {
@@ -158,27 +210,8 @@ case class RichResponse(r: Response) {
   }
 }
 
-trait Response {
-  def code: Int
-  def reason: String
-  def headers: List[Header]
-  def contentType: Option[String]
-  def cookies: List[Cookie]
-  def writeBody(channel: Output)
-}
-
-class ResponseShell(in: Response) extends Response {
-  def code = in code
-  def reason = in reason
-  def headers = in headers
-  def contentType = in contentType
-  def cookies = in cookies
-  def writeBody(channel: Output) = in writeBody channel
-
-}
-
 trait Context {
-  def resourceChannel(res: String): Option[Output]
+  def resourceChannel[O](res: String, it: BinConsumer[O]): O
   def resourceAsXml(res: String): Option[Node]
   def contextPath: String
 }

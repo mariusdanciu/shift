@@ -3,7 +3,6 @@ package engine.utils
 
 import engine.ShiftApplication._
 import engine.http._
-import scalax.io._
 import common._
 import java.io.BufferedInputStream
 import java.io.FileInputStream

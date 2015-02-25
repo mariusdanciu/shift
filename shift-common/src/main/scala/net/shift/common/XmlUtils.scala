@@ -1,15 +1,15 @@
 package net.shift
 package common
 
+import java.io.BufferedInputStream
 import java.io.FileInputStream
 
-import scala.io._
 import scala.util.Try
 import scala.xml._
 
-import scalax.io._
+import net.shift.io.IO._
 
-trait XmlUtils {
+object XmlUtils {
 
   implicit def elem2NodeOps(e: Elem): NodeOps = new NodeOps(e)
   implicit def nodeOps2Elem(n: NodeOps): Elem = n e
@@ -47,11 +47,10 @@ trait XmlUtils {
       case _ => None
     }
   }
-  def load(resource: Input): Try[NodeSeq] =
-    Try(XML.load(new java.io.ByteArrayInputStream(resource.byteArray)))
 
-  def load(path: Path): Try[NodeSeq] =
-    Try(XML.load(new java.io.ByteArrayInputStream(Resource.fromInputStream(new FileInputStream(path.toString)).byteArray)))
+  def load(resource: BinProducer): Try[NodeSeq] = toArray(resource).map { arr => XML.load(new java.io.ByteArrayInputStream(arr)) }
+
+  def load(path: Path): Try[NodeSeq] = Try(XML.load(new BufferedInputStream(new FileInputStream(path toString))))
 
   def load(in: String): Try[NodeSeq] = load(in.getBytes("utf-8"))
 

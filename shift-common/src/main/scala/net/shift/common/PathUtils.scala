@@ -2,12 +2,13 @@ package net.shift
 package common
 
 import scala.util.Try
-import scalax.io.Resource
-import scalax.io.Input
 import java.io.BufferedInputStream
 import java.io.FileInputStream
+import java.io.File
+import net.shift.io.IO.BinProducer
+import net.shift.io.IO._
 
-trait PathUtils {
+object PathUtils {
 
   def pathToList(path: String) = {
     val l = (path split "/").toList match {
@@ -19,9 +20,13 @@ trait PathUtils {
     else
       l
   }
-  def fromPath(path: Path): Try[Input] =
-    Try(Resource.fromInputStream(new BufferedInputStream(new FileInputStream(path toString))))
 
+  def fromPath(path: Path): Try[BinProducer] = fileProducer(path)
+
+}
+
+object FileUtils {
+  def exists(p: Path): Boolean = new File(p.toString()).exists
 }
 
 object FileSplit {

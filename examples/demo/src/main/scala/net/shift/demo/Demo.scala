@@ -19,6 +19,7 @@ import template._
 import net.shift.engine.page.Html5
 import net.shift.security.BasicCredentials
 import net.shift.security.Permission
+import net.shift.io.IO
 
 object Main extends App with HttpPredicates with ShiftUtils {
   println("Starting Netty server")
@@ -97,7 +98,7 @@ object Main extends App with HttpPredicates with ShiftUtils {
               cd <- h.get("Content-Disposition")
               fn <- cd.params.get("filename")
             } yield {
-              scalax.file.Path(fn).write(content)
+              IO.pathWriter(Path(fn)) map { IO.arrayProducer(content)(_) }
             }
           case t @ TextPart(h, content) => println(t)
         }
