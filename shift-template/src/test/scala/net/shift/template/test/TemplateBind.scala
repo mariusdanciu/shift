@@ -23,6 +23,7 @@ object TemplateBind extends App with Selectors {
                      <div id="place"/>
                      <h1>after</h1>
                      <div id="second"/>
+						         <img src="/a" data-unique="src"/>
                    </body>
                  </html>
 
@@ -36,9 +37,11 @@ object TemplateBind extends App with Selectors {
       <body>
         <div id="place" data-snip="elem1">
           it worked
+          <img src="/a" data-unique="src"/>
         </div>
         <div id="second" data-snip="elem1">
           it worked again
+          <img src="/a" data-unique="src"/>
         </div>
       </body>
     </html>
