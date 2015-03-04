@@ -14,7 +14,7 @@ import net.shift.io.FileOps._
 import scala.util.Success
 import net.shift.io.IO
 
-trait UnitTest extends FlatSpec with Matchers with OptionValues with Inside with Inspectors
+trait UnitTest extends FlatSpec with Matchers
 
 class IOTest extends UnitTest {
 
