@@ -12,3 +12,5 @@ libraryDependencies += "org.json4s" % "json4s-native_2.11" % "3.2.10"
 
 libraryDependencies += "log4j" % "log4j" % "1.2.17"
 
+libraryDependencies += "org.scalatest" % "scalatest_2.11" % "2.2.1" % "test"
+

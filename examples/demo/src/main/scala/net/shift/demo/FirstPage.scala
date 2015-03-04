@@ -8,21 +8,22 @@ import Snippet._
 import loc.Loc._
 import net.shift.loc.Language
 import scala.util.Success
+import net.shift.io.IODefaults
 
-object FirstPage extends DynamicContent[Request] {
+object FirstPage extends DynamicContent[Request] with IODefaults {
 
   val ? = loc("test", Language("ro")) _
-  
+
   def snippets = List(elem1, elem2)
- 
+
   def reqSnip(name: String) = snip[Request](name) _
-  
-  val elem1 = reqSnip("elem1"){
+
+  val elem1 = reqSnip("elem1") {
     s => Success((s.state.initialState, <p>Elem1</p>))
   }
-  
-  val elem2 = snipNoState[Request]("elem2"){
-    s => Success(<p>{?("first", List("param")).text}</p>)
+
+  val elem2 = snipNoState[Request]("elem2") {
+    s => Success(<p>{ ?("first", List("param")).text }</p>)
   }
 }
 

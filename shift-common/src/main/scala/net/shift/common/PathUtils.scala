@@ -5,8 +5,9 @@ import scala.util.Try
 import java.io.BufferedInputStream
 import java.io.FileInputStream
 import java.io.File
-import net.shift.io.IO.BinProducer
+import net.shift.io.BinProducer
 import net.shift.io.IO._
+import net.shift.io.FileSystem
 
 object PathUtils {
 
@@ -21,7 +22,7 @@ object PathUtils {
       l
   }
 
-  def fromPath(path: Path): Try[BinProducer] = fileProducer(path)
+  def fromPath(path: Path)(implicit fs: FileSystem): Try[BinProducer] = fs reader path
 
 }
 

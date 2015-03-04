@@ -8,6 +8,8 @@ import net.shift.io.IO._
 import net.shift.io.Cont
 import net.shift.io.Data
 import XmlUtils._
+import net.shift.io.BinConsumer
+import net.shift.io.BinProducer
 
 object TextResponse {
   def apply(s: String) = new TextResponse(stringProducer(s))

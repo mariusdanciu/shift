@@ -7,12 +7,13 @@ import scala.collection.JavaConverters._
 import PathUtils._
 import StringUtils._
 import net.shift.io.IO._
+import net.shift.io.FileSystem
 
 object Config {
 
   private var configs: Map[String, String] = Map.empty;
 
-  def load(profile: String = "") {
+  def load(profile: String = "")(implicit fs: FileSystem) {
     for {
       in <- fromPath(Path(s"config/config$profile.properties"))
       arr <- toArray(in)

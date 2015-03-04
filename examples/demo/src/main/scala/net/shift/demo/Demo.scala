@@ -20,8 +20,10 @@ import net.shift.engine.page.Html5
 import net.shift.security.BasicCredentials
 import net.shift.security.Permission
 import net.shift.io.IO
+import net.shift.io.FileOps
+import net.shift.io.IODefaults
 
-object Main extends App with HttpPredicates with ShiftUtils {
+object Main extends App with HttpPredicates with ShiftUtils with IODefaults {
   println("Starting Netty server")
 
   BasicConfigurator.configure
@@ -40,7 +42,6 @@ object Main extends App with HttpPredicates with ShiftUtils {
   def serveService(resp: AsyncResponse) {
     resp(TextResponse("serve invoked"))
   }
-
   Config.load()
 
   import scala.concurrent.ExecutionContext.Implicits.global
@@ -98,7 +99,7 @@ object Main extends App with HttpPredicates with ShiftUtils {
               cd <- h.get("Content-Disposition")
               fn <- cd.params.get("filename")
             } yield {
-              IO.pathWriter(Path(fn)) map { IO.arrayProducer(content)(_) }
+              IO.arrayProducer(content)(FileOps writer Path(fn))
             }
           case t @ TextPart(h, content) => println(t)
         }

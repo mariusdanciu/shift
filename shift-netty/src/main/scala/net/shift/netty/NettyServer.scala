@@ -52,6 +52,7 @@ import net.shift.io.Iteratee
 import net.shift.io.IO
 import PathUtils._
 import StringUtils._
+import net.shift.io.FileSystem
 
 object NettyServer {
 
@@ -145,7 +146,7 @@ private[netty] class HttpRequestHandler(app: ShiftApplication)(implicit ec: scal
       def cookie(name: String) = cookies.get(name)
 
       def readBody = IO.inputStreamProducer(buffer)
-      def resource(path: Path) = IO.fileProducer(path)
+      def resource(path: Path)(implicit fs: FileSystem) = fs reader path
 
       lazy val language = Language("en")
     }

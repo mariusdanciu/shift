@@ -6,19 +6,19 @@ package http
 import scala.annotation.tailrec
 import scala.util.Try
 import scala.xml.Node
-
 import common.Path
 import net.shift.common.Base64
 import net.shift.common.Config
 import net.shift.io.Cont
 import net.shift.io.Data
-import net.shift.io.IO.BinConsumer
-import net.shift.io.IO.BinProducer
+import net.shift.io.BinConsumer
+import net.shift.io.BinProducer
 import net.shift.loc.Language
 import net.shift.security.BasicCredentials
 import net.shift.security.Credentials
 import net.shift.security.HMac
 import net.shift.security.User
+import net.shift.io.FileSystem
 
 trait Request {
   def path: Path
@@ -35,7 +35,7 @@ trait Request {
   def cookies: Map[String, Cookie]
   def cookie(name: String): Option[Cookie]
   def readBody: BinProducer
-  def resource(path: Path): Try[BinProducer]
+  def resource(path: Path)(implicit fs: FileSystem): Try[BinProducer]
   def language: Language
 }
 
@@ -54,7 +54,7 @@ class RequestShell(in: Request) extends Request {
   def cookies = in cookies
   def cookie(name: String) = in cookie name
   def readBody = in.readBody
-  def resource(path: Path) = in resource path
+  def resource(path: Path)(implicit fs: FileSystem) = in resource path
   def language: Language = in language
 }
 

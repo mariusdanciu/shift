@@ -7,8 +7,9 @@ import State._
 import scala.xml._
 import net.shift.loc.Language
 import scala.util.Success
+import net.shift.io.IODefaults
 
-object TemplateTest extends App with Selectors {
+object TemplateTest extends App with Selectors with IODefaults {
   val page = <html>
                <head>
                </head>

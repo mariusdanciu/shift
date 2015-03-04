@@ -24,6 +24,8 @@ import net.shift.security.Users
 import net.shift.io.IO._
 import net.shift.common.FileUtils
 import TimeUtils._
+import net.shift.io.BinProducer
+import net.shift.io.FileSystem
 
 trait HttpPredicates {
   val Pattern = new Regex("""\w+:\w*:w*""")
@@ -229,11 +231,11 @@ trait HttpPredicates {
     r => Success((r, r.language))
   }
 
-  def fileOf(path: Path): State[Request, BinProducer] = state {
+  def fileOf(path: Path)(implicit fs: FileSystem): State[Request, BinProducer] = state {
     r =>
       {
         if (FileUtils.exists(path)) {
-          fileProducer(path).map((r, _))
+          (fs reader (path)).map((r, _))
         } else {
           Failure(new FileNotFoundException(path toString))
         }

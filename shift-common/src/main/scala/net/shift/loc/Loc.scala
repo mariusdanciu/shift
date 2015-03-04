@@ -8,6 +8,7 @@ import org.json4s._
 import org.json4s.native.JsonMethods._
 import io.IO._
 import net.shift.common.Path
+import net.shift.io.FileSystem
 
 object Loc {
 
@@ -17,12 +18,12 @@ object Loc {
 
   implicit val formats = DefaultFormats
 
-  private def stringify(p: Path, l: Language) = for {
-    prod <- fileProducer(p)
+  private def stringify(p: Path, l: Language)(implicit fs: FileSystem) = for {
+    prod <- fs reader p
     arr <- toArray(prod)
   } yield { new String(arr, "utf-8") }
 
-  private def load(name: String, l: Language) {
+  private def load(name: String, l: Language)(implicit fs: FileSystem) {
 
     val t1 = stringify(Path(s"$location$name${l}.json"), l)
 
@@ -35,9 +36,9 @@ object Loc {
 
   }
 
-  def loc0(prefix: String, l: Language)(name: String): Text = loc(prefix, l)(name, Nil)
+  def loc0(prefix: String, l: Language)(name: String)(implicit fs: FileSystem): Text = loc(prefix, l)(name, Nil)
 
-  def loc(prefix: String, l: Language)(name: String, params: Seq[String]): Text = {
+  def loc(prefix: String, l: Language)(name: String, params: Seq[String])(implicit fs: FileSystem): Text = {
     val pref = if (prefix == null) "" else prefix + "_"
     (for {
       m <- cache.get(l) orElse { load(s"${pref}", l); cache.get(l) }
@@ -47,9 +48,9 @@ object Loc {
     }) getOrElse Text("0", "???")
   }
 
-  def loc(l: Language)(name: String, params: Seq[String]): Text = loc(null, l)(name, params)
+  def loc(l: Language)(name: String, params: Seq[String])(implicit fs: FileSystem): Text = loc(null, l)(name, params)
 
-  def loc0(l: Language)(name: String): Text = loc(null, l)(name, Nil)
+  def loc0(l: Language)(name: String)(implicit fs: FileSystem): Text = loc(null, l)(name, Nil)
 
 }
 

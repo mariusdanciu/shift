@@ -16,12 +16,14 @@ import java.io.FileOutputStream
 import java.io.BufferedOutputStream
 import java.io.OutputStream
 import java.io.Closeable
+import scala.util.control.Exception._
+
+trait IODefaults {
+
+  implicit val fs: FileSystem = FileOps
+}
 
 object IO extends App {
-
-  type BinConsumer[O] = Iteratee[Array[Byte], O]
-  type Producer[I] = IterateeProducer[I]
-  type BinProducer = IterateeProducer[Array[Byte]]
 
   def close(c: Closeable) = try {
     c.close
@@ -29,11 +31,10 @@ object IO extends App {
     case e: Exception =>
   }
 
-  def fileProducer(p: Path, bufSize: Int = 32768): Try[BinProducer] = try {
-    Success(inputStreamProducer(new BufferedInputStream(new FileInputStream(p.toString()), bufSize), bufSize))
-  } catch {
-    case e: Exception => Failure(e)
-  }
+  def failover[I, O](f: => Iteratee[I, O]): Iteratee[I, O] =
+    catching(classOf[Exception]).withApply[Iteratee[I, O]](e => Error(e)) {
+      f
+    }
 
   private def singleProducer[O](in: In[Array[Byte]]) = new BinProducer {
 
@@ -62,25 +63,34 @@ object IO extends App {
 
   def inputStreamProducer(in: InputStream, bufSize: Int = 32768) = new BinProducer {
 
-    @tailrec
-    def apply[O](it: Iteratee[Array[Byte], O]): Iteratee[Array[Byte], O] = {
-      val buf = Array.ofDim[Byte](bufSize)
+    def apply[O](ait: Iteratee[Array[Byte], O]): Iteratee[Array[Byte], O] = {
 
-      it match {
-        case Cont(f) =>
-          var r = in.read(buf);
-          if (r > -1)
-            apply(f(Data(buf.take(r))))
-          else {
+      @tailrec
+      def walk[O](it: Iteratee[Array[Byte], O]): Iteratee[Array[Byte], O] = {
+
+        val buf = Array.ofDim[Byte](bufSize)
+
+        it match {
+          case Cont(f) =>
+            var r = in.read(buf);
+            if (r > -1)
+              walk(f(Data(buf.take(r))))
+            else {
+              close(in)
+              walk(f(EOF))
+            }
+          case e @ Error(t) =>
             close(in)
-            apply(f(EOF))
-          }
-        case e @ Error(t) =>
-          close(in)
-          e
-        case done @ Done(v, rest) =>
-          done
+            e
+          case done @ Done(v, rest) =>
+            done
+        }
       }
+
+      failover {
+        walk(ait)
+      }
+
     }
   }
 
@@ -104,15 +114,7 @@ object IO extends App {
     }
   }
 
-  def pathWriter(path: Path): Try[Iteratee[Array[Byte], Path]] =
-    Try {
-      for {
-        out <- Iteratee.foldLeft[Array[Byte], OutputStream](new BufferedOutputStream(new FileOutputStream(path.toString))) { (acc, e) => { acc.write(e); acc } }
-      } yield {
-        IO close out
-        path
-      }
-    }
+  def toString(in: BinProducer): Try[String] = toArray(in) map { new String(_, "utf-8") }
 
 }
 

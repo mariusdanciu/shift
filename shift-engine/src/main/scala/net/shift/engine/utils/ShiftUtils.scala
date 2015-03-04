@@ -7,12 +7,13 @@ import common._
 import java.io.BufferedInputStream
 import java.io.FileInputStream
 import scala.util.Try
+import net.shift.io.FileSystem
 
 trait ShiftUtils extends HttpPredicates {
 
   def imageExtensions = Set("png", "jpg", "jpeg", "gif", "tif")
 
-  def staticFiles(folder: Path) = for {
+  def staticFiles(folder: Path)(implicit fs: FileSystem) = for {
     Path("static" :: path) <- path
     input <- fileOf(folder + path.mkString("/", "/", ""))
   } yield {

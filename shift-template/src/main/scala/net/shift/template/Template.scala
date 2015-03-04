@@ -9,7 +9,6 @@ import scala.xml.Group
 import scala.xml.NodeSeq
 import scala.xml.NodeSeq.seqToNodeSeq
 import scala.xml.Text
-
 import common.State
 import common.State._
 import net.shift.common.Path
@@ -23,6 +22,8 @@ import net.shift.security.Permission
 import net.shift.security.User
 import XmlUtils._
 import PathUtils._
+import net.shift.io.FileSystem
+import net.shift.io.IODefaults
 
 /**
  * Holds various strategies on matching page nodes with snippets
@@ -73,7 +74,7 @@ trait Selectors {
 private[template] trait DefaultSnippets extends TemplateUtils {
   import Loc._
 
-  def locSnippet[T] = state[SnipState[T], NodeSeq] {
+  def locSnippet[T](implicit fs: FileSystem) = state[SnipState[T], NodeSeq] {
     s =>
       s match {
         case SnipState(PageState(_, language, _), e: Elem) =>
@@ -98,7 +99,7 @@ private[template] trait DefaultSnippets extends TemplateUtils {
 
               val attrs = (a.attrs - "data-unique").map {
                 case (k, v) if (!u.find(_ == k).isEmpty) => (k, v + "?q=" + System.currentTimeMillis())
-                case (k, v)     => (k, v)
+                case (k, v)                              => (k, v)
               }
               node(n, attrs)
             }
@@ -152,7 +153,7 @@ private[template] trait DefaultSnippets extends TemplateUtils {
 
 object Template extends DefaultSnippets {
 
-  def apply[T](snippets: DynamicContent[T])(implicit finder: TemplateFinder, selector: Selectors#Selector[SnipState[T]]) = {
+  def apply[T](snippets: DynamicContent[T])(implicit finder: TemplateFinder, selector: Selectors#Selector[SnipState[T]], fs: FileSystem) = {
     val t = new Template[T](snippets)(finder, List(selector, byLocAttr, byUniqueAttr, byPermissionsAttr))
     new Template[T](snippets)(finder, List(selector, byLocAttr, byUniqueAttr, byTemplateAttr(t, finder), byPermissionsAttr))
   }
@@ -165,7 +166,7 @@ object Template extends DefaultSnippets {
     case _ => None
   }
 
-  private def byLocAttr[T]: Selectors#Selector[SnipState[T]] = snippets => in => in match {
+  private def byLocAttr[T](implicit fs: FileSystem): Selectors#Selector[SnipState[T]] = snippets => in => in match {
     case e: Elem =>
       for (
         value <- attribute(e, "data-loc")
@@ -190,7 +191,7 @@ object Template extends DefaultSnippets {
     case _ => None
   }
 
-  implicit val defaultTemplateFinder: TemplateFinder = name => for {
+  implicit def defaultTemplateFinder(implicit fs: FileSystem): TemplateFinder = name => for {
     input <- fromPath(Path(s"web/templates/$name.html"))
     content <- load(input)
   } yield content

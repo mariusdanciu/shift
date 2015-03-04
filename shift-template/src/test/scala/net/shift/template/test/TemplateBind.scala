@@ -11,8 +11,9 @@ import net.shift.template.Template
 import net.shift.template.TemplateFinder
 import net.shift.template.Snippet
 import net.shift.template.PageState
+import net.shift.io.IODefaults
 
-object TemplateBind extends App with Selectors {
+object TemplateBind extends App with Selectors with IODefaults {
 
   val template = <html>
                    <head>
@@ -23,7 +24,7 @@ object TemplateBind extends App with Selectors {
                      <div id="place"/>
                      <h1>after</h1>
                      <div id="second"/>
-						         <img src="/a" data-unique="src"/>
+                     <img src="/a" data-unique="src"/>
                    </body>
                  </html>
 
@@ -61,7 +62,6 @@ object TemplateBind extends App with Selectors {
         Success((s.state.initialState, s.node ++ <p>Elem1</p>))
     }
   }
-
   lazy val t = Template[String](content) run page
   val res = for {
     c <- t(SnipState(PageState("", Language("ro"), None), NodeSeq.Empty))

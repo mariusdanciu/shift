@@ -3,11 +3,10 @@ package common
 
 import java.io.BufferedInputStream
 import java.io.FileInputStream
-
 import scala.util.Try
 import scala.xml._
-
 import net.shift.io.IO._
+import net.shift.io.BinProducer
 
 object XmlUtils {
 
