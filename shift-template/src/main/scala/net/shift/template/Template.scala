@@ -3,27 +3,34 @@ package template
 
 import scala.util.Success
 import scala.util.Try
-import scala.xml._
+import scala.xml.Atom
 import scala.xml.Elem
 import scala.xml.Group
 import scala.xml.NodeSeq
 import scala.xml.NodeSeq.seqToNodeSeq
 import scala.xml.Text
-import common.State
-import common.State._
+import scala.xml._
+import Binds.bind
+import Template.Head
+import common.State.init
+import common.State.put
+import common.State.putOpt
+import common.State.state
+import net.shift.common.NodeOps.node
 import net.shift.common.Path
-import net.shift.common.PathUtils
 import net.shift.common.State
-import net.shift.common.XmlUtils
+import net.shift.common.XmlUtils.attribute
+import net.shift.common.XmlUtils.elem2NodeOps
+import net.shift.common.XmlUtils.elemByName
+import net.shift.common.XmlUtils.load
+import net.shift.common.XmlUtils.nodeOps2Elem
+import net.shift.io.FileSystem
 import net.shift.loc.Language
-import net.shift.loc.Loc
 import net.shift.loc.Loc.loc0
 import net.shift.security.Permission
 import net.shift.security.User
-import XmlUtils._
-import PathUtils._
-import net.shift.io.FileSystem
-import net.shift.io.IODefaults
+import net.shift.security._
+import net.shift.loc.Loc
 
 /**
  * Holds various strategies on matching page nodes with snippets
@@ -192,7 +199,7 @@ object Template extends DefaultSnippets {
   }
 
   implicit def defaultTemplateFinder(implicit fs: FileSystem): TemplateFinder = name => for {
-    input <- fromPath(Path(s"web/templates/$name.html"))
+    input <- fs reader Path(s"web/templates/$name.html")
     content <- load(input)
   } yield content
 }

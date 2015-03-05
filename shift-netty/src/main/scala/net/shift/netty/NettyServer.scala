@@ -44,13 +44,11 @@ import net.shift.common.Path
 import net.shift.common.Path
 import net.shift.common.Path
 import net.shift.loc.Language
-import net.shift.common.PathUtils
 import org.jboss.netty.handler.codec.http.DefaultHttpChunk
 import org.jboss.netty.handler.codec.http.HttpChunkAggregator
 import net.shift.engine.http.Header
 import net.shift.io.Iteratee
 import net.shift.io.IO
-import PathUtils._
 import StringUtils._
 import net.shift.io.FileSystem
 
@@ -67,9 +65,7 @@ object NettyServer {
 
     // Bind and start to accept incoming connections.
     bootstrap.bind(new InetSocketAddress(port));
-
   }
-
 }
 
 private[netty] class HttpServerPipelineFactory(app: ShiftApplication)(implicit ec: scala.concurrent.ExecutionContext) extends ChannelPipelineFactory {

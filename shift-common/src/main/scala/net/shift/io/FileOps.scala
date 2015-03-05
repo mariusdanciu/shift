@@ -11,7 +11,6 @@ import scala.util.Success
 import scala.util.Try
 import scala.util.control.Exception._
 import net.shift.common.Path
-import net.shift.io.BinProducer
 import java.io.FileInputStream
 import java.io.BufferedInputStream
 

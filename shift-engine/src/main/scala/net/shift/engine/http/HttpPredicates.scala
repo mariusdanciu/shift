@@ -2,30 +2,33 @@ package net.shift
 package engine
 package http
 
-import java.io.BufferedInputStream
-import java.io.FileInputStream
 import java.io.FileNotFoundException
+
 import scala.util.Failure
 import scala.util.Success
-import scala.util.Try
 import scala.util.matching.Regex
-import common._
-import common.State._
+
+import common.Base64
+import common.Config
+import common.Path
+import common.State
+import common.State.init
+import common.State.initf
+import common.State.state
 import net.shift.common.ShiftFailure
-import net.shift.loc.Language
-import net.shift.security.HMac
-import net.shift.security.Organization
-import net.shift.security.Permission
-import net.shift.security.User
-import net.shift.security.SecurityFailure
-import net.shift.security.BasicCredentials
-import net.shift.security.Credentials
-import net.shift.security.Users
-import net.shift.io.IO._
-import net.shift.common.FileUtils
-import TimeUtils._
+import net.shift.common.State
+import net.shift.engine.ex2Fail
+import net.shift.engine.http.Request.augmentRequest
 import net.shift.io.BinProducer
 import net.shift.io.FileSystem
+import net.shift.io.IO.toArray
+import net.shift.loc.Language
+import net.shift.security.BasicCredentials
+import net.shift.security.Credentials
+import net.shift.security.HMac
+import net.shift.security.SecurityFailure
+import net.shift.security.User
+import net.shift.security.Users
 
 trait HttpPredicates {
   val Pattern = new Regex("""\w+:\w*:w*""")
@@ -54,7 +57,7 @@ trait HttpPredicates {
         }
         res match {
           case Some(u) => Success((r, u))
-          case None    => ShiftFailure(failMsg).toFailure
+          case None    => ShiftFailure(failMsg).toTry
         }
       }
   }
@@ -197,8 +200,8 @@ trait HttpPredicates {
   def tailPath: State[Request, Path] = state {
     r =>
       r.path match {
-        case Path(Nil) => ShiftFailure[Request]
-        case Path(h :: rest) => Success((new RequestShell(r) {
+        case Path(_, Nil) => ShiftFailure[Request]
+        case Path(_, h :: rest) => Success((new RequestShell(r) {
           override def path = r.path tail
           override def uri = s"$path?${r.queryString}"
         }, Path(rest)))
@@ -234,10 +237,12 @@ trait HttpPredicates {
   def fileOf(path: Path)(implicit fs: FileSystem): State[Request, BinProducer] = state {
     r =>
       {
-        if (FileUtils.exists(path)) {
-          (fs reader (path)).map((r, _))
-        } else {
-          Failure(new FileNotFoundException(path toString))
+        fs.exists(path).flatMap { b =>
+          if (b) {
+            (fs reader (path)).map((r, _))
+          } else {
+            Failure(new FileNotFoundException(path toString))
+          }
         }
       }
   }

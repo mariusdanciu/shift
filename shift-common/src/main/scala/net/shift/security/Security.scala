@@ -45,7 +45,7 @@ case class User(name: String, org: Option[Organization], permissions: Set[Permis
     if (perms.toSet diff permissions isEmpty) {
       Try(f)
     } else {
-      ShiftFailure[T]("not.enough.permissions").toFailure
+      ShiftFailure[T]("not.enough.permissions").toTry
     }
   }
 
@@ -55,7 +55,7 @@ case class User(name: String, org: Option[Organization], permissions: Set[Permis
     if (diff.size < perms.size) {
       Try(f)
     } else {
-      ShiftFailure[T]("not.enough.permissions").toFailure
+      ShiftFailure[T]("not.enough.permissions").toTry
     }
   }
 

@@ -44,4 +44,29 @@ class IOTest extends UnitTest {
     exists(Path("a")) should equal(Success(false))
   }
 
+  "Path" should "behave correctly" in {
+    val p = Path("c:/a/b/c")
+    p should equal(Path("c:/a/b/c"))
+    p.toString should equal("c:/a/b/c")
+
+    Path("/a/b/c").toString should equal("/a/b/c")
+    Path("c:/a/b/c").scheme should equal(Some("c"))
+    Path("a/b/c/") match {
+      case Path(None, "a" :: "b" :: "c" :: "" :: Nil) => println("OK")
+      case _                                    => fail("a/b/c did no extract correctly")
+    }
+
+    Path("c:/a/b/c") match {
+      case Path(Some("c"), "" :: "a" :: "b" :: "c" :: Nil) => println("OK")
+      case _ => fail("c:/a/b/c did no extract correctly")
+    }
+
+    Path("c:a/b/c") match {
+      case EmptyPath => println("OK")
+      case _         => fail("c:a/b/c should be invalid")
+    }
+    
+    
+  }
+
 }
