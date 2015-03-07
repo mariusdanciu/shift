@@ -80,7 +80,7 @@ trait HttpPredicates {
       }
   }
 
-  def authenticate(failMsg: => String)(implicit login: Credentials => Option[User]): State[Request, User] = state {
+  def authenticate(failMsg: => String, code: Int = 401)(implicit login: Credentials => Option[User]): State[Request, User] = state {
     r =>
       {
         (r.header("Authorization"), r.cookie("identity"), r.cookie("secret")) match {
@@ -90,7 +90,7 @@ trait HttpPredicates {
               case Some(u) =>
                 Success((r, u))
               case _ =>
-                Failure(SecurityFailure[User](failMsg))
+                Failure(SecurityFailure(failMsg, code))
             }
 
           case (_, Some(Cookie(_, Base64(identity), _, _, _, _, _, _)), Some(Cookie(_, secret, _, _, _, _, _, _))) =>
@@ -98,13 +98,13 @@ trait HttpPredicates {
             if (computedSecret == secret) {
               identity match {
                 case Users(u) => Success((r, u))
-                case _        => Failure(SecurityFailure[User](failMsg))
+                case _        => Failure(SecurityFailure(failMsg, code))
               }
             } else {
-              Failure(SecurityFailure[User](failMsg))
+              Failure(SecurityFailure(failMsg, code))
             }
 
-          case _ => Failure(SecurityFailure[User](failMsg))
+          case _ => Failure(SecurityFailure(failMsg, code))
         }
       }
   }

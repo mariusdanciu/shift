@@ -13,8 +13,8 @@ trait Credentials
 
 sealed case class BasicCredentials(userName: String, password: String) extends Credentials
 
-case class SecurityFailure[+T](msg: String) extends RuntimeException(msg) with util.control.NoStackTrace {
-  def toFailure = Failure(this)
+case class SecurityFailure[+T](msg: String, code: Int = 401) extends RuntimeException(msg) with util.control.NoStackTrace {
+  def toTry = Failure(this)
 }
 
 object Permissions {

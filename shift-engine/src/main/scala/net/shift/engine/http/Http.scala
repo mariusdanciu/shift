@@ -19,6 +19,7 @@ import net.shift.security.Credentials
 import net.shift.security.HMac
 import net.shift.security.User
 import net.shift.io.FileSystem
+import net.shift.io.EOF
 
 trait Request {
   def path: Path
@@ -148,43 +149,34 @@ case class RichResponse(r: Response) {
       Cookie("secret", "", None, Some("/"), Some(0), None, false, true))
   }
 
-  def body(content: String): Response = new ResponseShell(r) {
+  def withBody(content: String): Response = new ResponseShell(r) {
     override def body = new BinProducer {
 
       def apply[O](in: BinConsumer[O]): BinConsumer[O] = in match {
-        case Cont(f) => f(Data(content.getBytes("UTF-8")))
-        case r       => r
+        case Cont(f) => f(Data(content.getBytes("UTF-8"))) match {
+          case Cont(f) => f(EOF)
+          case r       => r
+        }
+        case r => r
       }
     }
   }
 
-  def body(content: Array[Byte]): Response = new ResponseShell(r) {
+  def withBody(content: Array[Byte]): Response = new ResponseShell(r) {
     override def body = new BinProducer {
 
       def apply[O](in: BinConsumer[O]): BinConsumer[O] = in match {
-        case Cont(f) => f(Data(content))
-        case r       => r
+        case Cont(f) => f(Data(content)) match {
+          case Cont(f) => f(EOF)
+          case r       => r
+        }
+        case r => r
       }
     }
   }
 
-  def body(content: Iterator[Array[Byte]]): Response = new ResponseShell(r) {
-    override def body = {
-
-      @tailrec
-      def step[O](it: Iterator[Array[Byte]], in: BinConsumer[O]): BinConsumer[O] = {
-        in match {
-          case Cont(f) if (it.hasNext) => step(it, f(Data(it.next)))
-          case r                       => r
-        }
-      }
-
-      new BinProducer {
-        def apply[O](in: BinConsumer[O]): BinConsumer[O] = {
-          step(content, in)
-        }
-      }
-    }
+  def withBody(content: BinProducer): Response = new ResponseShell(r) {
+    override def body = content
   }
 
   def asText: Response = new ResponseShell(r) {

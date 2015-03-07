@@ -78,7 +78,7 @@ trait State[S, +A] {
   def |[B >: A](other: State[S, B]): State[S, B] = state {
     x =>
       apply(x) match {
-        case f @ Failure(SecurityFailure(msg)) => f
+        case f @ Failure(SecurityFailure(msg, _)) => f
         case f @ Failure(_)                    => other apply x
         case s                                 => s
       }

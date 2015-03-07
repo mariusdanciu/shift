@@ -178,6 +178,7 @@ object Iteratee {
           }
         case EOF     => Done(o, i)
         case Fail(t) => Error(t)
+        case Empty   => Cont(step(o))
       }
     }
     Cont(step(initial))

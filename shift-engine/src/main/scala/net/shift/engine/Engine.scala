@@ -1,14 +1,15 @@
 package net.shift
 package engine
 
-import http._
-import net.shift.common.Log
-import scala.util.Success
-import scala.util.Failure
 import scala.concurrent._
-import net.shift.common.DefaultLog
-import net.shift.security.SecurityFailure
+import scala.util.Failure
+import scala.util.Success
+
+import http._
 import net.shift.common.Config
+import net.shift.common.DefaultLog
+import net.shift.common.Log
+import net.shift.security.SecurityFailure
 
 object Engine extends DefaultLog {
 
@@ -21,9 +22,12 @@ object Engine extends DefaultLog {
           case Success((_, Failure(t))) =>
             error("Fail processing the request " + t)
             response(Resp.serverError)
-          case Failure(SecurityFailure(msg)) =>
+          case Failure(SecurityFailure(msg, 401)) =>
             warn(s"Authentication failure $msg")
             response(Resp.basicAuthRequired(msg, Config.string("auth.realm", "shift")))
+          case Failure(SecurityFailure(msg, status)) =>
+            warn(s"Authentication failure $msg")
+            response(TextResponse(msg).code(status))
           case Failure(t) =>
             error("Fail processing the request " + t)
             response(Resp.serverError)
