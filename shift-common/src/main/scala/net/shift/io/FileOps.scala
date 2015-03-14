@@ -75,6 +75,7 @@ object FileOps extends FileSystem {
   }
 
   def writer(p: Path): Iteratee[Array[Byte], Path] = IO failover {
+    mkdir(p.dropLast)
     for {
       out <- Iteratee.foldLeft[Array[Byte], OutputStream](new BufferedOutputStream(new FileOutputStream(p.toString))) {
         (acc, e) => { acc.write(e); acc }

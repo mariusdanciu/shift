@@ -85,14 +85,19 @@ private[netty] class HttpServerPipelineFactory(app: ShiftApplication)(implicit e
   }
 }
 
-private[netty] class HttpRequestHandler(app: ShiftApplication)(implicit ec: scala.concurrent.ExecutionContext) extends SimpleChannelUpstreamHandler {
+private[netty] class HttpRequestHandler(app: ShiftApplication)(implicit ec: scala.concurrent.ExecutionContext) extends SimpleChannelUpstreamHandler
+  with DefaultLog {
+
   import scala.collection.JavaConversions._
   import NettyHttpExtractor._
 
-  override def messageReceived(ctx: ChannelHandlerContext, e: MessageEvent) {
-    val msg = e.getMessage()
+  override def messageReceived(ctx: ChannelHandlerContext, ev: MessageEvent) {
+    val msg = ev.getMessage()
     val request = msg.asInstanceOf[HttpRequest]
     val uriStr = request.getUri()
+
+    log.debug("Request received : " + uriStr)
+
     val queryStringDecoder = new QueryStringDecoder(uriStr);
     val cookieDecoder = new CookieDecoder();
     val httpMethod = request.getMethod().getName();
@@ -151,11 +156,11 @@ private[netty] class HttpRequestHandler(app: ShiftApplication)(implicit ec: scal
       lazy val language = Language("en")
     }
 
-    Engine.run(app)(shiftRequest, writeResponse(request, e))
+    Engine.run(app)(shiftRequest, writeResponse(request, ev))
 
   }
 
-  private def writeResponse(r: HttpRequest, e: MessageEvent)(resp: Response) {
+  private def writeResponse(r: HttpRequest, ev: MessageEvent)(resp: Response) {
     val keepAlive = isKeepAlive(r);
     val response = new DefaultHttpResponse(HTTP_1_1, new HttpResponseStatus(resp.code, resp.reason));
     val buf = ChannelBuffers.dynamicBuffer(32768)
@@ -190,7 +195,7 @@ private[netty] class HttpRequestHandler(app: ShiftApplication)(implicit ec: scal
       }
     }
 
-    val future = e.getChannel().write(response);
+    val future = ev.getChannel().write(response);
 
     if (!keepAlive) {
       future.addListener(ChannelFutureListener.CLOSE);

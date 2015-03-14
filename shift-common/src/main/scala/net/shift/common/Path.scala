@@ -31,6 +31,8 @@ class Path(val parts: List[String]) {
     case h :: rest => Path(rest)
   }
 
+  def dropLast = Path(parts.dropRight(1))
+
   def +(part: String) = new Path(parts ::: List(part))
 
   def ++(other: Path) = new Path(parts ::: other.parts)
