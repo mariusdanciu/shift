@@ -31,7 +31,7 @@ trait HttpPredicates {
   val Pattern = new Regex("""\w+:\w*:w*""")
 
   implicit def httpMethod2State(m: HttpMethod): State[Request, Request] = state {
-    r => if (m is r.method) Success((r, r)) else ShiftFailure[Request]
+    r => if (m is r.method) Success((r, r)) else ShiftFailure.toTry
   }
 
   def userRequired(failMsg: => String)(implicit login: Credentials => Option[User]): State[Request, User] = state {
@@ -54,7 +54,7 @@ trait HttpPredicates {
         }
         res match {
           case Some(u) => Success((r, u))
-          case None    => ShiftFailure(failMsg).toFailure
+          case None    => ShiftFailure(failMsg).toTry
         }
       }
   }
@@ -113,7 +113,7 @@ trait HttpPredicates {
     r =>
       r.header("X-Requested-With") match {
         case Some(Header(_, "XMLHttpRequest", _)) => Success((r, r))
-        case _                                    => ShiftFailure[Request]
+        case _                                    => ShiftFailure.toTry
       }
   }
 
@@ -125,17 +125,17 @@ trait HttpPredicates {
             case Some(b) =>
               (toArray(r.readBody)) match {
                 case Success(arr) => MultipartParser(b).parse(arr).map(e => (r, e))
-                case _            => ShiftFailure[Request]
+                case _            => ShiftFailure.toTry
               }
-            case None => ShiftFailure[Request]
+            case None => ShiftFailure.toTry
           }
-        case _ => ShiftFailure[Request]
+        case _ => ShiftFailure.toTry
       }
   }
 
   def path(path: String): State[Request, Request] = state {
     r =>
-      if (r.path == Path(path)) Success((r, r)) else ShiftFailure[Request]
+      if (r.path == Path(path)) Success((r, r)) else ShiftFailure.toTry
   }
 
   def path: State[Request, Path] = state {
@@ -143,13 +143,13 @@ trait HttpPredicates {
   }
 
   def hasAllParams(params: List[String]): State[Request, List[String]] = state {
-    r => if (params.filter(p => r.params.contains(p)).size != params.size) ShiftFailure[Request] else Success((r, params))
+    r => if (params.filter(p => r.params.contains(p)).size != params.size) ShiftFailure.toTry else Success((r, params))
   }
 
   def containsAnyOfParams(params: List[String]): State[Request, List[String]] = state {
     r =>
       params.filter(p => r.params.contains(p)) match {
-        case Nil => ShiftFailure[Request]
+        case Nil => ShiftFailure.toTry
         case p   => Success((r, p))
       }
   }
@@ -158,7 +158,7 @@ trait HttpPredicates {
     r =>
       r.param(name) match {
         case Some(v :: _) => Success((r, v))
-        case _            => ShiftFailure[Request]
+        case _            => ShiftFailure.toTry
       }
   }
 
@@ -166,18 +166,18 @@ trait HttpPredicates {
     r =>
       r.param(name) match {
         case Some(v) => Success((r, v))
-        case _       => ShiftFailure[Request]
+        case _       => ShiftFailure.toTry
       }
   }
 
   def hasAllHeaders(headers: List[String]): State[Request, List[String]] = state {
-    r => if (headers.filter(p => r.headers.contains(p)).size != headers.size) ShiftFailure[Request] else Success((r, headers))
+    r => if (headers.filter(p => r.headers.contains(p)).size != headers.size) ShiftFailure.toTry else Success((r, headers))
   }
 
   def containsAnyOfHeaders(headers: List[String]): State[Request, List[String]] = state {
     r =>
       headers.filter(p => r.headers.contains(p)) match {
-        case Nil => ShiftFailure[Request]
+        case Nil => ShiftFailure.toTry
         case p   => Success((r, p))
       }
   }
@@ -186,18 +186,18 @@ trait HttpPredicates {
     r =>
       r.header(name) match {
         case Some(v) => Success((r, v))
-        case _       => ShiftFailure[Request]
+        case _       => ShiftFailure.toTry
       }
   }
 
   def startsWith(path: Path): State[Request, Path] = state {
-    r => if (r.path.startsWith(path)) Success((r, path)) else ShiftFailure[Request]
+    r => if (r.path.startsWith(path)) Success((r, path)) else ShiftFailure.toTry
   }
 
   def tailPath: State[Request, Path] = state {
     r =>
       r.path match {
-        case Path(Nil) => ShiftFailure[Request]
+        case Path(Nil) => ShiftFailure.toTry
         case Path(h :: rest) => Success((new RequestShell(r) {
           override def path = r.path tail
           override def uri = s"$path?${r.queryString}"
@@ -209,7 +209,7 @@ trait HttpPredicates {
     r =>
       r.contentType.filter(c => c.startsWith("application/xml") || c.startsWith("text/xml")).map(c => (r, c)) match {
         case Some(s) => Success(s)
-        case _       => ShiftFailure[Request]
+        case _       => ShiftFailure.toTry
       }
   }
 
@@ -217,7 +217,7 @@ trait HttpPredicates {
     r =>
       r.contentType.filter(c => c.startsWith("application/json") || c.startsWith("text/json")).map(c => (r, c)) match {
         case Some(s) => Success(s)
-        case _       => ShiftFailure[Request]
+        case _       => ShiftFailure.toTry
       }
   }
 

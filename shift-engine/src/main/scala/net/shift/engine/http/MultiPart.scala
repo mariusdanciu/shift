@@ -61,8 +61,8 @@ class MultipartParser(boundary: Array[Byte]) extends Parsers with Log {
   def parse(in: Array[Byte]): Try[MultiPartBody] = duration {
     multiParser(BinReader(in, 0)) match {
       case Success(v, _) => scala.util.Success(v)
-      case Failure(v, _) => scala.util.Failure(ShiftFailure[MultiPartBody](v))
-      case Error(v, _)   => scala.util.Failure(ShiftFailure[MultiPartBody](v))
+      case Failure(v, _) => ShiftFailure(v).toTry
+      case Error(v, _)   => ShiftFailure(v).toTry
     }
   } { d => debug(s"Multipart parsing took: $d") }
 

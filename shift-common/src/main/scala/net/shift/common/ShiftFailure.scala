@@ -4,12 +4,13 @@ package common
 import scala.util.Failure
 
 object ShiftFailure {
-  def apply[T] = new ShiftFailure[T]("Not found")
-  def apply[T](msg: String) = new ShiftFailure[T](msg)
+  def apply = new ShiftFailure("Not found")
+  def apply(msg: String) = new ShiftFailure(msg)
+  def toTry = new ShiftFailure("Not found").toTry
 }
 
-class ShiftFailure[+T](msg: String) extends RuntimeException(msg) with util.control.NoStackTrace {
-  def toFailure = Failure(this)
+class ShiftFailure(msg: String) extends RuntimeException(msg) with util.control.NoStackTrace {
+  def toTry = Failure(this)
 }
 
   
