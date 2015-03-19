@@ -14,10 +14,10 @@ trait ShiftUtils extends HttpPredicates {
   def imageExtensions = Set("png", "jpg", "jpeg", "gif", "tif")
 
   def staticFiles(folder: Path)(implicit fs: FileSystem) = for {
-    Path("static" :: path) <- path
-    input <- fileOf(folder + path.mkString("/", "/", ""))
+    Path(_, "static" :: p) <- path
+    input <- fileOf(folder + p.mkString("/"))
   } yield {
-    val FileSplit(name, ext) = path.last
+    val FileSplit(name, ext) = p.last
     if (ext == "css") service(resp => resp(new CSSResponse(input)))
     else if (imageExtensions.contains(ext)) service(resp => resp(new ImageResponse(input, "image/" + ext)))
     else if (ext == "js") service(resp => resp(new JsResponse(input)))

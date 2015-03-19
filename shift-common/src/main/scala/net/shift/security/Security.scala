@@ -41,8 +41,20 @@ object Users {
 }
 
 case class User(name: String, org: Option[Organization], permissions: Set[Permission]) {
+
+  def hasAllPermissions(perms: Permission*) = perms.toSet diff permissions isEmpty
+
   def requireAll[T](perms: Permission*)(f: => T): Try[T] = {
     if (perms.toSet diff permissions isEmpty) {
+      Try(f)
+    } else {
+      ShiftFailure("not.enough.permissions").toTry
+    }
+  }
+
+  def notThesePermissions[T](perms: Permission*)(f: => T): Try[T] = {
+    val l = perms.size
+    if (perms.toSet.diff(permissions).size == l) {
       Try(f)
     } else {
       ShiftFailure("not.enough.permissions").toTry

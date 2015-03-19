@@ -131,7 +131,7 @@ object Formlet {
 
   def inputSelect[Env, Err, S](name: String, options: List[(String, String)])(f: Env => Validation[Err, S]) = new Formlet[S, Env, Err] {
     val validate = f
-    override def html = <select name={ name }>{ options.map { o => <option name={ o._1 }>{ o._2 }</option> } }</select>
+    override def html = <select name={ name }>{ options.map { o => <option value={ o._1 }>{ o._2 }</option> } }</select>
   }
 
   def inputFile[Env, Err, S](name: String)(f: Env => Validation[Err, S]) = new Formlet[S, Env, Err] {

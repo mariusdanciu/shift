@@ -48,19 +48,19 @@ object Main extends App with HttpPredicates with ShiftUtils with IODefaults {
 
   NettyServer.start(8080, new ShiftApplication with Selectors {
 
-    implicit val selector = bySnippetAttr[SnipState[Request]]
+    implicit val selector = bySnippetAttr[Request]
 
     import Request._
 
     // If we have a GET request and the path is /a/b/c
     val r1 = for {
       _ <- GET
-      _ <- path("/a/b/c")
+      _ <- path("a/b/c")
     } yield service(abcService)
 
     // Serve /page/first page
     val r2 = for {
-      _ <- path("/page/first")
+      _ <- path("page/first")
       r <- withLanguage(Language("ro"))
       user <- authenticate("Login failed")
     } yield {
@@ -73,22 +73,22 @@ object Main extends App with HttpPredicates with ShiftUtils with IODefaults {
     // Serve /?/y/z where first part can be anything
     val r3 = for {
       _ <- tailPath
-      _ <- path("/y/z")
+      _ <- path("y/z")
     } yield service(yzService)
 
     // Serve ?/1/?/?/3 the first and the two parts in the middle can be anything
     val r4 = for {
-      Path("1" :: a :: b :: "3" :: Nil) <- tailPath
+      Path(_, "1" :: a :: b :: "3" :: Nil) <- tailPath
       r <- req
     } yield service(serveService)
 
     val r0 = for {
-      r <- path("/")
+      r <- path("")
       u <- user
     } yield Html5.pageFromFile(PageState(r, r.language, u), Path("pages/first.html"), FirstPage)
 
     val multi = for {
-      _ <- path("/form")
+      _ <- path("form")
       r <- req
       mp <- multipartForm
     } yield {
@@ -101,14 +101,14 @@ object Main extends App with HttpPredicates with ShiftUtils with IODefaults {
             } yield {
               IO.arrayProducer(content)(FileOps writer Path(fn))
             }
-          case t @ TextPart(h, content) => println(t)
+          case t => println(t)
         }
       }
       Html5.pageFromFile(PageState(r, r.language), Path("pages/first.html"), FirstPage)
     }
 
     val admin = for {
-      _ <- path("/admin")
+      _ <- path("admin")
       u <- user
     } yield {
       println("Got user " + u)

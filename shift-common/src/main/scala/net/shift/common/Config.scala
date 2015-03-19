@@ -4,7 +4,6 @@ package common
 import java.util.Properties
 import java.io.ByteArrayInputStream
 import scala.collection.JavaConverters._
-import PathUtils._
 import StringUtils._
 import net.shift.io.IO._
 import net.shift.io.FileSystem
@@ -15,7 +14,7 @@ object Config {
 
   def load(profile: String = "")(implicit fs: FileSystem) {
     for {
-      in <- fromPath(Path(s"config/config$profile.properties"))
+      in <- fs.reader(Path(s"config/config$profile.properties"))
       arr <- toArray(in)
     } {
       val p = new Properties();

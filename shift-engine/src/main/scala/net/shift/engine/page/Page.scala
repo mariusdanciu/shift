@@ -14,7 +14,6 @@ import scala.util.Success
 import net.shift.common.DefaultLog
 import net.shift.security.User
 import XmlUtils._
-import net.shift.common.PathUtils._
 import net.shift.io.FileSystem
 
 object Html5 extends Selectors {
@@ -22,7 +21,7 @@ object Html5 extends Selectors {
                       path: Path,
                       snippets: DynamicContent[T])(implicit selector: Selectors#Selector[SnipState[T]], fs: FileSystem): Attempt =
     for {
-      input <- fromPath(path)
+      input <- fs reader path
       content <- load(input)
       n <- new Html5(state, snippets).resolve(content)
     } yield {
@@ -40,7 +39,7 @@ object Html5 extends Selectors {
                          path: Path,
                          snippets: DynamicContent[T])(implicit selector: Selectors#Selector[SnipState[T]], fs: FileSystem): Try[(SnipState[T], NodeSeq)] =
     for {
-      input <- fromPath(path)
+      input <- fs reader path
       content <- load(input)
       n <- new Html5(state, snippets).resolve(content)
     } yield n

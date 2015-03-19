@@ -1,6 +1,7 @@
 <html>
 <head>
-   <script type="text/javascript" src="/static/js/admin.js" data-permissions="write"></script>
+<script type="text/javascript" src="/static/js/admin.js"
+	data-permissions="write"></script>
 </head>
 <body>
 
@@ -16,6 +17,8 @@ and line breaks.
 
 	<pre data-snip="elem1">
  to be replaced
+ 	<pre data-snip="elem2"></pre>
+ to be replaced
 </pre>
 
 	<pre data-snip="elem2">
@@ -24,13 +27,16 @@ and line breaks.
 
 	<h1 data-loc="second" />
 
-    <img data-unique="src" src="/static/images/cart.png" />
-	<form action="/form" enctype="multipart/form-data" method="post" data-permissions="write">
-		<input type="file" name="datafile1" size="40" />
-		<input type="file" name="datafile2" size="40" />
-		<input type="text" name="text" size="40" />
-		<input type="submit" value="Send" />
+	<img data-unique="src" src="/static/pic/ajax-loader.gif" />
+
+	<form action="/form" enctype="multipart/form-data" method="post"
+		data-permissions="write">
+		<input type="file" name="datafile1" size="40" /> <input type="file"
+			name="datafile2" size="40" /> <input type="text" name="text"
+			size="40" /> <input type="submit" value="Send" />
 	</form>
+
+	<span data-notthesepermissions="write" data-snip="test">SPAN</span>
 
 
 </body>

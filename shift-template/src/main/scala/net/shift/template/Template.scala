@@ -3,27 +3,34 @@ package template
 
 import scala.util.Success
 import scala.util.Try
-import scala.xml._
+import scala.xml.Atom
 import scala.xml.Elem
 import scala.xml.Group
 import scala.xml.NodeSeq
 import scala.xml.NodeSeq.seqToNodeSeq
 import scala.xml.Text
-import common.State
-import common.State._
+import scala.xml._
+import Binds.bind
+import Template.Head
+import common.State.init
+import common.State.put
+import common.State.putOpt
+import common.State.state
+import net.shift.common.NodeOps.node
 import net.shift.common.Path
-import net.shift.common.PathUtils
 import net.shift.common.State
-import net.shift.common.XmlUtils
+import net.shift.common.XmlUtils.attribute
+import net.shift.common.XmlUtils.elem2NodeOps
+import net.shift.common.XmlUtils.elemByName
+import net.shift.common.XmlUtils.load
+import net.shift.common.XmlUtils.nodeOps2Elem
+import net.shift.io.FileSystem
 import net.shift.loc.Language
-import net.shift.loc.Loc
 import net.shift.loc.Loc.loc0
 import net.shift.security.Permission
 import net.shift.security.User
-import XmlUtils._
-import PathUtils._
-import net.shift.io.FileSystem
-import net.shift.io.IODefaults
+import net.shift.security._
+import net.shift.loc.Loc
 
 /**
  * Holds various strategies on matching page nodes with snippets
@@ -37,40 +44,28 @@ trait Selectors {
   /**
    * The value of "data-snip" attribute determines the snippet that will be applied
    */
-  def bySnippetAttr[T]: Selector[T] = snippets => in => in match {
-    case e: Elem =>
-      for (
-        value <- attribute(e, "data-snip");
-        snippet <- snippets(value)
-      ) yield snippet
-    case _ => None
+  def bySnippetAttr[T]: Selector[SnipState[T]] = snippets => in => {
+
+    def filterSnip = state[SnipState[T], NodeSeq] {
+      s =>
+        s match {
+          case SnipState(st, e: Elem) =>
+            val el = new Elem(e.prefix, e.label, e.attributes.remove("data-snip"), e.scope, e.child: _*)
+            Success(SnipState(st, el), el)
+        }
+    }
+
+    in match {
+      case e: Elem =>
+        for (
+          value <- attribute(e, "data-snip");
+          snippet <- snippets(value)
+        ) yield filterSnip.flatMap { _ => snippet }
+      case _ => None
+    }
   }
 
-  /**
-   * The value of "class" attribute determines the snippet that will be applied
-   */
-  def byClassAttr[T]: Selector[T] = snippets => in => in match {
-    case e: Elem => for {
-      value <- attribute(e, "class")
-      cls <- ("\\s+".r split value).headOption
-      snippet <- snippets(cls)
-    } yield snippet
-
-    case _ => None
-  }
-
-  /**
-   * The value of "id" attribute determines the snippet that will be applied
-   */
-  def byIdAttr[T]: Selector[T] = snippets => in => in match {
-    case e: Elem => for (
-      node <- attribute(e, "id");
-      snippet <- snippets(node mkString)
-    ) yield snippet
-    case _ => None
-  }
 }
-
 private[template] trait DefaultSnippets extends TemplateUtils {
   import Loc._
 
@@ -126,6 +121,25 @@ private[template] trait DefaultSnippets extends TemplateUtils {
       }
   }
 
+  def notThesePermissionSnippet[T] = state[SnipState[T], NodeSeq] {
+    s =>
+      s match {
+        case SnipState(PageState(_, language, user), e: Elem) =>
+          Try((for { l <- attribute(e, "data-notthesepermissions") } yield {
+            val otherPerms = l.split("\\s*,\\s*").map(Permission(_))
+
+            user match {
+              case Some(u) =>
+                (u.notThesePermissions(otherPerms: _*) {
+                  (s, new Elem(e.prefix, e.label, e.attributes.remove("data-notthesepermissions"), e.scope, e.child: _*))
+                }).getOrElse((s, NodeSeq.Empty))
+              case None => (s, NodeSeq.Empty)
+            }
+
+          }) get)
+      }
+  }
+
   def templateSnippet[T](implicit template: Template[T], finder: TemplateFinder) = for {
     SnipState(PageState(_, language, _), e @ TemplateAttr(t)) <- init[SnipState[T]]
     n <- put[SnipState[T], NodeSeq](e removeAttr "data-template")
@@ -154,8 +168,8 @@ private[template] trait DefaultSnippets extends TemplateUtils {
 object Template extends DefaultSnippets {
 
   def apply[T](snippets: DynamicContent[T])(implicit finder: TemplateFinder, selector: Selectors#Selector[SnipState[T]], fs: FileSystem) = {
-    val t = new Template[T](snippets)(finder, List(selector, byLocAttr, byUniqueAttr, byPermissionsAttr))
-    new Template[T](snippets)(finder, List(selector, byLocAttr, byUniqueAttr, byTemplateAttr(t, finder), byPermissionsAttr))
+    val t = new Template[T](snippets)(finder, List(byLocAttr, byUniqueAttr, byPermissionsAttr, selector))
+    new Template[T](snippets)(finder, List(byPermissionsAttr, byNotThesePermissionsAttr, byLocAttr, byUniqueAttr, byTemplateAttr(t, finder), selector))
   }
 
   private def byPermissionsAttr[T]: Selectors#Selector[SnipState[T]] = snippets => in => in match {
@@ -163,6 +177,14 @@ object Template extends DefaultSnippets {
       for (
         value <- attribute(e, "data-permissions")
       ) yield permissionSnippet[T]
+    case _ => None
+  }
+
+  private def byNotThesePermissionsAttr[T]: Selectors#Selector[SnipState[T]] = snippets => in => in match {
+    case e: Elem =>
+      for (
+        value <- attribute(e, "data-notthesepermissions")
+      ) yield notThesePermissionSnippet[T]
     case _ => None
   }
 
@@ -192,7 +214,7 @@ object Template extends DefaultSnippets {
   }
 
   implicit def defaultTemplateFinder(implicit fs: FileSystem): TemplateFinder = name => for {
-    input <- fromPath(Path(s"web/templates/$name.html"))
+    input <- fs reader Path(s"web/templates/$name.html")
     content <- load(input)
   } yield content
 }
@@ -209,8 +231,7 @@ class Template[T](snippets: DynamicContent[T])(implicit finder: TemplateFinder, 
     s =>
       e match {
         case el: Elem =>
-          val el1 = el.removeAttr("data-snip")
-          Success((SnipState(s.state, el1.e), el1.e))
+          Success((SnipState(s.state, el), el))
         case n => Success((SnipState(s.state, n), n))
       }
   }

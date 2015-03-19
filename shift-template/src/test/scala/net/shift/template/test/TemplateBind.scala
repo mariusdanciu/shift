@@ -48,7 +48,7 @@ object TemplateBind extends App with Selectors with IODefaults {
     </html>
 
   implicit val finder: TemplateFinder = name => Success(template)
-  implicit val selector = bySnippetAttr[SnipState[String]]
+  implicit val selector = bySnippetAttr[String]
 
   val content = new DynamicContent[String] {
     def snippets = List(elem1)

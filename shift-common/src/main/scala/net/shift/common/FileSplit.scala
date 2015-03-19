@@ -9,27 +9,6 @@ import net.shift.io.BinProducer
 import net.shift.io.IO._
 import net.shift.io.FileSystem
 
-object PathUtils {
-
-  def pathToList(path: String) = {
-    val l = (path split "/").toList match {
-      case "" :: rest => rest
-      case e          => e
-    }
-    if (path.endsWith("/"))
-      l ::: List("")
-    else
-      l
-  }
-
-  def fromPath(path: Path)(implicit fs: FileSystem): Try[BinProducer] = fs reader path
-
-}
-
-object FileUtils {
-  def exists(p: Path): Boolean = new File(p.toString()).exists
-}
-
 object FileSplit {
 
   def unapply(s: Path): Option[(String, String)] = unapply(s.toString())

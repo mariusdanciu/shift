@@ -51,7 +51,7 @@ object TemplateTest extends App with Selectors with IODefaults {
       })
   }
 
-  implicit val sel = bySnippetAttr[SnipState[String]]
+  implicit val sel = bySnippetAttr[String]
   val res = Template[String](snippets)
 
   import Template._

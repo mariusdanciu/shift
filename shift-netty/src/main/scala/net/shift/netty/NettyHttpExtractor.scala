@@ -2,7 +2,7 @@ package net.shift
 package netty
 
 import scala.collection.JavaConversions.asScalaBuffer
-import org.jboss.netty.handler.codec.http.{Cookie => NettyCookie}
+import org.jboss.netty.handler.codec.http.{ Cookie => NettyCookie }
 import org.jboss.netty.handler.codec.http.HttpRequest
 import org.jboss.netty.handler.codec.http.QueryStringDecoder
 import engine.http.Cookie
@@ -29,7 +29,7 @@ object NettyHttpExtractor extends HttpUtils {
 
     while (it.hasNext()) {
       val entry = it.next();
-      extractHeaderValue(entry.getKey, entry.getValue()).map(h => pm += (h.key -> h)) 
+      extractHeaderValue(entry.getKey, entry.getValue()).map(h => pm += (h.key -> h))
     }
     pm.toMap
   }
@@ -43,11 +43,15 @@ object NettyHttpExtractor extends HttpUtils {
   }
 
   def uriPath(uri: String): String = {
-    val pos = uri.indexOf("?")
-    if (pos < 0)
+    if (uri.isEmpty())
       uri
-    else
-      uri.substring(0, pos)
+    else {
+      val pos = uri.indexOf("?")
+      if (pos < 0)
+        uri.substring(1)
+      else
+        uri.substring(1, pos)
+    }
   }
 
   def cookiesMap(in: Option[scala.collection.mutable.Set[NettyCookie]]) = {

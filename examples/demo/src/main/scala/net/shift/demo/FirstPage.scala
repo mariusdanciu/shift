@@ -14,16 +14,24 @@ object FirstPage extends DynamicContent[Request] with IODefaults {
 
   val ? = loc("test", Language("ro")) _
 
-  def snippets = List(elem1, elem2)
+  def snippets = List(elem1, elem2, test)
 
   def reqSnip(name: String) = snip[Request](name) _
 
   val elem1 = reqSnip("elem1") {
-    s => Success((s.state.initialState, <p>Elem1</p>))
+    s =>
+      println(s.node)
+      Success((s.state.initialState, <p>Elem1</p> ++ s.node))
   }
 
   val elem2 = snipNoState[Request]("elem2") {
     s => Success(<p>{ ?("first", List("param")).text }</p>)
+  }
+
+  val test = snipNoState[Request]("test") {
+    s =>
+      println("in test")
+      Success(s.node ++ Text("Executed"))
   }
 }
 

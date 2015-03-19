@@ -7,6 +7,11 @@ import scala.util.Try
 import scala.util.Success
 
 case class Attributes(attrs: Map[String, String]) {
+
+  def hasAttr(pair: (String, String)): Boolean = attrs get pair._1 match {
+    case Some(value) if (value == pair._2) => true
+    case _                                 => false
+  }
   def hasAttr(name: String): Boolean = attrs contains name
   def hasClass(name: String): Boolean = attrs.get("class").map(_ contains name) getOrElse false
   def hasId(name: String): Boolean = attrs.get("id").map(_ contains name) getOrElse false
@@ -72,10 +77,16 @@ object HasClasses {
   def unapply(a: BindMeta): Option[(List[String], Attributes)] = a.attrs.attrs.get("class") map (v => (v.trim.split("\\s+").toList, a.attrs))
 }
 
-object HasName  {
+object HasName {
   def unapply(a: Attributes): Option[(String, Attributes)] = a.attrs.get("name") map (v => (v, a))
   def unapply(a: ToBind): Option[(String, Attributes)] = a.meta.attrs.attrs.get("name") map (v => (v, a.meta.attrs))
   def unapply(a: BindMeta): Option[(String, Attributes)] = a.attrs.attrs.get("name") map (v => (v, a.attrs))
+}
+
+object HasValue {
+  def unapply(a: Attributes): Option[(String, Attributes)] = a.attrs.get("value") map (v => (v, a))
+  def unapply(a: ToBind): Option[(String, Attributes)] = a.meta.attrs.attrs.get("value") map (v => (v, a.meta.attrs))
+  def unapply(a: BindMeta): Option[(String, Attributes)] = a.attrs.attrs.get("value") map (v => (v, a.attrs))
 }
 
 object HasId {
