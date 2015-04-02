@@ -125,11 +125,11 @@ case class RichResponse(r: Response) {
     override val code = statusCode
   }
 
-  def headers(prop: (Header)*) = new ResponseShell(r) {
+  def withHeaders(prop: (Header)*) = new ResponseShell(r) {
     override val headers = r.headers ++ List(prop: _*)
   }
 
-  def cookies(c: Cookie*) = new ResponseShell(r) {
+  def withCookies(c: Cookie*) = new ResponseShell(r) {
     override val cookies = r.cookies ++ c
   }
 
@@ -138,13 +138,13 @@ case class RichResponse(r: Response) {
     val identity = s"${user.name}:$org:${user.permissions.map(_.name).mkString(",")}"
     val computedSecret = Base64.encode(HMac.encodeSHA256(identity, Config.string("auth.hmac.salt", "SHIFT-HMAC-SALT")))
 
-    cookies(
+    withCookies(
       Cookie("identity", Base64.encodeString(identity), None, Some("/"), Some(Config.long("auth.ttl", 1800)), None, false, true),
       Cookie("secret", computedSecret, None, Some("/"), Some(Config.long("auth.ttl", 1800)), None, false, true))
   }
 
   def dropSecurityCookies: Response = {
-    cookies(
+    withCookies(
       Cookie("identity", "", None, Some("/"), Some(0), None, false, true),
       Cookie("secret", "", None, Some("/"), Some(0), None, false, true))
   }

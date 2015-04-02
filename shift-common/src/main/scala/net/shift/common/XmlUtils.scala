@@ -129,4 +129,9 @@ case class NodeOps(e: Elem) {
       case _                             => false
     }
   ) yield ns.value.mkString
+  
+  def attrs: Map[String, String] = ((Map.empty:Map[String, String]) /: e.attributes)((a, e) => e match {
+    case at: UnprefixedAttribute => a + (at.key -> at.value.toString)
+    case _ => a
+  })
 }

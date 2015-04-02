@@ -1,13 +1,14 @@
 package net.shift
 package engine.utils
 
+import scala.util.Try
+
+import common._
 import engine.ShiftApplication._
 import engine.http._
-import common._
-import java.io.BufferedInputStream
-import java.io.FileInputStream
-import scala.util.Try
 import net.shift.io.FileSystem
+import engine.http.Response._
+
 
 trait ShiftUtils extends HttpPredicates {
 
@@ -19,7 +20,7 @@ trait ShiftUtils extends HttpPredicates {
   } yield {
     val FileSplit(name, ext) = p.last
     if (ext == "css") service(resp => resp(new CSSResponse(input)))
-    else if (imageExtensions.contains(ext)) service(resp => resp(new ImageResponse(input, "image/" + ext)))
+    else if (imageExtensions.contains(ext)) service(resp => resp(new ImageResponse(input, "image/" + ext).withHeaders(Header("cache-control", "max-age=86400"))))
     else if (ext == "js") service(resp => resp(new JsResponse(input)))
     else if (ext == "html") service(resp => resp(new HtmlStaticResponse(input)))
     else service(resp => resp(new TextResponse(input)))

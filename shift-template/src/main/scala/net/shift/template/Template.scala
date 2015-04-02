@@ -168,8 +168,8 @@ private[template] trait DefaultSnippets extends TemplateUtils {
 object Template extends DefaultSnippets {
 
   def apply[T](snippets: DynamicContent[T])(implicit finder: TemplateFinder, selector: Selectors#Selector[SnipState[T]], fs: FileSystem) = {
-    val t = new Template[T](snippets)(finder, List(byLocAttr, byUniqueAttr, byPermissionsAttr, selector))
-    new Template[T](snippets)(finder, List(byPermissionsAttr, byNotThesePermissionsAttr, byLocAttr, byUniqueAttr, byTemplateAttr(t, finder), selector))
+    val t = new Template[T](snippets)(finder, fs, List(byLocAttr, byUniqueAttr, byPermissionsAttr, selector))
+    new Template[T](snippets)(finder, fs, List(byPermissionsAttr, byNotThesePermissionsAttr, byLocAttr, byUniqueAttr, byTemplateAttr(t, finder), selector))
   }
 
   private def byPermissionsAttr[T]: Selectors#Selector[SnipState[T]] = snippets => in => in match {
@@ -222,10 +222,32 @@ object Template extends DefaultSnippets {
 /**
  * Template engine
  */
-class Template[T](snippets: DynamicContent[T])(implicit finder: TemplateFinder, selectors: List[Selectors#Selector[SnipState[T]]]) {
+class Template[T](snippets: DynamicContent[T])(implicit finder: TemplateFinder, fs: FileSystem, selectors: List[Selectors#Selector[SnipState[T]]]) {
   import Template._
 
   private val snippetsMap = snippets toMap
+
+  private def locAttr[T](e: NodeSeq) = {
+    def locAttributes(in: Elem, l: Language): Elem = {
+      node(in.label, in.attrs.map {
+        case (k, v) =>
+          if (v.startsWith("loc:"))
+            (k -> Loc.loc0(l)(v.substring(4))(fs).text)
+          else
+            (k -> v)
+      }) / in.child
+    }
+
+    state[SnipState[T], NodeSeq] {
+      s =>
+        e match {
+          case el: Elem =>
+            val t = locAttributes(el, s.state.lang);
+            Success((SnipState(s.state, t), t))
+          case n => Success((SnipState(s.state, n), n))
+        }
+    }
+  }
 
   private def pushNode[T](e: NodeSeq) = state[SnipState[T], NodeSeq] {
     s =>
@@ -243,12 +265,12 @@ class Template[T](snippets: DynamicContent[T])(implicit finder: TemplateFinder, 
       case Head(header) =>
         run(header ++ replacements.head, replacements).map { n => <head>{ n }</head> }
       case e: Elem =>
-        selectors.map(_(snippetsMap get)(e)).find(s => !s.isEmpty).flatten match {
+        val res = selectors.map(_(snippetsMap get)(e)).find(s => !s.isEmpty).flatten match {
           case Some(snippet) =>
             for {
               _ <- pushNode[T](e)
-              snip <- snippet
-              r <- run(snip, replacements)
+              t <- snippet
+              r <- run(t, replacements)
             } yield r
           case _ =>
             val op1 = (for {
@@ -263,6 +285,10 @@ class Template[T](snippets: DynamicContent[T])(implicit finder: TemplateFinder, 
 
             op1 | op2
         }
+        for {
+          e <- res
+          t <- locAttr(e)
+        } yield t
       case n: NodeSeq =>
         (State.put[SnipState[T], NodeSeq](NodeSeq.Empty) /: n)((a, e) =>
           for {
