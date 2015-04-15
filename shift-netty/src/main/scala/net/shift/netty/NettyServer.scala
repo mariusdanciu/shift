@@ -51,6 +51,8 @@ import net.shift.io.Iteratee
 import net.shift.io.IO
 import StringUtils._
 import net.shift.io.FileSystem
+import org.jboss.netty.handler.codec.http.HttpResponse
+import org.jboss.netty.handler.codec.http.HttpVersion
 
 object NettyServer {
 
@@ -199,7 +201,13 @@ private[netty] class HttpRequestHandler(app: ShiftApplication)(implicit ec: scal
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, e: ExceptionEvent) {
-    e.getCause().printStackTrace();
-    e.getChannel().close();
+    log.error("Caught : ", e.getCause);
+    val err = new DefaultHttpResponse(HttpVersion.HTTP_1_1,
+      HttpResponseStatus.INTERNAL_SERVER_ERROR);
+    
+    val ch = e.getChannel()
+    
+    ch.write(err).addListener(ChannelFutureListener.CLOSE);
+    ch.close();
   }
 }
