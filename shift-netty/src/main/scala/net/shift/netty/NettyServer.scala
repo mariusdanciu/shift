@@ -204,10 +204,10 @@ private[netty] class HttpRequestHandler(app: ShiftApplication)(implicit ec: scal
     log.error("Caught : ", e.getCause);
     val err = new DefaultHttpResponse(HttpVersion.HTTP_1_1,
       HttpResponseStatus.INTERNAL_SERVER_ERROR);
-    
+
     val ch = e.getChannel()
-    
-    ch.write(err).addListener(ChannelFutureListener.CLOSE);
-    ch.close();
+    if (ch.isOpen()) {
+      ch.write(err)
+    }
   }
 }
