@@ -24,7 +24,6 @@ trait Monad[M[_]] extends Functor[M] {
   def flatMap[A, B](f: A => M[B]): M[A] => M[B]
   def join[A](mma: M[M[A]]): M[A] = flatMap((ma: M[A]) => ma)(mma)
   def map[A, B](f: A => B): M[A] => M[B] = fmap(f)
-
 }
 
 trait Traversing[F[_]] {

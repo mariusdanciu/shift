@@ -23,7 +23,7 @@ object Engine extends DefaultLog {
             error("Fail processing the request " + msg)
             response(Resp.serverError.asText.withBody(msg))
           case Success((_, Failure(t))) =>
-            error("Fail processing the request " + t)
+            error("Fail processing the request ", t)
             response(Resp.serverError)
           case Failure(SecurityFailure(msg, 401)) =>
             warn(s"Authentication failure $msg")

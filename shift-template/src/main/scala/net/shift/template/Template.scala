@@ -3,34 +3,36 @@ package template
 
 import scala.util.Success
 import scala.util.Try
+import scala.xml._
 import scala.xml.Atom
 import scala.xml.Elem
 import scala.xml.Group
 import scala.xml.NodeSeq
 import scala.xml.NodeSeq.seqToNodeSeq
 import scala.xml.Text
-import scala.xml._
+
+
 import Binds.bind
 import Template.Head
 import common.State.init
 import common.State.put
 import common.State.putOpt
 import common.State.state
-import net.shift.common.NodeOps.node
+import net.shift.common.Attributes
+import net.shift.common.BNode
+import net.shift.common.BNodeImplicits._
 import net.shift.common.Path
 import net.shift.common.State
 import net.shift.common.XmlUtils.attribute
-import net.shift.common.XmlUtils.elem2NodeOps
 import net.shift.common.XmlUtils.elemByName
 import net.shift.common.XmlUtils.load
-import net.shift.common.XmlUtils.nodeOps2Elem
 import net.shift.io.FileSystem
 import net.shift.loc.Language
+import net.shift.loc.Loc
 import net.shift.loc.Loc.loc0
+import net.shift.security._
 import net.shift.security.Permission
 import net.shift.security.User
-import net.shift.security._
-import net.shift.loc.Loc
 
 /**
  * Holds various strategies on matching page nodes with snippets
@@ -84,19 +86,17 @@ private[template] trait DefaultSnippets extends TemplateUtils {
       s match {
         case SnipState(PageState(_, language, _), e: Elem) =>
           import Binds._
-          import net.shift.common.NodeOps._
-          import net.shift.common.NodeOps
           import net.shift.common.XmlUtils
 
           val ne = bind(e) {
-            case n attributes a / _ => {
+            case BNode(n, a, _) => {
               val u = a.attrs.get("data-unique")
 
               val attrs = (a.attrs - "data-unique").map {
                 case (k, v) if (!u.find(_ == k).isEmpty) => (k, v + "?q=" + System.currentTimeMillis())
                 case (k, v)                              => (k, v)
               }
-              node(n, attrs)
+              BNode(n, Attributes(attrs))
             }
           }
           ne.map((s, _))
@@ -142,7 +142,7 @@ private[template] trait DefaultSnippets extends TemplateUtils {
 
   def templateSnippet[T](implicit template: Template[T], finder: TemplateFinder) = for {
     SnipState(PageState(_, language, _), e @ TemplateAttr(t)) <- init[SnipState[T]]
-    n <- put[SnipState[T], NodeSeq](e removeAttr "data-template")
+    n <- put[SnipState[T], NodeSeq](BNode(e) removeAttr "data-template")
     found <- find(t, finder)
     r <- template.run(found, toReplacements(e))
   } yield r
@@ -224,18 +224,19 @@ object Template extends DefaultSnippets {
  */
 class Template[T](snippets: DynamicContent[T])(implicit finder: TemplateFinder, fs: FileSystem, selectors: List[Selectors#Selector[SnipState[T]]]) {
   import Template._
+  import Binds._
 
   private val snippetsMap = snippets toMap
 
   private def locAttr[T](e: NodeSeq) = {
     def locAttributes(in: Elem, l: Language): Elem = {
-      node(in.label, in.attrs.map {
+      BNode(in.label, Attributes(in.attributes).map {
         case (k, v) =>
           if (v.startsWith("loc:"))
             (k -> Loc.loc0(l)(v.substring(4))(fs).text)
           else
             (k -> v)
-      }) / in.child
+      }, in.child)
     }
 
     state[SnipState[T], NodeSeq] {
@@ -259,6 +260,8 @@ class Template[T](snippets: DynamicContent[T])(implicit finder: TemplateFinder, 
   }
 
   private[template] def run(in: NodeSeq, replacements: Replacements): State[SnipState[T], NodeSeq] = {
+    import Binds._
+    
     in match {
       case Group(childs) => run(childs, replacements)
       case t: Atom[_]    => put[SnipState[T], NodeSeq](t)
@@ -274,7 +277,7 @@ class Template[T](snippets: DynamicContent[T])(implicit finder: TemplateFinder, 
             } yield r
           case _ =>
             val op1 = (for {
-              id <- putOpt[SnipState[T], String](e getAttr "id")
+              id <- putOpt[SnipState[T], String](BNode(e) attr "id")
               n <- putOpt[SnipState[T], NodeSeq](replacements(id))
               r <- run(n, replacements - id)
             } yield r)
@@ -286,7 +289,7 @@ class Template[T](snippets: DynamicContent[T])(implicit finder: TemplateFinder, 
             op1 | op2
         }
         for {
-          e <- res
+          e <- res 
           t <- locAttr(e)
         } yield t
       case n: NodeSeq =>

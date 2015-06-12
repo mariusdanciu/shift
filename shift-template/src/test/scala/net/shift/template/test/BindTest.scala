@@ -2,10 +2,10 @@ package net.shift
 package template
 package test
 
-import Binds._
-import net.shift.common.NodeOps._
-import net.shift.common.NodeOps
+import net.shift.common.BNodeImplicits._
 import net.shift.common.XmlUtils._
+import net.shift.common.BNode
+import Binds._
 
 object BindTest extends App {
   val xml = <div class="images">
@@ -20,10 +20,10 @@ object BindTest extends App {
   val images = List("a", "b", "c")
 
   val res = bind(xml) {
-    case "ul" attributes _ / childs   => node("ul") / childs
-    case "f:li" attributes a / childs => childs
-    case HasId("1", a)                => <b>1</b>
-    case "f:img" attributes HasClass("thumb", a) =>
+    case BNode("ul", _, childs)   => BNode("ul") / childs
+    case BNode("f:li", _, childs) => childs
+    case "1" HasId a              => <b>1</b>
+    case BNode("f:img", HasClass("thumb", a), _) =>
       images map { i =>
         <li>
           { <img src={ i }></img> }
