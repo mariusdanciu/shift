@@ -8,10 +8,10 @@ import scala.xml._
 import net.shift.io.IO._
 import net.shift.io.BinProducer
 
-
 object Attributes {
-  def apply(m: MetaData) = BNodeImplicits.metaData2Attr(m)
+  def apply(m: MetaData) = XmlImplicits.metaData2Attr(m)
   def apply(name: String, value: String) = new Attributes(Map(name -> value))
+  def apply() = new Attributes(Map.empty)
 }
 
 case class Attributes(attrs: Map[String, String]) {
@@ -29,53 +29,52 @@ case class Attributes(attrs: Map[String, String]) {
   def map(f: ((String, String)) => (String, String)): Attributes =
     Attributes(attrs.map(f(_)))
 
-  def - (name: String) = Attributes(attrs - name)
-  def + (name: String, value: String) = Attributes(attrs + ((name, value)))
+  def -(name: String) = Attributes(attrs - name)
+  def +(name: String, value: String) = Attributes(attrs + ((name, value)))
   def get(name: String) = attrs.get(name)
 }
 
-object BNodeImplicits {
+object XmlImplicits {
   implicit def metaData2Attr(attrs: MetaData): Attributes = Attributes(attrs.asAttrMap)
   implicit def attrs2MetaData(attributes: Attributes): MetaData =
     ((Null: MetaData) /: attributes.attrs)((acc, attr) => new UnprefixedAttribute(attr._1, attr._2, acc))
 
-  implicit def elem2ToBind(el: Elem): BNode = BNode(el.label, el.attributes, el.child)
-  implicit def bind2Elem(b: BNode): Elem = Elem(null,
-    b.name,
-    b.attributes.toMetaData,
-    TopScope,
-    false,
-    b.children: _*)
+  implicit class ElemExt(e: Elem) {
+    import XmlUtils._
+    def removeAttr(name: String) = node(e.label, e.attributes remove name, e.child: _*)
+    def attr(name: String): Option[String] = e.attributes get name match {
+      case Some(Text(t)) => Some(t)
+      case _             => None
+    }
+    def attr(a: (String, String)): Option[String] =
+      for (
+        ns <- e.attributes.find {
+          case PrefixedAttribute(p, k, _, _) => p == a._1 && k == a._2
+          case _                             => false
+        }
+      ) yield ns.value.mkString
+
+    def /(childs: NodeSeq) = node(e.label, e.attributes, childs)
+  }
 }
 
-object BNode {
-  def apply(e: Elem) = BNodeImplicits.elem2ToBind(e)
-  def apply(name: String) = new BNode(name, Attributes(Map.empty: Map[String, String]), NodeSeq.Empty)
-  def apply(name: String, attrs: Attributes) = new BNode(name, attrs, NodeSeq.Empty)
-}
+object Xml {
+  import XmlImplicits._
+  def unapply(e: Elem): Option[(String, Attributes, NodeSeq)] =
+    Some((e.label, e.attributes, e.child))
 
-case class BNode(name: String, attributes: Attributes, children: NodeSeq) {
-  def /(childs: NodeSeq) = BNode(name, attributes, childs)
-  def removeAttr(name: String): BNode = BNode(name, Attributes(attributes.attrs - name), children)
-  def attr(name: String): Option[String] = attributes.attrs.get(name)
-  def addAttr(name: String, value: String) = BNode(name, attributes + (name, value), children)
-  def toElem = BNodeImplicits.bind2Elem(this)
 }
 
 object XmlUtils {
+  import XmlImplicits._
 
-  def attribute(e: Elem, name: String): Option[String] = e.attributes.get(name).map(_ mkString)
-
-  def attribute(e: Elem, prefix: String, name: String): Option[String] =
-    for (
-      ns <- e.attributes.find {
-        case PrefixedAttribute(p, k, _, _) => p == prefix && k == name
-        case _                             => false
-      }
-    ) yield ns.value.mkString
+  def node(name: String, attrs: Attributes, childs: NodeSeq): Elem = new Elem(null, name, attrs, TopScope, false, childs: _*)
+  def node(name: String, attrs: Attributes, childs: Node*): Elem = node(name, attrs, childs: _*)
+  def node(name: String, attrs: Attributes): Elem = node(name, attrs, NodeSeq.Empty: _*)
+  def node(name: String): Elem = node(name, Attributes(), NodeSeq.Empty: _*)
 
   def elemByAttr(e: NodeSeq, attr: (String, String)): Option[Elem] = (e find {
-    case x: Elem => !attribute(x, attr._1).filter(_ == attr._2).isEmpty
+    case x: Elem => !x.attr(attr._1).filter(_ == attr._2).isEmpty
     case _       => false
   }) match {
     case Some(e: Elem) => Some(e)

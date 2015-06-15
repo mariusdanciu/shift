@@ -4,12 +4,12 @@ package template
 import scala.xml.Elem
 import scala.xml.NodeSeq
 
-import net.shift.common.XmlUtils.attribute
+import common.XmlImplicits._
 
 trait TemplateUtils {
   object IdAttr {
     def unapply(e: Elem): Option[String] = for {
-      wrp <- attribute(e, "id")
+      wrp <- e attr "id"
     } yield wrp
   }
 

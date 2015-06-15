@@ -2,9 +2,9 @@ package net.shift
 package template
 package test
 
-import net.shift.common.BNodeImplicits._
+import net.shift.common.XmlImplicits._
 import net.shift.common.XmlUtils._
-import net.shift.common.BNode
+import net.shift.common.Xml
 import Binds._
 
 object BindTest extends App {
@@ -20,10 +20,10 @@ object BindTest extends App {
   val images = List("a", "b", "c")
 
   val res = bind(xml) {
-    case BNode("ul", _, childs)   => BNode("ul") / childs
-    case BNode("f:li", _, childs) => childs
+    case Xml("ul", _, childs)   => node("ul") / childs
+    case Xml("f:li", _, childs) => childs
     case "1" HasId a              => <b>1</b>
-    case BNode("f:img", HasClass("thumb", a), _) =>
+    case Xml("f:img", HasClass("thumb", a), _) =>
       images map { i =>
         <li>
           { <img src={ i }></img> }
