@@ -41,7 +41,9 @@ object XmlImplicits {
 
   implicit class ElemExt(e: Elem) {
     import XmlUtils._
-    def removeAttr(name: String) = node(e.label, e.attributes remove name, e.child: _*)
+
+    def addAttr(name: String, value: String) = e % new UnprefixedAttribute(name, value, Null)
+    def removeAttr(name: String) = Xml(e.label, e.attributes remove name, e.child: _*)
     def attr(name: String): Option[String] = e.attributes get name match {
       case Some(Text(t)) => Some(t)
       case _             => None
@@ -54,7 +56,7 @@ object XmlImplicits {
         }
       ) yield ns.value.mkString
 
-    def /(childs: NodeSeq) = node(e.label, e.attributes, childs)
+    def /(childs: NodeSeq) = Xml(e.label, e.attributes, childs)
   }
 }
 
@@ -63,15 +65,15 @@ object Xml {
   def unapply(e: Elem): Option[(String, Attributes, NodeSeq)] =
     Some((e.label, e.attributes, e.child))
 
+  def apply(name: String, attrs: Attributes, childs: NodeSeq): Elem = new Elem(null, name, attrs, TopScope, false, childs: _*)
+  def apply(name: String, attrs: Attributes, childs: Node*): Elem = apply(name, attrs, childs: _*)
+  def apply(name: String, attrs: Attributes): Elem = apply(name, attrs, NodeSeq.Empty: _*)
+  def apply(name: String): Elem = apply(name, Attributes(), NodeSeq.Empty: _*)
+
 }
 
 object XmlUtils {
   import XmlImplicits._
-
-  def node(name: String, attrs: Attributes, childs: NodeSeq): Elem = new Elem(null, name, attrs, TopScope, false, childs: _*)
-  def node(name: String, attrs: Attributes, childs: Node*): Elem = node(name, attrs, childs: _*)
-  def node(name: String, attrs: Attributes): Elem = node(name, attrs, NodeSeq.Empty: _*)
-  def node(name: String): Elem = node(name, Attributes(), NodeSeq.Empty: _*)
 
   def elemByAttr(e: NodeSeq, attr: (String, String)): Option[Elem] = (e find {
     case x: Elem => !x.attr(attr._1).filter(_ == attr._2).isEmpty

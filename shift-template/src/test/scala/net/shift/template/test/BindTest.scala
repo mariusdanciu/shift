@@ -20,7 +20,7 @@ object BindTest extends App {
   val images = List("a", "b", "c")
 
   val res = bind(xml) {
-    case Xml("ul", _, childs)   => node("ul") / childs
+    case Xml("ul", _, childs)   => Xml("ul") / childs
     case Xml("f:li", _, childs) => childs
     case "1" HasId a              => <b>1</b>
     case Xml("f:img", HasClass("thumb", a), _) =>
