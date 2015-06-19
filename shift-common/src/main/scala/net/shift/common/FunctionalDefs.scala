@@ -78,8 +78,8 @@ trait State[S, +A] {
     x =>
       apply(x) match {
         case f @ Failure(SecurityFailure(msg, _)) => f
-        case f @ Failure(_)                    => other apply x
-        case s                                 => s
+        case f @ Failure(_)                       => other apply x
+        case s                                    => s
       }
   }
 

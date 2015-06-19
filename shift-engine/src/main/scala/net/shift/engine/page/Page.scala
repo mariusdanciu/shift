@@ -3,7 +3,7 @@ package engine
 package page
 
 import scala.xml.NodeSeq
-import template._
+import net.shift.template._
 import http._
 import common._
 import net.shift.loc.Language
@@ -15,6 +15,7 @@ import net.shift.common.DefaultLog
 import net.shift.security.User
 import XmlUtils._
 import net.shift.io.FileSystem
+import scala.util.Failure
 
 object Html5 extends Selectors {
   def pageFromFile[T](state: PageState[T],

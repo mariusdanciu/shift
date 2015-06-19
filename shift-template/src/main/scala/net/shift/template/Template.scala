@@ -234,7 +234,7 @@ class Template[T](snippets: DynamicContent[T])(implicit finder: TemplateFinder, 
             (k -> Loc.loc0(l)(v.substring(4))(fs).text)
           else
             (k -> v)
-      }, in.child:_*)
+      }, in.child: _*)
     }
 
     state[SnipState[T], NodeSeq] {
@@ -259,7 +259,7 @@ class Template[T](snippets: DynamicContent[T])(implicit finder: TemplateFinder, 
 
   private[template] def run(in: NodeSeq, replacements: Replacements): State[SnipState[T], NodeSeq] = {
     import Binds._
-    
+
     in match {
       case Group(childs) => run(childs, replacements)
       case t: Atom[_]    => put[SnipState[T], NodeSeq](t)
@@ -287,7 +287,7 @@ class Template[T](snippets: DynamicContent[T])(implicit finder: TemplateFinder, 
             op1 | op2
         }
         for {
-          e <- res 
+          e <- res
           t <- locAttr(e)
         } yield t
       case n: NodeSeq =>

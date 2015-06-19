@@ -66,8 +66,8 @@ object Xml {
     Some((e.label, e.attributes, e.child))
 
   def apply(name: String, attrs: Attributes, childs: NodeSeq): Elem = new Elem(null, name, attrs, TopScope, false, childs: _*)
-  def apply(name: String, attrs: Attributes, childs: Node*): Elem = apply(name, attrs, childs: _*)
-  def apply(name: String, attrs: Attributes): Elem = apply(name, attrs, NodeSeq.Empty: _*)
+  def apply(name: String, attrs: Attributes, childs: Node*): Elem = apply(name, attrs, childs)
+  def apply(name: String, attrs: Attributes): Elem = apply(name, attrs, NodeSeq.Empty)
   def apply(name: String): Elem = apply(name, Attributes(), NodeSeq.Empty: _*)
 
 }
