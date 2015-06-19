@@ -17,7 +17,7 @@ import common.State.init
 import common.State.put
 import common.State.putOpt
 import common.State.state
-import net.shift.common.Attributes
+import net.shift.common.XmlAttr
 import net.shift.common.Xml
 import net.shift.common.Path
 import net.shift.common.State
@@ -94,7 +94,7 @@ private[template] trait DefaultSnippets extends TemplateUtils {
                 case (k, v) if (!u.find(_ == k).isEmpty) => (k, v + "?q=" + System.currentTimeMillis())
                 case (k, v)                              => (k, v)
               }
-              Xml(n, Attributes(attrs))
+              Xml(n, XmlAttr(attrs))
             }
           }
           ne.map((s, _))
@@ -228,7 +228,7 @@ class Template[T](snippets: DynamicContent[T])(implicit finder: TemplateFinder, 
 
   private def locAttr[T](e: NodeSeq) = {
     def locAttributes(in: Elem, l: Language): Elem = {
-      Xml(in.label, Attributes(in.attributes).map {
+      Xml(in.label, XmlAttr(in.attributes).map {
         case (k, v) =>
           if (v.startsWith("loc:"))
             (k -> Loc.loc0(l)(v.substring(4))(fs).text)

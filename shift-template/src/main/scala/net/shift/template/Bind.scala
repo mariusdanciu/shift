@@ -6,7 +6,7 @@ import scala.util.Try
 import scala.xml._
 import scala.xml.MetaData._
 import net.shift.common.Xml
-import net.shift.common.Attributes
+import net.shift.common.XmlAttr
 import net.shift.common.XmlImplicits._
 
 object Binds {
@@ -38,32 +38,32 @@ object Binds {
 }
 
 object Attrs {
-  def unapplySeq(a: Attributes): Option[Seq[(String, String)]] = {
+  def unapplySeq(a: XmlAttr): Option[Seq[(String, String)]] = {
     Some(a.attrs.toList.sorted)
   }
 }
 
 object HasClass {
-  def unapply(a: Attributes): Option[(String, Attributes)] = a.attrs.get("class") map (v => (v, a))
-  def unapply(a: Elem): Option[(String, Attributes)] = a.attributes.attrs.get("class") map (v => (v, a.attributes))
+  def unapply(a: XmlAttr): Option[(String, XmlAttr)] = a.attrs.get("class") map (v => (v, a))
+  def unapply(a: Elem): Option[(String, XmlAttr)] = a.attributes.attrs.get("class") map (v => (v, a.attributes))
 }
 
 object HasClasses {
-  def unapply(a: Attributes): Option[(List[String], Attributes)] = a.attrs.get("class") map (v => (v.trim.split("\\s+").toList, a))
-  def unapply(a: Elem): Option[(List[String], Attributes)] = a.attributes.attrs.get("class") map (v => (v.trim.split("\\s+").toList, a.attributes))
+  def unapply(a: XmlAttr): Option[(List[String], XmlAttr)] = a.attrs.get("class") map (v => (v.trim.split("\\s+").toList, a))
+  def unapply(a: Elem): Option[(List[String], XmlAttr)] = a.attributes.attrs.get("class") map (v => (v.trim.split("\\s+").toList, a.attributes))
 }
 
 object HasName {
-  def unapply(a: Attributes): Option[(String, Attributes)] = a.attrs.get("name") map (v => (v, a))
-  def unapply(a: Elem): Option[(String, Attributes)] = a.attributes.attrs.get("name") map (v => (v, a.attributes))
+  def unapply(a: XmlAttr): Option[(String, XmlAttr)] = a.attrs.get("name") map (v => (v, a))
+  def unapply(a: Elem): Option[(String, XmlAttr)] = a.attributes.attrs.get("name") map (v => (v, a.attributes))
 }
 
 object HasValue {
-  def unapply(a: Attributes): Option[(String, Attributes)] = a.attrs.get("value") map (v => (v, a))
-  def unapply(a: Elem): Option[(String, Attributes)] = a.attributes.attrs.get("value") map (v => (v, a.attributes))
+  def unapply(a: XmlAttr): Option[(String, XmlAttr)] = a.attrs.get("value") map (v => (v, a))
+  def unapply(a: Elem): Option[(String, XmlAttr)] = a.attributes.attrs.get("value") map (v => (v, a.attributes))
 }
 
 object HasId {
-  def unapply(a: Attributes): Option[(String, Attributes)] = a.attrs.get("id") map (v => (v, a))
-  def unapply(a: Elem): Option[(String, Attributes)] = a.attributes.attrs.get("id") map (v => (v, a.attributes))
+  def unapply(a: XmlAttr): Option[(String, XmlAttr)] = a.attrs.get("id") map (v => (v, a))
+  def unapply(a: Elem): Option[(String, XmlAttr)] = a.attributes.attrs.get("id") map (v => (v, a.attributes))
 }

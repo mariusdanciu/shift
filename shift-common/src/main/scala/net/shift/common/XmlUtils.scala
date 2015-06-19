@@ -8,13 +8,13 @@ import scala.xml._
 import net.shift.io.IO._
 import net.shift.io.BinProducer
 
-object Attributes {
+object XmlAttr {
   def apply(m: MetaData) = XmlImplicits.metaData2Attr(m)
-  def apply(name: String, value: String) = new Attributes(Map(name -> value))
-  def apply() = new Attributes(Map.empty)
+  def apply(name: String, value: String) = new XmlAttr(Map(name -> value))
+  def apply() = new XmlAttr(Map.empty)
 }
 
-case class Attributes(attrs: Map[String, String]) {
+case class XmlAttr(attrs: Map[String, String]) {
 
   def hasAttr(pair: (String, String)): Boolean = attrs get pair._1 match {
     case Some(value) if (value == pair._2) => true
@@ -26,17 +26,16 @@ case class Attributes(attrs: Map[String, String]) {
 
   def toMetaData: MetaData = ((Null: MetaData) /: attrs)((a, e) => a append new UnprefixedAttribute(e._1, e._2, Null))
 
-  def map(f: ((String, String)) => (String, String)): Attributes =
-    Attributes(attrs.map(f(_)))
+  def map(f: ((String, String)) => (String, String)): XmlAttr = XmlAttr(attrs.map(f(_)))
 
-  def -(name: String) = Attributes(attrs - name)
-  def +(name: String, value: String) = Attributes(attrs + ((name, value)))
+  def -(name: String) = XmlAttr(attrs - name)
+  def +(name: String, value: String) = XmlAttr(attrs + ((name, value)))
   def get(name: String) = attrs.get(name)
 }
 
 object XmlImplicits {
-  implicit def metaData2Attr(attrs: MetaData): Attributes = Attributes(attrs.asAttrMap)
-  implicit def attrs2MetaData(attributes: Attributes): MetaData =
+  implicit def metaData2Attr(attrs: MetaData): XmlAttr = XmlAttr(attrs.asAttrMap)
+  implicit def attrs2MetaData(attributes: XmlAttr): MetaData =
     ((Null: MetaData) /: attributes.attrs)((acc, attr) => new UnprefixedAttribute(attr._1, attr._2, acc))
 
   implicit class ElemExt(e: Elem) {
@@ -62,13 +61,13 @@ object XmlImplicits {
 
 object Xml {
   import XmlImplicits._
-  def unapply(e: Elem): Option[(String, Attributes, NodeSeq)] =
+  def unapply(e: Elem): Option[(String, XmlAttr, NodeSeq)] =
     Some((e.label, e.attributes, e.child))
 
-  def apply(name: String, attrs: Attributes, childs: NodeSeq): Elem = new Elem(null, name, attrs, TopScope, false, childs: _*)
-  def apply(name: String, attrs: Attributes, childs: Node*): Elem = apply(name, attrs, childs)
-  def apply(name: String, attrs: Attributes): Elem = apply(name, attrs, NodeSeq.Empty)
-  def apply(name: String): Elem = apply(name, Attributes(), NodeSeq.Empty: _*)
+  def apply(name: String, attrs: XmlAttr, childs: NodeSeq): Elem = new Elem(null, name, attrs, TopScope, false, childs: _*)
+  def apply(name: String, attrs: XmlAttr, childs: Node*): Elem = apply(name, attrs, childs)
+  def apply(name: String, attrs: XmlAttr): Elem = apply(name, attrs, NodeSeq.Empty)
+  def apply(name: String): Elem = apply(name, XmlAttr(), NodeSeq.Empty: _*)
 
 }
 
