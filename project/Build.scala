@@ -118,6 +118,17 @@ object ShiftNettyBuild extends Build {
     }
   }
 
+  val distShiftSpraySetting = distShiftNetty <<= (target, managedClasspath in Runtime, publishLocal, packageBin in Compile) map {
+    (target, cp, _, pack) => {
+        println("dist > shiftspray")
+
+        for {jar <- cp} {
+          IO.copyFile(jar.data, libDir / jar.data.name);
+        }
+	pack
+    }
+  }
+
   val distShiftHtmlSetting = distShiftHtml <<= (target, managedClasspath in Runtime, publishLocal, packageBin in Compile) map {
     (target, cp, _, pack) => {
         println("dist > shifthtml")
@@ -139,8 +150,9 @@ object ShiftNettyBuild extends Build {
   lazy val root = Project(id = "shift",
                           base = file("."),
                           settings = Defaults.defaultSettings ++ Seq(incSetting, distSrcSetting, distSetting, distShiftCommonSetting, 
-                                     distShiftEngineSetting, distShiftTemplateSetting, distShiftNettySetting,
-                                     distShiftHtmlSetting, distShiftDemoSetting)) aggregate(shift_common, shift_engine, shift_netty, shift_template, shift_html, shift_demo)
+                                     distShiftEngineSetting, distShiftTemplateSetting, distShiftNettySetting,distShiftSpraySetting,
+                                     distShiftHtmlSetting, distShiftDemoSetting)) aggregate(shift_common, shift_engine, shift_netty, shift_spray, 
+				     shift_template, shift_html, shift_demo)
 
   lazy val shift_common = Project(id = "shift-common",
 				  base = file("shift-common"),
@@ -157,6 +169,10 @@ object ShiftNettyBuild extends Build {
   lazy val shift_netty = Project(id = "shift-netty",
 				 base = file("shift-netty"),
                                  settings = Defaults.defaultSettings ++ Seq(distShiftNettySetting)) dependsOn (shift_engine)
+
+  lazy val shift_spray = Project(id = "shift-spray",
+				 base = file("shift-spray"),
+                                 settings = Defaults.defaultSettings ++ Seq(distShiftSpraySetting)) dependsOn (shift_engine)
 
   lazy val shift_html = Project(id = "shift-html",
 	                        base = file("shift-html"),
