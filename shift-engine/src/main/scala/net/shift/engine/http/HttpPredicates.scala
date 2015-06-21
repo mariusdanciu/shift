@@ -80,8 +80,10 @@ trait HttpPredicates {
             } else {
               None
             }
-          case (Some(Authorization(creds @ BasicCredentials(user, password))), None, None) => login(creds)
-          case _ => None
+          case (Some(Authorization(creds @ BasicCredentials(user, password))), None, None) =>
+            login(creds)
+          case _ =>
+            None
         }
         Success((r, res))
       }

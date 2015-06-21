@@ -14,7 +14,6 @@ import net.shift.engine.utils.ShiftUtils
 import net.shift.loc.Language
 import net.shift.security.Credentials
 import net.shift.security.User
-import netty.NettyServer
 import template._
 import net.shift.engine.page.Html5
 import net.shift.security.BasicCredentials
@@ -22,9 +21,10 @@ import net.shift.security.Permission
 import net.shift.io.IO
 import net.shift.io.FileOps
 import net.shift.io.IODefaults
+import net.shift.spray.SprayServer
 
 object Main extends App with HttpPredicates with ShiftUtils with IODefaults {
-  println("Starting Netty server")
+  println("Starting Demo server")
 
   BasicConfigurator.configure
 
@@ -46,7 +46,7 @@ object Main extends App with HttpPredicates with ShiftUtils with IODefaults {
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
-  NettyServer.start(8080, new ShiftApplication with Selectors {
+  SprayServer.start(8080, new ShiftApplication with Selectors {
 
     implicit val selector = bySnippetAttr[Request]
 

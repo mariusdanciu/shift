@@ -2,7 +2,7 @@ import sbt._
 import Keys._
 import io._
 
-object ShiftNettyBuild extends Build {
+object ShiftBuild extends Build {
 
   val distDir = new File("./dist")
   val distSrcDir = new File("./distSrc")
@@ -14,6 +14,7 @@ object ShiftNettyBuild extends Build {
   val distShiftEngine = TaskKey[File]("distShiftEngine", "")
   val distShiftTemplate = TaskKey[File]("distShiftTemplate", "")
   val distShiftNetty = TaskKey[File]("distShiftNetty", "")
+  val distShiftSpray = TaskKey[File]("distShiftSpray", "")
   val distShiftHtml = TaskKey[File]("distShiftHtml", "")
   val distShiftDemo = TaskKey[File]("distShiftDemo", "")
   val dist = TaskKey[Unit]("dist", "")
@@ -32,6 +33,7 @@ object ShiftNettyBuild extends Build {
     IO.copyDirectory(new File("shift-engine") / "src", distSrcDir / "shit-engine" / "src")
     IO.copyDirectory(new File("shift-html") / "src", distSrcDir / "shit-html" / "src")
     IO.copyDirectory(new File("shift-netty") / "src", distSrcDir / "shit-netty" / "src")
+	IO.copyDirectory(new File("shift-spray") / "src", distSrcDir / "shit-spray" / "src")
     IO.copyDirectory(new File("shift-template") / "src", distSrcDir / "shit-template" / "src")
     IO.copyDirectory(new File("examples/demo") / "src", distSrcDir / "examples" / "demo" / "src")
  
@@ -56,16 +58,19 @@ object ShiftNettyBuild extends Build {
 
 
   val distSetting = dist <<= (target, managedClasspath in Runtime, scalaVersion, version, 
-                              distShiftCommon in shift_common, distShiftEngine in shift_engine, 
-                              distShiftTemplate in shift_template, distShiftNetty in shift_netty, 
-                              distShiftHtml in shift_html, distShiftDemo in shift_demo, distSrc) map {
-    (target, cp, sv, v, common, engine, template, netty, html, demo, src) => {
+                              distShiftCommon in shift_common, 
+							  distShiftEngine in shift_engine, 
+                              distShiftTemplate in shift_template, 
+							  distShiftSpray in shift_spray,
+							  distShiftHtml in shift_html, 
+							  distShiftDemo in shift_demo, 
+							  distSrc) map { (target, cp, sv, v, common, engine, template, spray, html, demo, src) => {
       println("dist > shift")
 
       IO.copyFile(common, libDir / common.name);
       IO.copyFile(engine, libDir / engine.name);
       IO.copyFile(template, libDir / template.name);
-      IO.copyFile(netty, libDir / netty.name);
+	  IO.copyFile(spray, libDir / spray.name);
       IO.copyFile(html, libDir / html.name);
       IO.copyFile(demo, libDir / demo.name);
 
@@ -118,7 +123,7 @@ object ShiftNettyBuild extends Build {
     }
   }
 
-  val distShiftSpraySetting = distShiftNetty <<= (target, managedClasspath in Runtime, publishLocal, packageBin in Compile) map {
+  val distShiftSpraySetting = distShiftSpray <<= (target, managedClasspath in Runtime, publishLocal, packageBin in Compile) map {
     (target, cp, _, pack) => {
         println("dist > shiftspray")
 
@@ -168,11 +173,11 @@ object ShiftNettyBuild extends Build {
 
   lazy val shift_netty = Project(id = "shift-netty",
 				 base = file("shift-netty"),
-                                 settings = Defaults.defaultSettings ++ Seq(distShiftNettySetting)) dependsOn (shift_engine)
+                                settings = Defaults.defaultSettings ++ Seq(distShiftNettySetting)) dependsOn (shift_engine)
 
   lazy val shift_spray = Project(id = "shift-spray",
 				 base = file("shift-spray"),
-                                 settings = Defaults.defaultSettings ++ Seq(distShiftSpraySetting)) dependsOn (shift_engine)
+                                settings = Defaults.defaultSettings ++ Seq(distShiftSpraySetting)) dependsOn (shift_engine)
 
   lazy val shift_html = Project(id = "shift-html",
 	                        base = file("shift-html"),
@@ -181,7 +186,7 @@ object ShiftNettyBuild extends Build {
 
   lazy val shift_demo = Project(id = "demo",
 				base = file("examples/demo"),
-                                settings = Defaults.defaultSettings ++ Seq(distShiftDemoSetting)) dependsOn (shift_netty)
+                                settings = Defaults.defaultSettings ++ Seq(distShiftDemoSetting)) dependsOn (shift_spray)
 
 
 }

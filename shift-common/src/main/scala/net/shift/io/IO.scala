@@ -100,7 +100,9 @@ object IO extends App {
     }) match {
       case Done(v, _) => Success(v.toArray)
       case Error(t)   => Failure(t)
-      case _          => Failure(new IllegalStateException)
+      case k =>
+        println("!!!! " + k)
+        Failure(new IllegalStateException)
     }
   }
 
