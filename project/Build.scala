@@ -13,7 +13,6 @@ object ShiftBuild extends Build {
   val distShiftCommon = TaskKey[File]("distShiftCommon", "")
   val distShiftEngine = TaskKey[File]("distShiftEngine", "")
   val distShiftTemplate = TaskKey[File]("distShiftTemplate", "")
-  val distShiftNetty = TaskKey[File]("distShiftNetty", "")
   val distShiftSpray = TaskKey[File]("distShiftSpray", "")
   val distShiftHtml = TaskKey[File]("distShiftHtml", "")
   val distShiftDemo = TaskKey[File]("distShiftDemo", "")
@@ -32,7 +31,6 @@ object ShiftBuild extends Build {
     IO.copyDirectory(new File("shift-common") / "src", distSrcDir / "shit-common" / "src")
     IO.copyDirectory(new File("shift-engine") / "src", distSrcDir / "shit-engine" / "src")
     IO.copyDirectory(new File("shift-html") / "src", distSrcDir / "shit-html" / "src")
-    IO.copyDirectory(new File("shift-netty") / "src", distSrcDir / "shit-netty" / "src")
 	IO.copyDirectory(new File("shift-spray") / "src", distSrcDir / "shit-spray" / "src")
     IO.copyDirectory(new File("shift-template") / "src", distSrcDir / "shit-template" / "src")
     IO.copyDirectory(new File("examples/demo") / "src", distSrcDir / "examples" / "demo" / "src")
@@ -112,17 +110,6 @@ object ShiftBuild extends Build {
     }
   }
 
-  val distShiftNettySetting = distShiftNetty <<= (target, managedClasspath in Runtime, publishLocal, packageBin in Compile) map {
-    (target, cp, _, pack) => {
-        println("dist > shiftnetty")
-
-        for {jar <- cp} {
-          IO.copyFile(jar.data, libDir / jar.data.name);
-        }
-	pack
-    }
-  }
-
   val distShiftSpraySetting = distShiftSpray <<= (target, managedClasspath in Runtime, publishLocal, packageBin in Compile) map {
     (target, cp, _, pack) => {
         println("dist > shiftspray")
@@ -155,8 +142,8 @@ object ShiftBuild extends Build {
   lazy val root = Project(id = "shift",
                           base = file("."),
                           settings = Defaults.defaultSettings ++ Seq(incSetting, distSrcSetting, distSetting, distShiftCommonSetting, 
-                                     distShiftEngineSetting, distShiftTemplateSetting, distShiftNettySetting,distShiftSpraySetting,
-                                     distShiftHtmlSetting, distShiftDemoSetting)) aggregate(shift_common, shift_engine, shift_netty, shift_spray, 
+                                     distShiftEngineSetting, distShiftTemplateSetting, distShiftSpraySetting,
+                                     distShiftHtmlSetting, distShiftDemoSetting)) aggregate(shift_common, shift_engine, shift_spray, 
 				     shift_template, shift_html, shift_demo)
 
   lazy val shift_common = Project(id = "shift-common",
@@ -170,10 +157,6 @@ object ShiftBuild extends Build {
   lazy val shift_template = Project(id = "shift-template",
 				    base = file("shift-template"),
                                     settings = Defaults.defaultSettings ++ Seq(distShiftTemplateSetting)) dependsOn (shift_common)
-
-  lazy val shift_netty = Project(id = "shift-netty",
-				 base = file("shift-netty"),
-                                settings = Defaults.defaultSettings ++ Seq(distShiftNettySetting)) dependsOn (shift_engine)
 
   lazy val shift_spray = Project(id = "shift-spray",
 				 base = file("shift-spray"),
