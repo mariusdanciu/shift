@@ -54,10 +54,12 @@ object Main extends App with HttpPredicates with ShiftUtils with IODefaults {
 
     // If we have a GET request and the path is /a/b/c
     val r1 = for {
-      _ <- GET
+      r <- GET
       _ <- path("a/b/c")
-    } yield service(abcService)
-
+    } yield {
+      println(r.param("cat"))
+      service(abcService)
+    }
     // Serve /page/first page
     val r2 = for {
       _ <- path("page/first")

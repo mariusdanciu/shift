@@ -3,14 +3,9 @@ package engine
 package http
 
 import scala.xml._
-import common._
+import common.XmlUtils._
 import net.shift.io.IO._
-import net.shift.io.Cont
-import net.shift.io.Data
-import XmlUtils._
-import net.shift.io.BinConsumer
 import net.shift.io.BinProducer
-import net.shift.io.EOF
 
 object TextResponse {
   def apply(s: String) = new TextResponse(stringProducer(s))
@@ -35,15 +30,7 @@ case class HtmlStaticResponse(content: BinProducer) extends Response {
 }
 
 object Html5Response {
-  def apply(in: NodeSeq) = new Html5Response(new BinProducer {
-    def apply[O](it: BinConsumer[O]): BinConsumer[O] = it match {
-      case Cont(f) => f(Data(("<!DOCTYPE html>\n" + mkString(in)).getBytes("UTF-8"))) match {
-        case Cont(g) => g(EOF)
-        case r       => r
-      }
-      case r       => r
-    }
-  })
+  def apply(in: NodeSeq) = new Html5Response(htmlProducer(in) getOrElse emptyProducer)
 }
 
 case class Html5Response(content: BinProducer) extends Response {

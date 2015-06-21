@@ -132,17 +132,17 @@ class Server(app: ShiftApplication) extends Actor with ActorLogging with HttpUti
   }
 
   def toShiftRequest(sprayReq: HttpRequest) = new Request {
-    val (p, q) = uriSplit(uri)
 
-    lazy val path = Path(p)
-    def uri = sprayReq.uri.path.toString()
+    lazy val path = Path(uri)
+    def uri = sprayReq.uri.path.toString().substring(1)
     def method = sprayReq.method.value
     def contextPath: Path = EmptyPath
 
-    lazy val queryString = q
+    lazy val queryString = query(sprayReq.uri.toString())
 
     def param(name: String) = params.get(name)
-    lazy val params = qsToParams(q) ++ postParams
+    lazy val params = qsToParams(queryString) ++ postParams
+    
     def header(name: String) = headers.get(name)
     def headers = toHeaders(sprayReq.headers)
 
@@ -184,7 +184,8 @@ class Server(app: ShiftApplication) extends Actor with ActorLogging with HttpUti
 
   }
 
-  def qsToParams(qs: Option[String]): Map[String, List[String]] = qs map { qsToParams } getOrElse Map.empty
+  def qsToParams(qs: Option[String]): Map[String, List[String]] = 
+    qs map { qsToParams } getOrElse Map.empty
 
   def qsToParams(qs: String): Map[String, List[String]] = {
     val params = qs.split("&")
@@ -202,15 +203,15 @@ class Server(app: ShiftApplication) extends Actor with ActorLogging with HttpUti
 
   }
 
-  def uriSplit(uri: String): (String, Option[String]) = {
+  def query(uri: String): Option[String] = {
     if (uri.isEmpty())
-      (uri, None)
+      None
     else {
       val pos = uri.indexOf("?")
       if (pos < 0)
-        (uri.substring(1), None)
+        None
       else
-        (uri.substring(1, pos), Some(uri.substring(pos + 1)))
+        Some(uri.substring(pos + 1))
     }
   }
 
