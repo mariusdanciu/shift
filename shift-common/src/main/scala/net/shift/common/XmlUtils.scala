@@ -61,8 +61,14 @@ object XmlImplicits {
 
 object Xml {
   import XmlImplicits._
+  
+  def name(e: Elem) = if (e.prefix == null || e.prefix.isEmpty) 
+    e.label
+  else
+    e.prefix + ":" + e.label
+  
   def unapply(e: Elem): Option[(String, XmlAttr, NodeSeq)] =
-    Some((e.label, e.attributes, e.child))
+    Some((name(e), e.attributes, e.child))
 
   def apply(name: String, attrs: XmlAttr, childs: NodeSeq): Elem = new Elem(null, name, attrs, TopScope, false, childs: _*)
   def apply(name: String, attrs: XmlAttr, childs: Node*): Elem = apply(name, attrs, childs)
