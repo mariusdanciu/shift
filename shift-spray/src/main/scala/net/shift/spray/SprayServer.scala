@@ -55,7 +55,7 @@ object SprayServer {
   def start(port: Int, app: ShiftApplication)(implicit ec: scala.concurrent.ExecutionContext) {
     val server = system.actorOf(Props(new Server(app)), name = "shift-server")
 
-    IO(Http) ! Http.Bind(server, interface = "localhost", port = port)
+    IO(Http) ! Http.Bind(server, interface = "0.0.0.0", port = port)
   }
 
 }
