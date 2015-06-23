@@ -1,7 +1,6 @@
 package net.shift
 package io
 
-import java.io.FileInputStream
 import java.io.InputStream
 import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
@@ -9,12 +8,8 @@ import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
 import net.shift.common.Path
-import java.io.BufferedInputStream
 import scala.xml.NodeSeq
 import net.shift.common.XmlUtils._
-import java.io.FileOutputStream
-import java.io.BufferedOutputStream
-import java.io.OutputStream
 import java.io.Closeable
 import scala.util.control.Exception._
 

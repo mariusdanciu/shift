@@ -14,6 +14,9 @@ import net.shift.common.ShiftFailure
 import TimeUtils._
 import net.shift.io._
 import IO._
+import net.shift.common.Config
+import net.shift.common.Path
+import scala.concurrent.Future
 
 sealed trait MultiPart
 
@@ -58,7 +61,17 @@ class MultipartParser(boundary: Array[Byte]) extends Parsers with Log {
 
   def parse(in: BinProducer): Try[MultiPartBody] = toArray(in) flatMap { parse(_) }
 
+  private def storeMultipart(in: Array[Byte]) {
+    import scala.concurrent.ExecutionContext.Implicits.global
+    if (Config.bool("trace.uploads", false)) {
+      Future {
+        arrayProducer(in)(FileOps.writer(Path(s"./logs/upload-${System.currentTimeMillis}.bin")))
+      }
+    }
+  }
+
   def parse(in: Array[Byte]): Try[MultiPartBody] = duration {
+    storeMultipart(in)
     multiParser(BinReader(in, 0)) match {
       case Success(v, _) => scala.util.Success(v)
       case Failure(v, _) => ShiftFailure(v).toTry
@@ -79,9 +92,11 @@ class MultipartParser(boundary: Array[Byte]) extends Parsers with Log {
   def multiParser: Parser[MultiPartBody] = bound ~> rep((headers ~ (crlf ~> partParser)) ^^ {
     case k ~ v =>
       k.get("Content-Type") match {
-        case Some(Header(_, value, _)) if (value.startsWith("text")) => TextPart(k, new String(v))
+        case Some(Header(_, value, _)) if (value.startsWith("text")) =>
+          val s = new String(v, "UTF-8")
+          TextPart(k, s)
         case Some(_) => BinaryPart(k, v)
-        case _ => TextPart(k, new String(v))
+        case _       => TextPart(k, new String(v, "UTF-8"))
       }
   }) ^^ { l => MultiPartBody(l) }
 
@@ -97,7 +112,7 @@ class MultipartParser(boundary: Array[Byte]) extends Parsers with Log {
   def headers = (rep(header) <~ crlf) ^^ { h => h.map(e => (e.key, e)).toMap }
 
   def header = (crlf ~> ((key <~ ws(":")) ~ value)) ~ rep(ws(";") ~> param) ^^ {
-    case k ~ v ~ p => Header(new String(k), new String(v), Map(p.map { case (k, v) => (new String(k), new String(v)) }: _*))
+    case k ~ v ~ p => Header(new String(k, "UTF-8"), new String(v, "UTF-8"), Map(p.map { case (k, v) => (new String(k, "UTF-8"), new String(v, "UTF-8")) }: _*))
   }
 
   def partParser: Parser[Array[Byte]] = Parser { in =>
@@ -116,6 +131,7 @@ class MultipartParser(boundary: Array[Byte]) extends Parsers with Log {
         continue(in.rest, end.tail, res += in.first)
       }
     }
+
     duration {
       continue(in, sepBound, ListBuffer[Byte]()).map(_ toArray)
     } { d => debug(s"Parsing binary part took: $d") }
@@ -124,7 +140,13 @@ class MultipartParser(boundary: Array[Byte]) extends Parsers with Log {
 }
 
 object BinReader {
-  def apply(in: BinProducer) = toArray(in) map { new BinReader(_, 0) }
+  def apply(in: BinProducer) = {
+    toArray(in) map { arr =>
+      {
+        new BinReader(arr, 0)
+      }
+    }
+  }
 }
 
 case class BinReader(in: Array[Byte], position: Int) extends Reader[Byte] {
