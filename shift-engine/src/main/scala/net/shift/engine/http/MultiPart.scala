@@ -1,6 +1,8 @@
 package net.shift
 package engine.http
 
+import scala.concurrent.ExecutionContext.Implicits.global
+
 import scala.annotation.tailrec
 import scala.collection.mutable.ListBuffer
 import scala.util.Try
@@ -62,7 +64,6 @@ class MultipartParser(boundary: Array[Byte]) extends Parsers with Log {
   def parse(in: BinProducer): Try[MultiPartBody] = toArray(in) flatMap { parse(_) }
 
   private def storeMultipart(in: Array[Byte]) {
-    import scala.concurrent.ExecutionContext.Implicits.global
     if (Config.bool("trace.uploads", false)) {
       Future {
         arrayProducer(in)(FileOps.writer(Path(s"./logs/upload-${System.currentTimeMillis}.bin")))
@@ -72,7 +73,7 @@ class MultipartParser(boundary: Array[Byte]) extends Parsers with Log {
 
   def parse(in: Array[Byte]): Try[MultiPartBody] = duration {
     storeMultipart(in)
-    multiParser(BinReader(in, 0)) match {
+    multiParser(BinReader(in)) match {
       case Success(v, _) => scala.util.Success(v)
       case Failure(v, _) => ShiftFailure(v).toTry
       case Error(v, _)   => ShiftFailure(v).toTry
@@ -95,8 +96,10 @@ class MultipartParser(boundary: Array[Byte]) extends Parsers with Log {
         case Some(Header(_, value, _)) if (value.startsWith("text")) =>
           val s = new String(v, "UTF-8")
           TextPart(k, s)
-        case Some(_) => BinaryPart(k, v)
-        case _       => TextPart(k, new String(v, "UTF-8"))
+        case Some(_) =>
+          BinaryPart(k, v)
+        case _ =>
+          TextPart(k, new String(v, "UTF-8"))
       }
   }) ^^ { l => MultiPartBody(l) }
 
@@ -117,12 +120,12 @@ class MultipartParser(boundary: Array[Byte]) extends Parsers with Log {
 
   def partParser: Parser[Array[Byte]] = Parser { in =>
 
-    val sepBound = (Array[Byte](13, 10) ++ bound) toList
+    val sepBound = (Array[Byte](10) ++ bound) toList
 
     @tailrec def continue(in: Input, end: List[Byte], res: ListBuffer[Byte]): ParseResult[ListBuffer[Byte]] = {
 
       if (end.isEmpty) {
-        Success(res.dropRight(sepBound.size), in)
+        Success(res.dropRight(sepBound.size + 1), in)
       } else if (in.atEnd) {
         Failure(s"Suffix $bound not found", in)
       } else if (in.first != end.head) {
@@ -149,7 +152,7 @@ object BinReader {
   }
 }
 
-case class BinReader(in: Array[Byte], position: Int) extends Reader[Byte] {
+case class BinReader(in: Array[Byte], position: Int = 0) extends Reader[Byte] {
 
   def first = in(position)
 

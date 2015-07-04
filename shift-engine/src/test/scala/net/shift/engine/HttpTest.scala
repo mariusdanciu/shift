@@ -6,12 +6,11 @@ import net.shift.engine.http.MultipartParser
 import net.shift.engine.http.BinReader
 import net.shift.engine.http.TextPart
 import net.shift.engine.http.BinaryPart
+import net.shift.io.FileOps
+import net.shift.common.Path
+import net.shift.io.IO
 
 class HttpTest extends FlatSpec with Matchers {
-
-  "Multipart" should "parse" in {
-    test2
-  }
 
   def test1 = {
 
@@ -29,17 +28,16 @@ class HttpTest extends FlatSpec with Matchers {
           case BinaryPart(h, c) =>
             val value = c.map(String.valueOf(_)).mkString
             println(value)
-            //assert(c === bin)
+          //assert(c === bin)
           case TextPart(h, c) =>
             println(c)
-            //assert(c === "100000")
+          //assert(c === "100000")
           case _ =>
         }
       }
     }
   }
-  
-  
+
   def test2 = {
     val body = "-----------------------------902056036781473372360087476\r\nContent-Disposition: form-data; name=\"create_title\"\r\n\r\nSosetuta\r\n-----------------------------902056036781473372360087476\r\nContent-Disposition: form-data; name=\"create_price\"\r\n\r\n44\r\n-----------------------------902056036781473372360087476\r\nContent-Disposition: form-data; name=\"create_categories\"\r\n\r\n5479c53fe4b04cb784a98b8f\r\n-----------------------------902056036781473372360087476\r\nContent-Disposition: form-data; name=\"create_keywords\"\r\n\r\ns\r\n-----------------------------902056036781473372360087476\r\nContent-Disposition: form-data; name=\"create_description\"\r\n\r\n<span style=\"color:rgb(0,0,255);\">Cea mai tare <b style=\"color:rgb(0,0,255);\">soseta</b> din Ardeal.</span><p></p>\r\n-----------------------------902056036781473372360087476--"
     val parser = new MultipartParser("---------------------------902056036781473372360087476".getBytes("UTF-8"))
@@ -51,17 +49,43 @@ class HttpTest extends FlatSpec with Matchers {
           case BinaryPart(h, c) =>
             val value = c.map(String.valueOf(_)).mkString
             println(value)
-            //assert(c === bin)
+          //assert(c === bin)
           case TextPart(h, c) =>
             println(c)
-            //assert(c === "100000")
+          //assert(c === "100000")
           case _ =>
         }
       }
     }
   }
+
+  def test3 = {
+
+    val v = for {
+      prod <- FileOps.reader(Path("c:/work/dev/shop/shop/upload-1435990269155.bin"))
+      array <- IO.toArray(prod)
+    } yield {
+      val parser = new MultipartParser("---------------------------213892510730397".getBytes("UTF-8"))
+      parser.multiParser(BinReader(array)) map { v =>
+        v.parts.map {
+          _ match {
+            case b @ BinaryPart(h, c) =>
+              println(h + " ... " + c.length)
+              b
+            //assert(c === bin)
+            case b @ TextPart(h, c) =>
+              println(c)
+              b
+            //assert(c === "100000"))
+            case _ =>
+          }
+        }
+      }
+    }
+    println(v)
+  }
 }
 
 object Run extends App {
-  new HttpTest().test2
+  new HttpTest().test3
 }
