@@ -134,7 +134,7 @@ class Server(app: ShiftApplication) extends Actor with ActorLogging with HttpUti
   def toShiftRequest(sprayReq: HttpRequest) = new Request {
 
     lazy val path = Path(uri)
-    def uri = sprayReq.uri.path.toString().substring(1)
+    val uri = java.net.URLDecoder.decode(sprayReq.uri.path.toString().substring(1), "UTF-8")
     def method = sprayReq.method.value
     def contextPath: Path = EmptyPath
 

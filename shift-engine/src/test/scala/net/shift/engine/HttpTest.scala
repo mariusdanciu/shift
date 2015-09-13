@@ -22,7 +22,6 @@ class HttpTest extends FlatSpec with Matchers {
     val parser = new MultipartParser("----WebKitFormBoundaryePkpFF7tjBAqx29L".getBytes("UTF-8"))
 
     parser.multiParser(BinReader(body, 0)) map { v =>
-      println(v)
       v.parts.map {
         _ match {
           case BinaryPart(h, c) =>
@@ -43,7 +42,6 @@ class HttpTest extends FlatSpec with Matchers {
     val parser = new MultipartParser("---------------------------902056036781473372360087476".getBytes("UTF-8"))
 
     parser.multiParser(BinReader(body.getBytes("utf-8"), 0)) map { v =>
-      println(v)
       v.parts.map {
         _ match {
           case BinaryPart(h, c) =>
@@ -62,21 +60,20 @@ class HttpTest extends FlatSpec with Matchers {
   def test3 = {
 
     val v = for {
-      prod <- FileOps.reader(Path("c:/work/dev/shop/shop/upload-1435990269155.bin"))
+      prod <- FileOps.reader(Path("c:/work/upload-1442129190413.bin"))
       array <- IO.toArray(prod)
     } yield {
-      val parser = new MultipartParser("---------------------------213892510730397".getBytes("UTF-8"))
+      val parser = new MultipartParser("---------------------------3357733724543".getBytes("UTF-8"))
       parser.multiParser(BinReader(array)) map { v =>
         v.parts.map {
           _ match {
             case b @ BinaryPart(h, c) =>
-              println(h + " ... " + c.length)
+              println("Binary : " + h + " ... " + c.length)
               b
             //assert(c === bin)
             case b @ TextPart(h, c) =>
-              println(c)
+              println("Text : " + c)
               b
-            //assert(c === "100000"))
             case _ =>
           }
         }
