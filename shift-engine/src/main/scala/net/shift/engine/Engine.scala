@@ -13,7 +13,7 @@ import net.shift.common.ShiftFailure
 
 object Engine extends DefaultLog {
 
-  def run(app: ShiftApplication)(request: Request, response: AsyncResponse)(implicit ec: scala.concurrent.ExecutionContext) {
+  def run(app: ShiftApplication)(request: Request, response: AsyncResponse)(implicit ec: scala.concurrent.ExecutionContext, conf: Config) {
 
     Future {
       try {
@@ -27,7 +27,7 @@ object Engine extends DefaultLog {
             response(Resp.serverError)
           case Failure(SecurityFailure(msg, 401)) =>
             warn(s"Authentication failure $msg")
-            response(Resp.basicAuthRequired(msg, Config.string("auth.realm", "shift")))
+            response(Resp.basicAuthRequired(msg, conf.string("auth.realm", "shift")))
           case Failure(SecurityFailure(msg, status)) =>
             warn(s"Authentication failure $msg")
             response(TextResponse(msg).code(status))

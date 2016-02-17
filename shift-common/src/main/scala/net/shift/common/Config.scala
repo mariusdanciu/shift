@@ -7,21 +7,28 @@ import scala.collection.JavaConverters._
 import StringUtils._
 import net.shift.io.IO._
 import net.shift.io.FileSystem
+import scala.util.Try
 
 object Config {
-
-  private var configs: Map[String, String] = Map.empty;
-
-  def load(profile: String = "")(implicit fs: FileSystem) {
+  def load(profile: String = "")(implicit fs: FileSystem): Try[Config] = {
     for {
       in <- fs.reader(Path(s"config/config$profile.properties"))
       arr <- toArray(in)
-    } {
+    } yield {
       val p = new Properties();
       p.load(new ByteArrayInputStream(arr))
-      configs ++= p.asScala
+      new {
+        override val configs = p.asScala.toMap
+      } with Config()
     }
+
   }
+
+}
+
+class Config() {
+
+  protected val configs: Map[String, String] = Map.empty
 
   def int(p: String, d: Int = 0): Int = configs.get(p).flatMap(toInt(_)).getOrElse(d)
 

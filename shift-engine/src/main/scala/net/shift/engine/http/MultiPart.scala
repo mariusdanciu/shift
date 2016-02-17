@@ -61,17 +61,17 @@ class MultipartParser(boundary: Array[Byte]) extends Parsers with Log {
 
   def crlf = Array[Byte](13, 10)
 
-  def parse(in: BinProducer): Try[MultiPartBody] = toArray(in) flatMap { parse(_) }
+  def parse(in: BinProducer)(implicit conf: Config): Try[MultiPartBody] = toArray(in) flatMap { parse(_) }
 
-  private def storeMultipart(in: Array[Byte]) {
-    if (Config.bool("trace.uploads", false)) {
+  private def storeMultipart(in: Array[Byte])(implicit conf: Config) {
+    if (conf.bool("trace.uploads", false)) {
       Future {
         arrayProducer(in)(FileOps.writer(Path(s"./logs/upload-${System.currentTimeMillis}.bin")))
       }
     }
   }
 
-  def parse(in: Array[Byte]): Try[MultiPartBody] = duration {
+  def parse(in: Array[Byte])(implicit conf: Config): Try[MultiPartBody] = duration {
     storeMultipart(in)
     multiParser(BinReader(in)) match {
       case Success(v, _) => scala.util.Success(v)

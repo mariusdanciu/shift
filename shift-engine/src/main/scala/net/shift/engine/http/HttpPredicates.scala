@@ -34,19 +34,19 @@ trait HttpPredicates {
     r => if (m is r.method) Success((r, r)) else ShiftFailure.toTry
   }
 
-  def permissions(failMsg: => String, p: Permission*)(implicit login: Credentials => Option[User]): State[Request, User] =
+  def permissions(failMsg: => String, p: Permission*)(implicit login: Credentials => Option[User], conf: Config): State[Request, User] =
     for {
       u <- userRequired(failMsg) if (u.hasAllPermissions(p: _*))
     } yield {
       u
     }
 
-  def userRequired(failMsg: => String)(implicit login: Credentials => Option[User]): State[Request, User] = state {
+  def userRequired(failMsg: => String)(implicit login: Credentials => Option[User], conf: Config): State[Request, User] = state {
     r =>
       {
         val res = (r.header("Authorization"), r.cookie("identity"), r.cookie("secret")) match {
           case (_, Some(Cookie(_, Base64(identity), _, _, _, _, _, _)), Some(Cookie(_, secret, _, _, _, _, _, _))) =>
-            val computedSecret = Base64.encode(HMac.encodeSHA256(identity, Config.string("hmac.auth.salt", "SHIFT-HMAC-SALT")))
+            val computedSecret = Base64.encode(HMac.encodeSHA256(identity, conf.string("hmac.auth.salt", "SHIFT-HMAC-SALT")))
             if (computedSecret == secret) {
               identity match {
                 case Users(u) => Some(u)
@@ -66,12 +66,12 @@ trait HttpPredicates {
       }
   }
 
-  def user(implicit login: Credentials => Option[User]): State[Request, Option[User]] = state {
+  def user(implicit login: Credentials => Option[User], conf: Config): State[Request, Option[User]] = state {
     r =>
       {
         val res = (r.header("Authorization"), r.cookie("identity"), r.cookie("secret")) match {
           case (_, Some(Cookie(_, Base64(identity), _, _, _, _, _, _)), Some(Cookie(_, secret, _, _, _, _, _, _))) =>
-            val computedSecret = Base64.encode(HMac.encodeSHA256(identity, Config.string("hmac.auth.salt", "SHIFT-HMAC-SALT")))
+            val computedSecret = Base64.encode(HMac.encodeSHA256(identity, conf.string("hmac.auth.salt", "SHIFT-HMAC-SALT")))
             if (computedSecret == secret) {
               identity match {
                 case Users(u) => Some(u)
@@ -89,7 +89,7 @@ trait HttpPredicates {
       }
   }
 
-  def authenticate(failMsg: => String, code: Int = 401)(implicit login: Credentials => Option[User]): State[Request, User] = state {
+  def authenticate(failMsg: => String, code: Int = 401)(implicit login: Credentials => Option[User], conf: Config): State[Request, User] = state {
     r =>
       {
         (r.header("Authorization"), r.cookie("identity"), r.cookie("secret")) match {
@@ -103,7 +103,7 @@ trait HttpPredicates {
             }
 
           case (_, Some(Cookie(_, Base64(identity), _, _, _, _, _, _)), Some(Cookie(_, secret, _, _, _, _, _, _))) =>
-            val computedSecret = Base64.encode(HMac.encodeSHA256(identity, Config.string("hmac.auth.salt", "SHIFT-HMAC-SALT")))
+            val computedSecret = Base64.encode(HMac.encodeSHA256(identity, conf.string("hmac.auth.salt", "SHIFT-HMAC-SALT")))
             if (computedSecret == secret) {
               identity match {
                 case Users(u) => Success((r, u))
@@ -126,7 +126,7 @@ trait HttpPredicates {
       }
   }
 
-  def multipartForm: State[Request, MultiPartBody] = state {
+  def multipartForm(implicit conf: Config): State[Request, MultiPartBody] = state {
     r =>
       r.header("Content-Type") match {
         case Some(Header(_, "multipart/form-data", params)) =>

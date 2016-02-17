@@ -133,14 +133,14 @@ case class RichResponse(r: Response) {
     override val cookies = r.cookies ++ c
   }
 
-  def securityCookies(user: User): Response = {
+  def securityCookies(user: User)(implicit conf: Config): Response = {
     val org = user.org.map(_.name) getOrElse ""
     val identity = s"${user.name}:$org:${user.permissions.map(_.name).mkString(",")}"
-    val computedSecret = Base64.encode(HMac.encodeSHA256(identity, Config.string("auth.hmac.salt", "SHIFT-HMAC-SALT")))
+    val computedSecret = Base64.encode(HMac.encodeSHA256(identity, conf.string("auth.hmac.salt", "SHIFT-HMAC-SALT")))
 
     withCookies(
-      Cookie("identity", Base64.encodeString(identity), None, Some("/"), Some(Config.long("auth.ttl", 1800)), None, false, true),
-      Cookie("secret", computedSecret, None, Some("/"), Some(Config.long("auth.ttl", 1800)), None, false, true))
+      Cookie("identity", Base64.encodeString(identity), None, Some("/"), Some(conf.long("auth.ttl", 1800)), None, false, true),
+      Cookie("secret", computedSecret, None, Some("/"), Some(conf.long("auth.ttl", 1800)), None, false, true))
   }
 
   def dropSecurityCookies: Response = {

@@ -52,7 +52,7 @@ object SprayServer {
 
   implicit val system = ActorSystem()
 
-  def start(port: Int, app: ShiftApplication)(implicit ec: scala.concurrent.ExecutionContext) {
+  def start(port: Int, app: ShiftApplication)(implicit ec: scala.concurrent.ExecutionContext, conf: Config) {
     val server = system.actorOf(Props(new Server(app)), name = "shift-server")
 
     IO(Http) ! Http.Bind(server, interface = "0.0.0.0", port = port)
@@ -60,8 +60,8 @@ object SprayServer {
 
 }
 
-class Server(app: ShiftApplication) extends Actor with ActorLogging with HttpUtils {
-  implicit val timeout: Timeout = Config.int("shift.request.timeout", 20000)
+class Server(app: ShiftApplication)(implicit conf: Config) extends Actor with ActorLogging with HttpUtils {
+  implicit val timeout: Timeout = conf.int("shift.request.timeout", 20000)
   val Empty = Array[Byte](0)
 
   def receive = {
@@ -80,7 +80,7 @@ class Server(app: ShiftApplication) extends Actor with ActorLogging with HttpUti
     case Timedout(HttpRequest(method, uri, _, _, _)) =>
       sender ! HttpResponse(
         status = 500,
-        entity = Config.string("shift.timeout.message", "The " + method + " request to '" + uri + "' has timed out..."))
+        entity = conf.string("shift.timeout.message", "The " + method + " request to '" + uri + "' has timed out..."))
 
     case Terminated(worker) =>
       log.debug(worker + " terminated")
