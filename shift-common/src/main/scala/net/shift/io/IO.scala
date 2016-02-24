@@ -12,6 +12,7 @@ import scala.xml.NodeSeq
 import net.shift.common.XmlUtils._
 import java.io.Closeable
 import scala.util.control.Exception._
+import net.shift.common.Config
 
 trait IODefaults {
 

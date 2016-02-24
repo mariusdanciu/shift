@@ -42,7 +42,8 @@ object Main extends App with HttpPredicates with ShiftUtils with IODefaults {
   def serveService(resp: AsyncResponse) {
     resp(TextResponse("serve invoked"))
   }
-  Config.load()
+  
+  implicit val cfg = new Config
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -52,6 +53,8 @@ object Main extends App with HttpPredicates with ShiftUtils with IODefaults {
 
     import Request._
 
+    implicit val cfg = new Config
+    
     // If we have a GET request and the path is /a/b/c
     val r1 = for {
       r <- GET
