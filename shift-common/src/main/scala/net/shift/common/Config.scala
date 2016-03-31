@@ -31,7 +31,7 @@ class Config() { self =>
   protected val configs: Map[String, String] = Map.empty
 
   def append(other: Map[String, String]): Config = new {
-    val config = self.configs ++ other
+    override val configs = self.configs ++ other
   } with Config()
 
   def int(p: String, d: Int = 0): Int = configs.get(p).flatMap(toInt(_)).getOrElse(d)
