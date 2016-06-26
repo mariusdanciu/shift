@@ -63,8 +63,8 @@ trait Path {
   }
 
   def head: Option[String] = parts match {
-    case h :: Nil => Some(h)
-    case _        => None
+    case h :: _ => Some(h)
+    case _      => None
   }
 
   def tail: Path = parts match {

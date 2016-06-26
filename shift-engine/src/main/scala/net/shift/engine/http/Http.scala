@@ -77,16 +77,14 @@ class ResponseShell(in: Response) extends Response {
   def body = in.body
 }
 
-object Header {
-  def apply(key: String, value: String) = new Header(key, value, Map.empty)
-}
-
-case class Header(key: String, value: String, params: Map[String, String]) {
-  def stringValue =
-    if (!params.isEmpty)
-      value + ";" + params.mkString(",")
+case class Header(key: String, value: String) {
+  def valueWithNoParams = {
+    val idx = value.indexOf(";")
+    if (idx > 0)
+      value.substring(0, idx)
     else
       value
+  }
 }
 
 object Request {
@@ -255,46 +253,6 @@ object RuleException {
 class RuleException(msg: String) extends RuntimeException(msg) with util.control.NoStackTrace
 
 trait HttpUtils {
-
-  def extractHeader(line: String) = {
-    for {
-      (h, t) <- kvSlice(line, "\\s*:\\s*")
-      (v, p) <- listSlice(t, "\\s*;\\s*")
-      map <- mapSlice(p, "\\s*=\\s*")
-    } yield {
-      Header(h, v, map)
-    }
-
-  }
-
-  def extractHeaderValue(k: String, line: String) = {
-    for {
-      (v, p) <- listSlice(line, "\\s*;\\s*")
-      map <- mapSlice(p, "\\s*=\\s*")
-    } yield {
-      Header(k, v, map)
-    }
-
-  }
-
-  private def kvSlice(in: String, split: String) = {
-    in.split(split).toList match {
-      case k :: v :: Nil => Some((k, v))
-      case l             => None
-    }
-  }
-
-  private def listSlice(in: String, split: String) = in.split(split).toList match {
-    case h :: t => Some((h, t))
-    case _      => None
-  }
-
-  private def mapSlice(in: List[String], split: String) = Some(Map((for {
-    item <- in
-    p <- kvSlice(item, split)
-  } yield {
-    (p._1, unquote(p._2))
-  }): _*))
 
   private def unquote(in: String) = if (in.head == '\"' && in.last == '\"') in.tail.dropRight(1) else in
 }

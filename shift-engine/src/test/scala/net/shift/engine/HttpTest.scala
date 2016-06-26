@@ -22,6 +22,7 @@ class HttpTest extends FlatSpec with Matchers {
     val parser = new MultipartParser("----WebKitFormBoundaryePkpFF7tjBAqx29L".getBytes("UTF-8"))
 
     parser.multiParser(BinReader(body, 0)) map { v =>
+      println(v)
       v.parts.map {
         _ match {
           case BinaryPart(h, c) =>
@@ -84,5 +85,5 @@ class HttpTest extends FlatSpec with Matchers {
 }
 
 object Run extends App {
-  new HttpTest().test3
+  new HttpTest().test2
 }

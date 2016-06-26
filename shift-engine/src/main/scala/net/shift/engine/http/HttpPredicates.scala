@@ -121,22 +121,18 @@ trait HttpPredicates {
   def ajax: State[Request, Request] = state {
     r =>
       r.header("X-Requested-With") match {
-        case Some(Header(_, "XMLHttpRequest", _)) => Success((r, r))
-        case _                                    => ShiftFailure.toTry
+        case Some(Header(_, "XMLHttpRequest")) => Success((r, r))
+        case _                                 => ShiftFailure.toTry
       }
   }
 
   def multipartForm(implicit conf: Config): State[Request, MultiPartBody] = state {
     r =>
       r.header("Content-Type") match {
-        case Some(Header(_, "multipart/form-data", params)) =>
-          params.get("boundary") match {
-            case Some(b) =>
-              (toArray(r.readBody)) match {
-                case Success(arr) => MultipartParser(b).parse(arr).map(e => (r, e))
-                case _            => ShiftFailure.toTry
-              }
-            case None => ShiftFailure.toTry
+        case Some(MultipartBoundry(boundry)) =>
+          (toArray(r.readBody)) match {
+            case Success(arr) => MultipartParser(boundry).parse(arr).map(e => (r, e))
+            case _            => ShiftFailure.toTry
           }
         case _ => ShiftFailure.toTry
       }

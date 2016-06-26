@@ -93,7 +93,7 @@ class MultipartParser(boundary: Array[Byte]) extends Parsers with Log {
   def multiParser: Parser[MultiPartBody] = bound ~> rep((headers ~ (crlf ~> partParser)) ^^ {
     case k ~ v =>
       k.get("Content-Type") match {
-        case Some(Header(_, value, _)) if (value.startsWith("text")) =>
+        case Some(Header(_, value)) if (value.startsWith("text")) =>
           val s = new String(v, "UTF-8")
           TextPart(k, s)
         case Some(_) =>
@@ -115,7 +115,8 @@ class MultipartParser(boundary: Array[Byte]) extends Parsers with Log {
   def headers = (rep(header) <~ crlf) ^^ { h => h.map(e => (e.key, e)).toMap }
 
   def header = (crlf ~> ((key <~ ws(":")) ~ value)) ~ rep(ws(";") ~> param) ^^ {
-    case k ~ v ~ p => Header(new String(k, "UTF-8"), new String(v, "UTF-8"), Map(p.map { case (k, v) => (new String(k, "UTF-8"), new String(v, "UTF-8")) }: _*))
+    case k ~ v ~ p => Header(new String(k, "UTF-8"),
+      new String(v, "UTF-8") + ";" + p.map { case (k, v) => new String(k, "UTF-8") + "=" + new String(v, "UTF-8") }.toList.mkString(";"))
   }
 
   def partParser: Parser[Array[Byte]] = Parser { in =>

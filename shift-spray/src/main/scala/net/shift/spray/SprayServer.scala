@@ -44,6 +44,7 @@ import akka.actor.Terminated
 import spray.http.HttpCookie
 import spray.http.StringRendering
 import net.shift.common.Config
+import net.shift.engine.http.HeaderKeyValue
 
 /**
  * @author marius
@@ -142,7 +143,7 @@ class Server(app: ShiftApplication)(implicit conf: Config) extends Actor with Ac
 
     def param(name: String) = params.get(name)
     lazy val params = qsToParams(queryString) ++ postParams
-    
+
     def header(name: String) = headers.get(name)
     def headers = toHeaders(sprayReq.headers)
 
@@ -167,7 +168,7 @@ class Server(app: ShiftApplication)(implicit conf: Config) extends Actor with Ac
     lazy val language = Language("en")
 
     val postParams = (headers.get("Content-Type") match {
-      case Some(Header(_, "application/x-www-form-urlencoded", _)) =>
+      case Some(HeaderKeyValue(_, "application/x-www-form-urlencoded")) =>
         (net.shift.io.IO.toArray(readBody) map { arr => qsToParams(new String(arr, "UTF-8")) }) getOrElse { Map.empty }
       case _ =>
         Map.empty
@@ -176,15 +177,12 @@ class Server(app: ShiftApplication)(implicit conf: Config) extends Actor with Ac
 
   def toHeaders(headers: List[HttpHeader]): Map[String, Header] = {
     ((Map.empty: Map[String, Header]) /: headers) { (a, e) =>
-      extractHeaderValue(e.name, e.value) match {
-        case Some(header) => a + (header.key -> header)
-        case _            => a
-      }
+      a + (e.name -> Header(e.name, e.value))
     }
 
   }
 
-  def qsToParams(qs: Option[String]): Map[String, List[String]] = 
+  def qsToParams(qs: Option[String]): Map[String, List[String]] =
     qs map { qsToParams } getOrElse Map.empty
 
   def qsToParams(qs: String): Map[String, List[String]] = {
