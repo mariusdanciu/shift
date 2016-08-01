@@ -127,6 +127,12 @@ case class RichResponse(r: Response) {
     override val headers = r.headers ++ List(prop: _*)
   }
 
+  def cache(expires: Int, etag: String) = new ResponseShell(r) {
+    override val headers = r.headers ++ List(
+      Header("Cache-Control", s"max-age=$expires"),
+      Header("ETag", etag))
+  }
+
   def withCookies(c: Cookie*) = new ResponseShell(r) {
     override val cookies = r.cookies ++ c
   }

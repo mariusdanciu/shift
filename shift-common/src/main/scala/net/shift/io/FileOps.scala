@@ -22,7 +22,7 @@ trait FileSystem {
   def deletePath(in: Path): Try[Path]
   def writer(p: Path): Iteratee[Array[Byte], Path]
   def reader(p: Path, bufSize: Int = 32768): Try[BinProducer]
-
+  def lastModified(p: Path): Try[Long]
 }
 
 object FileOps extends FileSystem {
@@ -92,4 +92,8 @@ object FileOps extends FileSystem {
     } catch {
       case e: Exception => Failure(e)
     }
+
+  def lastModified(p: Path): Try[Long] = Try {
+    new File(p.toString()).lastModified()
+  }
 }

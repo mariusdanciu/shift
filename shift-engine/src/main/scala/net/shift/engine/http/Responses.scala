@@ -115,6 +115,7 @@ object Resp {
   def forbidden = Resp(403)
   def notFound = Resp(404)
   def confilct = Resp(409)
+  def notModified = Resp(304)
 
   def serverError = Resp(500)
   def notImplemented = Resp(501)

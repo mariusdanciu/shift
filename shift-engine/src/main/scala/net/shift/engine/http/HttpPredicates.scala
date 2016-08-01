@@ -249,6 +249,19 @@ trait HttpPredicates {
       }
   }
 
+  def lastModified(path: Path)(implicit fs: FileSystem): State[Request, Long] = state {
+    r =>
+      {
+        fs.exists(path).flatMap { b =>
+          if (b) {
+            (fs lastModified (path)).map((r, _))
+          } else {
+            Failure(new FileNotFoundException(path toString))
+          }
+        }
+      }
+  }
+
 }
 
 
