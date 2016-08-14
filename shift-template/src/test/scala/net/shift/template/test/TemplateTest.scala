@@ -9,9 +9,10 @@ import net.shift.loc.Language
 import scala.util.Success
 import net.shift.io.IODefaults
 
-object TemplateTest extends App with Selectors with IODefaults {
+object TemplateTest extends App with IODefaults {
   val page =
     """
+     <!DOCTYPE html>
 <!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
 <!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
 <!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
@@ -51,7 +52,7 @@ object TemplateTest extends App with Selectors with IODefaults {
         <div>
           <span>Sensitive content</span> 
           
-          <span>ANother sensitive content</span>
+          <span>Another sensitive content</span>
         </div>
         <!--end-->
         
@@ -60,14 +61,12 @@ object TemplateTest extends App with Selectors with IODefaults {
     </html>
 """
   import Snippet._
-  import Template._
 
   val snippets = new DynamicContent[String] {
     def snippets = List(
       snip("form1") {
         s =>
-          val SnipNode(name, attrs, childs) = s.node
-          Success(("form", <form id="processed">{ childs }</form>))
+          Success(("form", <form id="processed">{ s.node }</form>))
       },
       snip("permissions") {
         s =>

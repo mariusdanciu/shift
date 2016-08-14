@@ -16,18 +16,34 @@ import scala.annotation.tailrec
 import net.shift.io.FileSystem
 import net.shift.common.Path
 import net.shift.common.StringUtils
-
 import common.State
 import common.State.init
 import common.State.put
 import common.State.putOpt
 import common.State.state
+import scala.xml.Elem
+import net.shift.security.Permission
+import net.shift.loc.Language
+import net.shift.security.User
 
 object StringTemplate {
   implicit def defaultTemplateQuery(implicit fs: FileSystem): TemplateQuery = name => for {
     input <- fs reader Path(s"web/templates/$name.html")
     content <- StringUtils.load(input)
   } yield content
+
+  def defaultSnippets[T]: Map[String, State[SnipState[T], NodeSeq]] = Map(
+    "permissions" -> state[SnipState[T], NodeSeq] {
+      case st @ SnipState(PageState(s, language, user), params, e: Elem) =>
+        val perms = params map { Permission }
+        val res = user match {
+          case Some(u) => (u.requireAll(perms: _*) {
+            (st, new Elem(e.prefix, e.label, e.attributes, e.scope, e.child: _*))
+          }).getOrElse((st, NodeSeq.Empty))
+          case None => (st, NodeSeq.Empty)
+        }
+        Success(res)
+    })
 
 }
 
@@ -38,7 +54,7 @@ class StringTemplate {
              state: PageState[T])(implicit finder: TemplateQuery,
                                   fs: FileSystem): Try[(PageState[T], String)] = {
 
-    val snipMap = snippets.toMap
+    val snipMap = (StringTemplate.defaultSnippets[T] ++ snippets.toMap)
 
     def exec(state: PageState[T], contents: List[Content]): Try[(PageState[T], String)] = {
 
@@ -73,7 +89,7 @@ class StringTemplate {
       }
     }
 
-    val doc = new SnippetsParser().parse(html)
+    val doc = new TemplateParser().parse(html)
 
     doc flatMap { d => exec(state, d.contents.toList) }
 
@@ -81,51 +97,51 @@ class StringTemplate {
 
 }
 
-class SnippetsParser extends Parsers {
+class TemplateParser extends Parsers {
   type Elem = Char
 
-  def value = rep1(acceptIf(b => (b >= 'a' && b <= 'z') ||
+  private def value = rep1(acceptIf(b => (b >= 'a' && b <= 'z') ||
     (b >= 'A' && b <= 'Z') ||
     (b >= '0' && b <= '9') || b == '_' || b == '/')(err => "Not a value character " + err)) ^^ { r => r }
 
-  def identifier = rep1(acceptIf(b => (b >= 'a' && b <= 'z') ||
+  private def identifier = rep1(acceptIf(b => (b >= 'a' && b <= 'z') ||
     (b >= 'A' && b <= 'Z') ||
     (b >= '0' && b <= '9') || b == '_' || b == '-' || b == '/' || b == '.')(err => "Not a value character " + err)) ^^ { r => r }
 
-  def noCRLFSpace = accept(' ') | accept('\t')
+  private def noCRLFSpace = accept(' ') | accept('\t')
 
-  def ws = rep(noCRLFSpace)
+  private def ws = rep(noCRLFSpace)
 
-  def comment: Parser[Static] = anyUntilSeq("-->") ^^ { l => Static("<!--" + l.mkString + "-->") }
+  private def comment: Parser[Static] = anyUntilSeq("-->") ^^ { l => Static("<!--" + l.mkString + "-->") }
 
-  def template: Parser[TemplateRef] = {
+  private def template: Parser[TemplateRef] = {
     (ws ~> acceptSeq("template:") ~> value <~ anyUntilSeq("-->")) ^^ { l => TemplateRef(l.mkString) }
   }
 
-  def loc: Parser[LocRef] = {
+  private def loc: Parser[LocRef] = {
     (ws ~> acceptSeq("loc:") ~> identifier <~ anyUntilSeq("-->")) ^^ { l => LocRef(l.mkString) }
   }
 
-  def static: Parser[Content] = anyUntilSeq("<!--") ^^ {
+  private def static: Parser[Content] = anyUntilSeq("<!--") ^^ {
     case s => Static(s)
   }
 
-  def paramsParser: Parser[List[String]] = ws ~> '(' ~> ws ~> repsep(value, ws ~> ',' <~ ws) <~ ')' ^^ {
+  private def paramsParser: Parser[List[String]] = ws ~> '(' ~> ws ~> repsep(value, ws ~> ',' <~ ws) <~ ')' ^^ {
     case l => l map { _ mkString }
   }
 
-  def dynamic: Parser[Content] = ((((ws ~> acceptSeq("snip:") ~> value)) ~ opt(paramsParser) <~ anyUntilSeq("-->")) ~ anyUntilSeq("<!--end-->")) ^^ {
+  private def dynamic: Parser[Content] = ((((ws ~> acceptSeq("snip:") ~> value)) ~ opt(paramsParser) <~ anyUntilSeq("-->")) ~ anyUntilSeq("<!--end-->")) ^^ {
     case name ~ params ~ d => Dynamic(name.mkString, params getOrElse Nil, d)
   }
 
-  def content: Parser[Document] = rep(static ~ opt(template | loc | dynamic | comment)) ^^ {
+  private def content: Parser[Document] = rep(static ~ opt(template | loc | dynamic | comment)) ^^ {
     case s => Document(s flatMap {
       case s ~ Some(d) => List(s, d)
       case s ~ _       => List(s)
     })
   }
 
-  def anyUntilSeq(seq: String): Parser[String] = new Parser[String] {
+  private def anyUntilSeq(seq: String): Parser[String] = new Parser[String] {
     def apply(in: Input): ParseResult[String] = {
 
       @tailrec
@@ -168,3 +184,10 @@ case class LocRef(name: String) extends Content
 
 case class Document(contents: Seq[Content])
 
+case class PageState[T](initialState: T, lang: Language, user: Option[User])
+
+object PageState {
+  def apply[T](initialState: T, lang: Language) = new PageState(initialState, lang, None)
+}
+
+case class SnipState[T](state: PageState[T], params: List[String], node: NodeSeq)

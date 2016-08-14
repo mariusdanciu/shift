@@ -47,9 +47,7 @@ object Main extends App with HttpPredicates with ShiftUtils with IODefaults {
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
-  SprayServer.start(8080, new ShiftApplication with Selectors {
-
-    implicit val selector = bySnippetAttr[Request]
+  SprayServer.start(8080, new ShiftApplication {
 
     import Request._
 

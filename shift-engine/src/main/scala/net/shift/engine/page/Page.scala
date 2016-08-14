@@ -16,47 +16,33 @@ import net.shift.security.User
 import XmlUtils._
 import net.shift.io.FileSystem
 import scala.util.Failure
+import net.shift.io.IO
+import scala.xml.XML
+import java.io.StringReader
 
-object Html5 extends Selectors {
+object Html5 {
+
+  import StringTemplate._
+
   def pageFromFile[T](state: PageState[T],
                       path: Path,
-                      snippets: DynamicContent[T])(implicit selector: Selectors#Selector[SnipState[T]], fs: FileSystem): Attempt =
+                      snippets: DynamicContent[T])(implicit fs: FileSystem): Attempt =
     for {
       input <- fs reader path
-      content <- load(input)
-      n <- new Html5(state, snippets).resolve(content)
+      content <- StringUtils.load(input)
+      (state, markup) <- new StringTemplate().run(content, snippets, state)
     } yield {
-      _(Html5Response(n._2))
+      _(Html5Response(IO.stringProducer(markup)))
     }
-
-  def pageFromContent[T](state: PageState[T],
-                         content: => NodeSeq,
-                         snippets: DynamicContent[T])(implicit selector: Selectors#Selector[SnipState[T]], fs: FileSystem): Attempt =
-    for {
-      n <- new Html5(state, snippets).resolve(content)
-    } yield _(Html5Response(n._2))
 
   def runPageFromFile[T](state: PageState[T],
                          path: Path,
-                         snippets: DynamicContent[T])(implicit selector: Selectors#Selector[SnipState[T]], fs: FileSystem): Try[(SnipState[T], NodeSeq)] =
+                         snippets: DynamicContent[T])(implicit fs: FileSystem): Try[(PageState[T], NodeSeq)] =
     for {
       input <- fs reader path
-      content <- load(input)
-      n <- new Html5(state, snippets).resolve(content)
-    } yield n
+      content <- StringUtils.load(input)
+      (state, n) <- new StringTemplate().run(content, snippets, state)
+    } yield (state, XML.load(new StringReader(n)))
 
-  def runPageFromContent[T](state: PageState[T],
-                            content: => NodeSeq,
-                            snippets: DynamicContent[T])(implicit selector: Selectors#Selector[SnipState[T]], fs: FileSystem): Try[(SnipState[T], NodeSeq)] =
-    new Html5(state, snippets).resolve(content)
 }
 
-class Html5[T](state: PageState[T], content: DynamicContent[T])(implicit selector: Selectors#Selector[SnipState[T]], fs: FileSystem) extends DefaultLog {
-  def resolve(markup: NodeSeq): Try[(SnipState[T], NodeSeq)] = {
-    import Template._
-    lazy val t = Template[T](content) run markup
-    for {
-      c <- t(SnipState(state, Nil, NodeSeq.Empty))
-    } yield c
-  }
-}
