@@ -49,9 +49,9 @@ trait Selectors {
     def filterSnip = state[SnipState[T], NodeSeq] {
       s =>
         s match {
-          case SnipState(st, e: Elem) =>
+          case SnipState(st, _, e: Elem) =>
             val el = new Elem(e.prefix, e.label, e.attributes.remove("data-snip"), e.scope, e.child: _*)
-            Success(SnipState(st, el), el)
+            Success(SnipState(st, Nil, el), el)
         }
     }
 
@@ -72,7 +72,7 @@ private[template] trait DefaultSnippets extends TemplateUtils {
   def locSnippet[T](implicit fs: FileSystem) = state[SnipState[T], NodeSeq] {
     s =>
       s match {
-        case SnipState(PageState(_, language, _), e: Elem) =>
+        case SnipState(PageState(_, language, _), _, e: Elem) =>
           Try((for { l <- e attr "data-loc" } yield {
             (s, new Elem(e.prefix, e.label, e.attributes.remove("data-loc"), e.scope, Text(loc0(language)(l).text)))
           }) get)
@@ -82,7 +82,7 @@ private[template] trait DefaultSnippets extends TemplateUtils {
   def uniqueUrlSnippet[T] = state[SnipState[T], NodeSeq] {
     s =>
       s match {
-        case SnipState(PageState(_, language, _), e: Elem) =>
+        case SnipState(PageState(_, language, _), _, e: Elem) =>
           import Binds._
           import net.shift.common.XmlUtils
 
@@ -104,7 +104,7 @@ private[template] trait DefaultSnippets extends TemplateUtils {
   def permissionSnippet[T] = state[SnipState[T], NodeSeq] {
     s =>
       s match {
-        case SnipState(PageState(_, language, user), e: Elem) =>
+        case SnipState(PageState(_, language, user), _, e: Elem) =>
           Try((for { l <- e attr "data-permissions" } yield {
             val otherPerms = l.split("\\s*,\\s*").map(Permission(_))
 
@@ -122,7 +122,7 @@ private[template] trait DefaultSnippets extends TemplateUtils {
   def notThesePermissionSnippet[T] = state[SnipState[T], NodeSeq] {
     s =>
       s match {
-        case SnipState(PageState(_, language, user), e: Elem) =>
+        case SnipState(PageState(_, language, user), _, e: Elem) =>
           Try((for { l <- e attr "data-notthesepermissions" } yield {
             val otherPerms = l.split("\\s*,\\s*").map(Permission(_))
 
@@ -139,7 +139,7 @@ private[template] trait DefaultSnippets extends TemplateUtils {
   }
 
   def templateSnippet[T](implicit template: Template[T], finder: TemplateFinder) = for {
-    SnipState(PageState(_, language, _), e @ TemplateAttr(t)) <- init[SnipState[T]]
+    SnipState(PageState(_, language, _), _, e @ TemplateAttr(t)) <- init[SnipState[T]]
     n <- put[SnipState[T], NodeSeq](e removeAttr "data-template")
     found <- find(t, finder)
     r <- template.run(found, toReplacements(e))
@@ -231,7 +231,7 @@ class Template[T](snippets: DynamicContent[T])(implicit finder: TemplateFinder, 
       Xml(in.label, XmlAttr(in.attributes).map {
         case (k, v) =>
           if (v.startsWith("loc:"))
-            (k -> Loc.loc0(l)(v.substring(4))(fs).text)
+            (k -> net.shift.loc.Loc.loc0(l)(v.substring(4))(fs).text)
           else
             (k -> v)
       }, in.child: _*)
@@ -242,8 +242,8 @@ class Template[T](snippets: DynamicContent[T])(implicit finder: TemplateFinder, 
         e match {
           case el: Elem =>
             val t = locAttributes(el, s.state.lang);
-            Success((SnipState(s.state, t), t))
-          case n => Success((SnipState(s.state, n), n))
+            Success((SnipState(s.state, Nil, t), t))
+          case n => Success((SnipState(s.state, Nil, n), n))
         }
     }
   }
@@ -252,8 +252,8 @@ class Template[T](snippets: DynamicContent[T])(implicit finder: TemplateFinder, 
     s =>
       e match {
         case el: Elem =>
-          Success((SnipState(s.state, el), el))
-        case n => Success((SnipState(s.state, n), n))
+          Success((SnipState(s.state, Nil, el), el))
+        case n => Success((SnipState(s.state, Nil, n), n))
       }
   }
 
@@ -346,4 +346,4 @@ object PageState {
 /**
  * @param node - the page element that needs to be transformed by this snippet
  */
-case class SnipState[T](state: PageState[T], node: NodeSeq)
+case class SnipState[T](state: PageState[T], params: List[String], node: NodeSeq)

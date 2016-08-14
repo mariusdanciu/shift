@@ -46,11 +46,11 @@ class StringTemplate {
         case Nil => Success((state, ""))
         case Static(s) :: tail =>
           exec(state, tail) map { r => (r._1, s + r._2) }
-        case Dynamic(name, markup) :: tail =>
+        case Dynamic(name, params, markup) :: tail =>
           snipMap.get(name) match {
             case Some(snip) =>
               val xml = XML.load(new java.io.ByteArrayInputStream(markup.getBytes("UTF-8")))
-              snip(SnipState(state, xml)) match {
+              snip(SnipState(state, params, xml)) match {
                 case Success((st, nodes)) =>
                   val s = XmlUtils.mkString(nodes)
                   exec(st.state, tail) map { r => (r._1, s + r._2) }
@@ -67,7 +67,7 @@ class StringTemplate {
             case Failure(t) => Failure(t)
           }
 
-        case Loc(name) :: tail =>
+        case LocRef(name) :: tail =>
           val str = net.shift.loc.Loc.loc0(state.lang)(name).text
           exec(state, tail) map { r => (r._1, str + r._2) }
       }
@@ -102,16 +102,20 @@ class SnippetsParser extends Parsers {
     (ws ~> acceptSeq("template:") ~> value <~ anyUntilSeq("-->")) ^^ { l => TemplateRef(l.mkString) }
   }
 
-  def loc: Parser[Loc] = {
-    (ws ~> acceptSeq("loc:") ~> identifier <~ anyUntilSeq("-->")) ^^ { l => Loc(l.mkString) }
+  def loc: Parser[LocRef] = {
+    (ws ~> acceptSeq("loc:") ~> identifier <~ anyUntilSeq("-->")) ^^ { l => LocRef(l.mkString) }
   }
 
   def static: Parser[Content] = anyUntilSeq("<!--") ^^ {
     case s => Static(s)
   }
 
-  def dynamic: Parser[Content] = ((((ws ~> acceptSeq("snip:") ~> value)) <~ anyUntilSeq("-->")) ~ anyUntilSeq("<!--end-->")) ^^ {
-    case name ~ d => Dynamic(name.mkString, d)
+  def paramsParser: Parser[List[String]] = ws ~> '(' ~> ws ~> repsep(value, ws ~> ',' <~ ws) <~ ')' ^^ {
+    case l => l map { _ mkString }
+  }
+
+  def dynamic: Parser[Content] = ((((ws ~> acceptSeq("snip:") ~> value)) ~ opt(paramsParser) <~ anyUntilSeq("-->")) ~ anyUntilSeq("<!--end-->")) ^^ {
+    case name ~ params ~ d => Dynamic(name.mkString, params getOrElse Nil, d)
   }
 
   def content: Parser[Document] = rep(static ~ opt(template | loc | dynamic | comment)) ^^ {
@@ -158,9 +162,9 @@ class SnippetsParser extends Parsers {
 sealed trait Content
 
 case class Static(text: String) extends Content
-case class Dynamic(name: String, content: String) extends Content
+case class Dynamic(name: String, params: List[String], content: String) extends Content
 case class TemplateRef(name: String) extends Content
-case class Loc(name: String) extends Content
+case class LocRef(name: String) extends Content
 
 case class Document(contents: Seq[Content])
 

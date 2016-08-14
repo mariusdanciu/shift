@@ -56,7 +56,7 @@ class Html5[T](state: PageState[T], content: DynamicContent[T])(implicit selecto
     import Template._
     lazy val t = Template[T](content) run markup
     for {
-      c <- t(SnipState(state, NodeSeq.Empty))
+      c <- t(SnipState(state, Nil, NodeSeq.Empty))
     } yield c
   }
 }

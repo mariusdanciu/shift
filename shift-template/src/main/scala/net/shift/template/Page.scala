@@ -13,11 +13,11 @@ object Snippet {
   import State._
 
   def snip[T](name: String)(f: SnipState[T] => Try[(T, NodeSeq)]) = new Snippet(name, state[SnipState[T], NodeSeq] {
-    s => f(s) map { case (t, n) => (SnipState(PageState(t, s.state.lang, s.state.user), n), n) }
+    s => f(s) map { case (t, n) => (SnipState(PageState(t, s.state.lang, s.state.user), Nil, n), n) }
   })
 
   def snipNoState[T](name: String)(f: SnipState[T] => Try[NodeSeq]) = new Snippet(name, state[SnipState[T], NodeSeq] {
-    s => f(s) map { n => (SnipState(s.state, n), n) }
+    s => f(s) map { n => (SnipState(s.state, Nil, n), n) }
   })
 
 }

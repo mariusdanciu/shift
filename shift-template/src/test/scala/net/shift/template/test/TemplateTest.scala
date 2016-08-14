@@ -47,7 +47,7 @@ object TemplateTest extends App with Selectors with IODefaults {
         
         <!--loc:user.name -->
         
-        <!--snip:permission-->
+        <!--snip:permissions (read, write)-->
         <div>
           <span>Sensitive content</span> 
           
@@ -69,10 +69,10 @@ object TemplateTest extends App with Selectors with IODefaults {
           val SnipNode(name, attrs, childs) = s.node
           Success(("form", <form id="processed">{ childs }</form>))
       },
-      snip("email") {
+      snip("permissions") {
         s =>
-          Console println s.state
-          Success(("email", <input type="text" id="email1">Type email here</input>))
+          Console println s.params
+          Success(("security", <div id="secured">{ s.node }</div>))
       })
   }
   implicit val tq: TemplateQuery = {
