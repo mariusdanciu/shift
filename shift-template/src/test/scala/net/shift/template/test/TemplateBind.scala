@@ -15,40 +15,44 @@ import net.shift.io.IODefaults
 
 object TemplateBind extends App with Selectors with IODefaults {
 
-  val template = <html>
-                   <head>
-                     <link rel="shortcut icon" href="//cdn.sstatic.net/stackoverflow/img/favicon.ico?v=038622610830"/>
-                   </head>
-                   <body>
-                     <h1>before</h1>
-                     <div id="place"/>
-                     <h1>after</h1>
-                     <div id="second"/>
-                     <img src="/a" data-unique="src"/>
-                   </body>
-                 </html>
-
-  val page =
-    <html data-template="wrap">
-      <head>
+  val head = """
         <link rel="apple-touch-icon image_src" href="//cdn.sstatic.net/stackoverflow/img/apple-touch-icon.png?v=fd7230a85918"/>
         <link rel="search" type="application/opensearchdescription+xml" title="Stack Overflow" href="/opensearch.xml"/>
         <meta name="twitter:card" content="summary"/>
-      </head>
-      <body>
-        <div id="place" data-snip="elem1">
+    """
+
+  val place = """
+        <div id="place">
           it worked
           <img src="/a" data-unique="src"/>
         </div>
-        <div id="second" data-snip="elem1">
+    """
+
+  val second = """
+         <div id="second">
           it worked again
           <img src="/a" data-unique="src"/>
         </div>
+    """
+
+  val page = """
+    <html>
+      <head>
+        <!-- template:head -->
+        <link rel="shortcut icon" href="//cdn.sstatic.net/stackoverflow/img/favicon.ico?v=038622610830"/>
+      </head>
+      
+      <body>
+        <!-- template:place -->
+        <span> In the middle</span>
+        <!-- template:second -->
       </body>
     </html>
-
-  implicit val finder: TemplateFinder = name => Success(template)
-  implicit val selector = bySnippetAttr[String]
+"""
+  implicit val finder: TemplateFinder = {
+    case "place" => Success(NodeSeq.Empty)
+    case "second" => Success(NodeSeq.Empty)
+  }
 
   val content = new DynamicContent[String] {
     def snippets = List(elem1)
@@ -62,11 +66,6 @@ object TemplateBind extends App with Selectors with IODefaults {
         Success((s.state.initialState, s.node ++ <p>Elem1</p>))
     }
   }
-  lazy val t = Template[String](content) run page
-  val res = for {
-    c <- t(SnipState(PageState("", Language("ro"), None), NodeSeq.Empty))
-  } yield c
 
-  println(res)
 
 }

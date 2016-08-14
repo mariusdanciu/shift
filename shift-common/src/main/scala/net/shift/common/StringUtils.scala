@@ -1,6 +1,13 @@
 package net.shift
 package common
 
+import java.io.FileInputStream
+import java.io.BufferedInputStream
+import net.shift.io.BinProducer
+import net.shift.io.IO
+import scala.util.Try
+import scala.io.Source
+
 object StringUtils {
 
   def toInt(s: String): Option[Int] = try {
@@ -62,5 +69,11 @@ object StringUtils {
   } catch {
     case e: Exception => d
   }
+
+  def load(resource: BinProducer): Try[String] = IO.toArray(resource).map { arr => new String(arr, "UTF-8") }
+
+  def load(path: Path): Try[String] = Try(Source.fromFile(path.toString()).getLines().mkString)
+
+  def load(in: Array[Byte]): Try[String] = Try(new String(in, "UTF-8"))
 
 }

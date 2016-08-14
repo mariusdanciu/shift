@@ -6,4 +6,5 @@ import scala.util.Try
 
 package object template {
   type TemplateFinder = String => Try[NodeSeq]
+  type TemplateQuery  = String => Try[String]
 }

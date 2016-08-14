@@ -10,29 +10,55 @@ import scala.util.Success
 import net.shift.io.IODefaults
 
 object TemplateTest extends App with Selectors with IODefaults {
-  val page = <html>
-               <head>
-               </head>
-               <body>
-                 <FORM data-snip="form1" action="http://somesite.com/prog/adduser" method="post">
-                   <P/>
-                   <LABEL for="firstname">First name: </LABEL>
-                   <INPUT type="text" id="firstname"/><BR/>
-                   <LABEL for="lastname">Last name: </LABEL>
-                   <INPUT type="text" id="lastname"/><BR/>
-                   <LABEL for="email">email: </LABEL>
-                   <INPUT data-snip="email" type="text"/><BR/>
-                   <INPUT type="radio" name="sex" value="Male"/>
-                   Male<BR/>
-                   <INPUT type="radio" name="sex" value="Female"/>
-                   Female<BR/>
-                   <INPUT type="submit" value="Send"/>
-                   <INPUT type="reset"/>
-                   <P/>
-                 </FORM>
-               </body>
-             </html>
-
+  val page =
+    """
+<!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+<!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
+<!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
+<!--[if gt IE 8]><!-->
+<html class="no-js">
+<!--<![endif]-->
+      <head>
+      </head>
+      <body>
+      
+      <!--template:head -->
+      
+      <!--snip:form1 -->
+        <FORM action="http://somesite.com/prog/adduser" method="post">
+          <P/>
+          <LABEL for="firstname">First name: </LABEL>
+          <INPUT type="text" id="firstname"/><BR/>
+          <LABEL for="lastname">Last name: </LABEL>
+          <INPUT type="text" id="lastname"/><BR/>
+          <LABEL for="email">email: </LABEL>
+          <INPUT type="text"/><BR/>
+          <INPUT type="radio" name="sex" value="Male"/>
+          Male<BR/>
+          <INPUT type="radio" name="sex" value="Female"/>
+          Female<BR/>
+          <INPUT type="submit" value="Send"/>
+          <INPUT type="reset"/>
+          <P/>
+        </FORM>
+        <!--end-->
+        
+        <!--ceva comentariu-->
+        
+        <!--loc:user.name -->
+        
+        <!--snip:permission-->
+        <div>
+          <span>Sensitive content</span> 
+          
+          <span>ANother sensitive content</span>
+        </div>
+        <!--end-->
+        
+        <!--template:footer  -->
+      </body>
+    </html>
+"""
   import Snippet._
   import Template._
 
@@ -40,9 +66,8 @@ object TemplateTest extends App with Selectors with IODefaults {
     def snippets = List(
       snip("form1") {
         s =>
-          Console println s.state
           val SnipNode(name, attrs, childs) = s.node
-          Success(("form", <form>{ childs }</form>))
+          Success(("form", <form id="processed">{ childs }</form>))
       },
       snip("email") {
         s =>
@@ -50,17 +75,11 @@ object TemplateTest extends App with Selectors with IODefaults {
           Success(("email", <input type="text" id="email1">Type email here</input>))
       })
   }
+  implicit val tq: TemplateQuery = {
+    case "head"   => Success("""<span>from template</span>""")
+    case "footer" => Success("""<span>FOOTER</span>""")
+  }
 
-  implicit val sel = bySnippetAttr[String]
-  val res = Template[String](snippets)
-
-  import Template._
-
-  val e = res.run(page)
-
-  val x = for {
-    c <- e(SnipState(PageState("start", Language("ro"), None), NodeSeq.Empty))
-  } yield c
-
-  println(x)
+  val r = new StringTemplate().run(page, snippets, PageState("", Language("en"), None))
+  println(r)
 }

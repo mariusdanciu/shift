@@ -290,6 +290,8 @@ class Template[T](snippets: DynamicContent[T])(implicit finder: TemplateFinder, 
           e <- res
           t <- locAttr(e)
         } yield t
+
+      case c: Comment => pushNode[T](c)
       case n: NodeSeq =>
         (State.put[SnipState[T], NodeSeq](NodeSeq.Empty) /: n)((a, e) =>
           for {
