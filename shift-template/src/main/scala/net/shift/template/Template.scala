@@ -66,23 +66,31 @@ class StringTemplate {
           snipMap.get(name) match {
             case Some(snip) =>
               val xml = XML.load(new java.io.ByteArrayInputStream(markup.getBytes("UTF-8")))
-              snip(SnipState(state, params, xml)) match {
-                case Success((st, nodes)) =>
-                  val s = XmlUtils.mkString(nodes)
-                  exec(st.state, tail) map { r => (r._1, s + r._2) }
-                case Failure(f) => Failure(f)
+
+              (for {
+                (st, nodes) <- snip(SnipState(state, params, xml))
+                val s = XmlUtils.mkString(nodes)
+                (rs, rc) <- exec(st.state, tail)
+              } yield {
+                (rs, s + rc)
+              }).recoverWith {
+                case t => exec(state, tail) map { r => (r._1, s"ERROR : Failed to load snippet $name: $t" + r._2) }
               }
+
             case _ =>
               val msg = s"ERROR: Snippet '$name' was not found.\n" + markup
               exec(state, tail) map { r => (r._1, msg + r._2) }
           }
         case TemplateRef(name) :: tail =>
-          finder(name) match {
-            case Success(s) =>
-              exec(state, tail) map { r => (r._1, s + r._2) }
-            case Failure(t) => Failure(t)
+          (for {
+            raw <- finder(name)
+            (st, c) <- run(raw, snippets, state)
+            (rs, rc) <- exec(st, tail)
+          } yield {
+            (rs, c + rc)
+          }).recoverWith {
+            case t => exec(state, tail) map { r => (r._1, s"ERROR : Failed to load template $name: $t" + r._2) }
           }
-
         case LocRef(name) :: tail =>
           val str = net.shift.loc.Loc.loc0(state.lang)(name).text
           exec(state, tail) map { r => (r._1, str + r._2) }
@@ -130,9 +138,12 @@ class TemplateParser extends Parsers {
     case l => l map { _ mkString }
   }
 
-  private def dynamic: Parser[Content] = ((((ws ~> acceptSeq("snip:") ~> value)) ~ opt(paramsParser) <~ anyUntilSeq("-->")) ~ anyUntilSeq("<!--end-->")) ^^ {
-    case name ~ params ~ d => Dynamic(name.mkString, params getOrElse Nil, d)
-  }
+  private def snipEnd: Parser[Unit] = ws ~> acceptSeq("end") ~> ws ~> acceptSeq("-->") ^^ { case _ => () }
+
+  private def dynamic: Parser[Content] = ((((ws ~> acceptSeq("snip:") ~> value)) ~ opt(paramsParser) <~ anyUntilSeq("-->")) ~
+    anyUntilSeq("<!--") <~ snipEnd) ^^ {
+      case name ~ params ~ d => Dynamic(name.mkString, params getOrElse Nil, d)
+    }
 
   private def content: Parser[Document] = rep(static ~ opt(template | loc | dynamic | comment)) ^^ {
     case s => Document(s flatMap {

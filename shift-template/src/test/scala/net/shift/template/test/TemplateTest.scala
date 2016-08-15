@@ -8,6 +8,7 @@ import scala.xml._
 import net.shift.loc.Language
 import scala.util.Success
 import net.shift.io.IODefaults
+import scala.util.Failure
 
 object TemplateTest extends App with IODefaults {
   val page =
@@ -23,9 +24,9 @@ object TemplateTest extends App with IODefaults {
       </head>
       <body>
       
-      <!--template:head -->
+      <!--template:head-->
       
-      <!--snip:form1 -->
+      <!-- snip:form1 -->
         <FORM action="http://somesite.com/prog/adduser" method="post">
           <P/>
           <LABEL for="firstname">First name: </LABEL>
@@ -66,7 +67,7 @@ object TemplateTest extends App with IODefaults {
     def snippets = List(
       snip("form1") {
         s =>
-          Success(("form", <form id="processed">{ s.node }</form>))
+          Success(("form", <div id="processed">{ s.node }</div>))
       },
       snip("permissions") {
         s =>
@@ -77,6 +78,7 @@ object TemplateTest extends App with IODefaults {
   implicit val tq: TemplateQuery = {
     case "head"   => Success("""<span>from template</span>""")
     case "footer" => Success("""<span>FOOTER</span>""")
+    case _ => Failure(new Exception("Not found"))
   }
 
   val r = new StringTemplate().run(page, snippets, PageState("", Language("en"), None))
