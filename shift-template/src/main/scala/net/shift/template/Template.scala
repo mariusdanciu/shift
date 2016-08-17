@@ -57,15 +57,19 @@ class Template {
 
     val snipMap = (Template.defaultSnippets[T] ++ snippets.snippetsMap)
 
-    def exec(state: PageState[T], contents: Seq[Content], acc: String): (PageState[T], String) = {
+    def exec(state: PageState[T], contents: Seq[Content]): (PageState[T], String, Seq[Content]) = {
 
       if (contents.isEmpty)
-        (state, acc)
+        (state, "", Nil)
       else {
 
-        val (result, rest) = contents match {
-          case Static(s) :: tail  => (s, tail)
-          case Comment(s) :: tail => ("<!--" + s + "-->", tail)
+        val (newState, result, rest) = contents match {
+          case Static(s) :: tail =>
+            val (st, content, rest) = exec(state, tail)
+            (st, s + content, rest)
+          case Comment(s) :: tail =>
+            val (st, content, rest) = exec(state, tail)
+            (st, "<!--" + s + "-->" + content, rest)
           /*     case Dynamic(name, params, markup) :: tail =>
           exec(state, markup.contents) flatMap {
             case (_, str) =>
@@ -88,44 +92,65 @@ class Template {
               }
           }*/
           case TemplateRef(name) :: tail =>
-            ((for {
+            lazy val (st, content, rest) = exec(state, tail)
+            (for {
               raw <- finder(name)
-              (st, c) <- run(raw, snippets, state)
+              (ns, c) <- run(raw, snippets, state)
             } yield {
-              c
-            }).recoverWith {
-              case t => s"ERROR : Failed to run template $name: $t"
-            } get, tail)
+              (ns, c + content, rest)
+            }).recover {
+              case t => (st, s"ERROR : Failed to run template $name: $t", rest)
+            } get
           case LocRef(name) :: tail =>
-            (net.shift.loc.Loc.loc0(state.lang)(name).text, tail)
+            val s = net.shift.loc.Loc.loc0(state.lang)(name).text
+            val (st, content, rest) = exec(state, tail)
+            (st, s + content, rest)
           case InlineRef(name, params) :: tail =>
-            (snippets.inlinesMap.get(name) match {
+            lazy val (st, content, rest) = exec(state, tail)
+            snippets.inlinesMap.get(name) match {
               case Some(inl) =>
                 (for {
-                  (st, res) <- inl(InlineState(state, params))
+                  (_, s) <- inl(InlineState(state, params))
                 } yield {
-                  res
-                }).recoverWith {
-                  case t => s"ERROR : Failed to run inline $name: $t"
+                  (st, s + content, rest)
+                }).recover {
+                  case t => (st, s"ERROR : Failed to run inline $name: $t" + content, rest)
                 } get
 
-              case _ => s"ERROR: Inline '$name' was not found.\n"
-            }, tail)
+              case _ => (state, s"ERROR: Inline '$name' was not found.\n" + content, rest)
+            }
           case SnipStart(name, params) :: tail =>
-            
-            ("", tail)
-          case SnipEnd() :: tail => ("", tail)
-        }
+            val (st, content, next) = exec(state, tail)
 
-        exec(state, rest, acc + result)
+            val (ns, res) = snipMap.get(name) match {
+              case Some(snip) =>
+                val xml = XML.load(new java.io.ByteArrayInputStream(("<group>" + content + "</group>").getBytes("UTF-8"))).child
+                (for {
+                  (st, nodes) <- snip(SnipState(state, params, xml))
+                  val s = XmlUtils.mkString(nodes)
+                } yield {
+                  (st.state, s)
+                }).recover {
+                  case t => (state, s"ERROR : Failed to run snippet $name: $t")
+                } get
+              case _ => (state, s"ERROR : Snippet '$name' was not found.\n")
+            }
+
+            val (fs, c, rest) = exec(ns, next)
+            (fs, res + c, rest)
+          case SnipEnd() :: tail => (state, "", tail)
+
+        }
+        (newState, result, rest)
       }
     }
 
     val doc = new TemplateParser().parse(html)
 
-    println(doc)
-
-    doc map { d => exec(state, d.contents.toList, "") }
+    doc map { d =>
+      val (st, acc, rest) = exec(state, d.contents.toList)
+      (st, acc)
+    }
 
   }
 

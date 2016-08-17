@@ -96,11 +96,11 @@ object TemplateTest extends App with IODefaults {
       })
   }
   implicit val tq: TemplateQuery = {
-    case "head"   => Success("""<span>from template</span>""")
+    case "head"   => Success("""<span>head from template</span>""")
     case "footer" => Success("""<span>FOOTER</span>""")
     case _        => Failure(new Exception("Not found"))
   }
 
-  val r = new Template().run(page, snippets, PageState("", Language("en"), None))
+  val r = Template().run(page, snippets, PageState("", Language("en"), None))
   println(r)
 }
