@@ -57,14 +57,17 @@ class Template {
 
     val snipMap = (Template.defaultSnippets[T] ++ snippets.snippetsMap)
 
-    def exec(state: PageState[T], contents: List[Content]): Try[(PageState[T], String)] = {
+    def exec(state: PageState[T], contents: Seq[Content], acc: String): (PageState[T], String) = {
 
-      contents match {
-        case Nil => Success((state, ""))
-        case Static(s) :: tail =>
-          exec(state, tail) map { r => (r._1, s + r._2) }
-        case Dynamic(name, params, markup) :: tail =>
-          run(markup, snippets, state) flatMap {
+      if (contents.isEmpty)
+        (state, acc)
+      else {
+
+        val (result, rest) = contents match {
+          case Static(s) :: tail  => (s, tail)
+          case Comment(s) :: tail => ("<!--" + s + "-->", tail)
+          /*     case Dynamic(name, params, markup) :: tail =>
+          exec(state, markup.contents) flatMap {
             case (_, str) =>
               snipMap.get(name) match {
                 case Some(snip) =>
@@ -83,42 +86,45 @@ class Template {
                   val msg = s"ERROR: Snippet '$name' was not found.\n" + markup
                   exec(state, tail) map { r => (r._1, msg + r._2) }
               }
-          }
-        case TemplateRef(name) :: tail =>
-          (for {
-            raw <- finder(name)
-            (st, c) <- run(raw, snippets, state)
-            (rs, rc) <- exec(st, tail)
-          } yield {
-            (rs, c + rc)
-          }).recoverWith {
-            case t => exec(state, tail) map { r => (r._1, s"ERROR : Failed to run template $name: $t" + r._2) }
-          }
-        case LocRef(name) :: tail =>
-          val str = net.shift.loc.Loc.loc0(state.lang)(name).text
-          exec(state, tail) map { r => (r._1, str + r._2) }
-        case InlineRef(name, params) :: tail =>
-          snippets.inlinesMap.get(name) match {
-            case Some(inl) =>
-              (for {
-                (st, res) <- inl(InlineState(state, params))
-                (rs, rc) <- exec(st.state, tail)
-              } yield {
-                (rs, res + rc)
-              }).recoverWith {
-                case t => exec(state, tail) map { r => (r._1, s"ERROR : Failed to run inline $name: $t" + r._2) }
-              }
+          }*/
+          case TemplateRef(name) :: tail =>
+            ((for {
+              raw <- finder(name)
+              (st, c) <- run(raw, snippets, state)
+            } yield {
+              c
+            }).recoverWith {
+              case t => s"ERROR : Failed to run template $name: $t"
+            } get, tail)
+          case LocRef(name) :: tail =>
+            (net.shift.loc.Loc.loc0(state.lang)(name).text, tail)
+          case InlineRef(name, params) :: tail =>
+            (snippets.inlinesMap.get(name) match {
+              case Some(inl) =>
+                (for {
+                  (st, res) <- inl(InlineState(state, params))
+                } yield {
+                  res
+                }).recoverWith {
+                  case t => s"ERROR : Failed to run inline $name: $t"
+                } get
 
-            case _ =>
-              val msg = s"ERROR: Inline '$name' was not found.\n"
-              exec(state, tail) map { r => (r._1, msg + r._2) }
-          }
+              case _ => s"ERROR: Inline '$name' was not found.\n"
+            }, tail)
+          case SnipStart(name, params) :: tail =>
+            ("", tail)
+          case SnipEnd() :: tail => ("", tail)
+        }
+
+        exec(state, rest, acc + result)
       }
     }
 
     val doc = new TemplateParser().parse(html)
 
-    doc flatMap { d => exec(state, d.contents.toList) }
+    println(doc)
+
+    doc map { d => exec(state, d.contents.toList, "") }
 
   }
 
@@ -141,55 +147,55 @@ class TemplateParser extends Parsers {
 
   private def ws = rep(noCRLFSpace)
 
-  private def comment: Parser[Static] = until(acceptSeq("-->")) ^^ { l => Static("<!--" + l.mkString + "-->") }
+  private def comment: Parser[Comment] = str("<!--") ~> until(acceptSeq("-->"), false) ^^ { l => Comment(l.mkString) }
 
   private def template: Parser[TemplateRef] = {
-    (str("template") ~ str(":") ~> value <~ str("-->")) ^^ { l => TemplateRef(l.mkString) }
+    (str("<!--") ~> str("template") ~ str(":") ~> value <~ str("-->")) ^^ { l => TemplateRef(l.mkString) }
   }
 
   private def loc: Parser[LocRef] = {
-    (str("loc") ~> str(":") ~> identifier <~ str("-->")) ^^ { l => LocRef(l.mkString) }
+    (str("<!--") ~> str("loc") ~> str(":") ~> identifier <~ str("-->")) ^^ { l => LocRef(l.mkString) }
   }
 
   def inline: Parser[InlineRef] = {
-    (str("inline") ~> str(":") ~> value ~ opt(paramsParser) <~ str("-->")) ^^ {
+    (str("<!--") ~> str("inline") ~> str(":") ~> value ~ opt(params) <~ str("-->")) ^^ {
       case l ~ params => InlineRef(l.mkString, params getOrElse Nil)
     }
   }
 
-  private def static: Parser[Content] = until(acceptSeq("<!--")) ^^ {
-    case s => Static(s)
+  private def static: Parser[Content] = until(acceptSeq("<!--"), true) ^^ {
+    case s =>
+      Static(s)
   }
 
-  private def paramsParser: Parser[List[String]] = str("(") ~> repsep(value, str(",")) <~ str(")") ^^ {
+  private def params: Parser[List[String]] = str("(") ~> repsep(value, str(",")) <~ str(")") ^^ {
     case l => l map { _ mkString }
   }
 
-  private def snipEnd: Parser[Unit] = str("<!--") ~> str("end") ~> acceptSeq("-->") ^^ { case _ => () }
+  private def snipStart: Parser[SnipStart] = str("<!--") ~> str("snip") ~> str(":") ~> value ~ opt(params) <~ str("-->") ^^ {
+    case l ~ params => SnipStart(l.mkString, params getOrElse Nil)
+  }
+  private def snipEnd: Parser[SnipEnd] = str("<!--") ~> str("end") ~> str("-->") ^^ { case _ => SnipEnd() }
 
-  private def dynamic: Parser[Content] = ((((str("snip") ~> str(":") ~> value)) ~ opt(paramsParser) <~ str("-->")) ~
-    (until(snipEnd))) ^^ {
-      case name ~ params ~ d => Dynamic(name.mkString, params getOrElse Nil, d)
-    }
-
-  private def content: Parser[Document] = rep(static ~ opt(template | loc | inline | dynamic | comment)) ^^ {
-    case s => Document(s flatMap {
-      case s ~ Some(d) => List(s, d)
-      case s ~ _       => List(s)
-    })
+  private def content: Parser[Document] = rep(template | loc | inline | snipStart | snipEnd | comment | static) ^^ {
+    case s => Document(s)
   }
 
-  private def until[T](p: Parser[T]): Parser[String] = new Parser[String] {
+  private def until[T](p: Parser[T], retryPInput: Boolean): Parser[String] = new Parser[String] {
     def apply(in: Input): ParseResult[String] = {
 
       @tailrec
       def walk(i: Input, acc: StringBuilder): (Input, StringBuilder) = {
+        val inBeforeP = i
         val r = p(i)
 
         if (!i.atEnd && !r.successful) {
           walk(i.rest, acc + i.first)
         } else {
-          (r.next, acc)
+          if (retryPInput)
+            (inBeforeP, acc)
+          else
+            (r.next, acc)
         }
       }
 
@@ -219,7 +225,9 @@ class TemplateParser extends Parsers {
 sealed trait Content
 
 case class Static(text: String) extends Content
-case class Dynamic(name: String, params: List[String], content: String) extends Content
+case class Comment(text: String) extends Content
+case class SnipStart(name: String, params: List[String]) extends Content
+case class SnipEnd() extends Content
 case class TemplateRef(name: String) extends Content
 case class LocRef(name: String) extends Content
 case class InlineRef(name: String, params: List[String]) extends Content

@@ -41,6 +41,9 @@ object TemplateTest extends App with IODefaults {
           <INPUT type="radio" name="sex" value="Female"/>
           Female<BR/>
           <INPUT type="submit" value="Send"/>
+           <!-- snip:form2 -->
+             what ?
+           <!--end-->
           <INPUT type="reset"/>
           <P/>
         </FORM>
@@ -81,6 +84,10 @@ object TemplateTest extends App with IODefaults {
       snip("form1") {
         s =>
           Success(("form", <div id="processed">{ s.node }</div>))
+      },
+      snip("form2") {
+        s =>
+          Success(("form", <div id="processed2">{ s.node }</div>))
       },
       snip("permissions") {
         s =>
