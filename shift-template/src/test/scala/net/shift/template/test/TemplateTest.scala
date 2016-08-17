@@ -11,9 +11,10 @@ import net.shift.io.IODefaults
 import scala.util.Failure
 
 object TemplateTest extends App with IODefaults {
+
   val page =
     """
-     <!DOCTYPE html>
+<!DOCTYPE html>
 <!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
 <!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
 <!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
@@ -24,17 +25,17 @@ object TemplateTest extends App with IODefaults {
       </head>
       <body>
       
-      <!--template:head-->
+      <!--template:head -->
       
       <!-- snip:form1 -->
         <FORM action="http://somesite.com/prog/adduser" method="post">
           <P/>
           <LABEL for="firstname">First name: </LABEL>
-          <INPUT type="text" id="firstname"/><BR/>
+          <INPUT type="text" id="firstname" value="<!-- inline:userInfo(firstName) -->"/><BR/>
           <LABEL for="lastname">Last name: </LABEL>
-          <INPUT type="text" id="lastname"/><BR/>
+          <INPUT type="text" id="lastname" value="<!-- inline:userInfo(lastName) -->"/><BR/>
           <LABEL for="email">email: </LABEL>
-          <INPUT type="text"/><BR/>
+          <INPUT type="text" value="<!-- inline:userInfo(email) -->"/><BR/>
           <INPUT type="radio" name="sex" value="Male"/>
           Male<BR/>
           <INPUT type="radio" name="sex" value="Female"/>
@@ -43,13 +44,16 @@ object TemplateTest extends App with IODefaults {
           <INPUT type="reset"/>
           <P/>
         </FORM>
+        
+        <span> another node</span>
         <!--end-->
         
         <!--ceva comentariu-->
         
         <!--loc:user.name -->
+        <!--inline:userInfo(lastName)-->
         
-        <!--snip:permissions (read, write)-->
+        <!-- snip:permissions (read, write) -->
         <div>
           <span>Sensitive content</span> 
           
@@ -64,6 +68,15 @@ object TemplateTest extends App with IODefaults {
   import Snippet._
 
   val snippets = new DynamicContent[String] {
+    override def inlines = List(
+      inline("userInfo") {
+        _.params match {
+          case "firstName" :: _ => Success(("repl", "Marius"))
+          case "lastName" :: _  => Success(("repl", "Danciu"))
+          case _                => Success(("repl", "?"))
+        }
+      })
+
     def snippets = List(
       snip("form1") {
         s =>
@@ -78,9 +91,9 @@ object TemplateTest extends App with IODefaults {
   implicit val tq: TemplateQuery = {
     case "head"   => Success("""<span>from template</span>""")
     case "footer" => Success("""<span>FOOTER</span>""")
-    case _ => Failure(new Exception("Not found"))
+    case _        => Failure(new Exception("Not found"))
   }
 
-  val r = new StringTemplate().run(page, snippets, PageState("", Language("en"), None))
+  val r = new Template().run(page, snippets, PageState("", Language("en"), None))
   println(r)
 }

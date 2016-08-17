@@ -22,7 +22,7 @@ import java.io.StringReader
 
 object Html5 {
 
-  import StringTemplate._
+  import Template._
 
   def pageFromFile[T](state: PageState[T],
                       path: Path,
@@ -30,7 +30,7 @@ object Html5 {
     for {
       input <- fs reader path
       content <- StringUtils.load(input)
-      (state, markup) <- new StringTemplate().run(content, snippets, state)
+      (state, markup) <- Template().run(content, snippets, state)
     } yield {
       _(Html5Response(IO.stringProducer(markup)))
     }
@@ -41,7 +41,7 @@ object Html5 {
     for {
       input <- fs reader path
       content <- StringUtils.load(input)
-      (state, n) <- new StringTemplate().run(content, snippets, state)
+      (state, n) <- Template().run(content, snippets, state)
     } yield (state, XML.load(new StringReader(n)))
 
 }
