@@ -112,6 +112,7 @@ class Template {
               case _ => s"ERROR: Inline '$name' was not found.\n"
             }, tail)
           case SnipStart(name, params) :: tail =>
+            
             ("", tail)
           case SnipEnd() :: tail => ("", tail)
         }
