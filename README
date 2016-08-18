@@ -7,3 +7,5 @@ Briefly:
 - Lightweight template engine that supports merging templates leading to vast reuse of common templates
 - Responses are async by design
 
+# Shift Templates
+
