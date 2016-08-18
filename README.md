@@ -101,6 +101,13 @@ override def inlines = List(
 
 Inlines and snippets can be parameterized from the html page. In the above exmple we provide firstName as the parameter to userInfo inline. To supply multip[le parameters, just use comma separator like: <!--inline:userInfo(firstName, test) -->
 
+You can also use inlines to provide dynamic values for attributes. For example:
+
+```html
+ <input type="text" name="address" value="<!--inline:userAddress -->" />
+```
+... and this would provide the default valuue for this text input as being the user address in a pre-filled form.
+
 ## Templates reference
 ```html
 <!--template:head -->
