@@ -34,11 +34,11 @@ object Template {
 
   def defaultSnippets[T]: Map[String, State[SnipState[T], NodeSeq]] = Map(
     "permissions" -> state[SnipState[T], NodeSeq] {
-      case st @ SnipState(PageState(s, language, user), params, e: Elem) =>
+      case st @ SnipState(PageState(s, language, user), params, e) =>
         val perms = params map { Permission }
         val res = user match {
           case Some(u) => (u.requireAll(perms: _*) {
-            (st, new Elem(e.prefix, e.label, e.attributes, e.scope, e.child: _*))
+            (st, e)
           }).getOrElse((st, NodeSeq.Empty))
           case None => (st, NodeSeq.Empty)
         }
