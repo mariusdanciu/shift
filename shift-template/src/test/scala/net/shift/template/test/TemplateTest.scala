@@ -95,7 +95,7 @@ object TemplateTest extends App with IODefaults {
           Success(("security", <div id="secured">{ s.node }</div>))
       })
   }
-  implicit val tq: TemplateQuery = {
+  implicit val tq: TemplateFinder = {
     case "head"   => Success("""<span>head from template</span>""")
     case "footer" => Success("""<span>FOOTER</span>""")
     case _        => Failure(new Exception("Not found"))

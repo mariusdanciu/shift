@@ -25,7 +25,7 @@ object Html5 {
 
   def page[T](path: Path,
               snippets: DynamicContent[T])(
-                implicit fs: FileSystem, tq: TemplateQuery): State[PageState[T], String] = state[PageState[T], String] {
+                implicit fs: FileSystem, tq: TemplateFinder): State[PageState[T], String] = state[PageState[T], String] {
     s =>
       for {
         input <- fs reader path
@@ -36,7 +36,7 @@ object Html5 {
 
   def pageFromFile[T](state: PageState[T],
                       path: Path,
-                      snippets: DynamicContent[T])(implicit fs: FileSystem, tq: TemplateQuery): Attempt =
+                      snippets: DynamicContent[T])(implicit fs: FileSystem, tq: TemplateFinder): Attempt =
     for {
       input <- fs reader path
       content <- StringUtils.load(input)
@@ -47,7 +47,7 @@ object Html5 {
 
   def runPageFromFile[T](state: PageState[T],
                          path: Path,
-                         snippets: DynamicContent[T])(implicit fs: FileSystem, tq: TemplateQuery): Try[(PageState[T], NodeSeq)] =
+                         snippets: DynamicContent[T])(implicit fs: FileSystem, tq: TemplateFinder): Try[(PageState[T], NodeSeq)] =
     for {
       input <- fs reader path
       content <- StringUtils.load(input)

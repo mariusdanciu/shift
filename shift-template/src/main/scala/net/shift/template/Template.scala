@@ -27,7 +27,7 @@ import net.shift.loc.Language
 import net.shift.security.User
 
 object Template {
-  implicit def defaultTemplateQuery(implicit fs: FileSystem): TemplateQuery = name => for {
+  implicit def defaultTemplateQuery(implicit fs: FileSystem): TemplateFinder = name => for {
     input <- fs reader Path(s"web/templates/$name.html")
     content <- StringUtils.load(input)
   } yield content
@@ -52,7 +52,7 @@ class Template {
 
   def run[T](html: String,
              snippets: DynamicContent[T],
-             state: PageState[T])(implicit finder: TemplateQuery,
+             state: PageState[T])(implicit finder: TemplateFinder,
                                   fs: FileSystem): Try[(PageState[T], String)] = {
 
     val snipMap = (Template.defaultSnippets[T] ++ snippets.snippetsMap)

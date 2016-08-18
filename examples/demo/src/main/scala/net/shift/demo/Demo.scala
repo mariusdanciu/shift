@@ -23,6 +23,8 @@ import net.shift.io.FileOps
 import net.shift.io.IODefaults
 import net.shift.spray.SprayServer
 
+import Template._
+
 object Main extends App with HttpPredicates with ShiftUtils with IODefaults {
   println("Starting Demo server")
 
