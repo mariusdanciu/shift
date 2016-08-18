@@ -106,7 +106,12 @@ You can also use inlines to provide dynamic values for attributes. For example:
 ```html
  <input type="text" name="address" value="<!--inline:userAddress -->" />
 ```
-... and this would provide the default valuue for this text input as being the user address in a pre-filled form.
+... and this would provide the default value for this input text element as being the user address in a pre-filled form. This would render to something like:
+
+```html
+ <input type="text" name="address" value="21 Jump Street" />
+```
+if the userAddress Inline Scala implementat would return "21 Jump Street" value.
 
 ## Templates reference
 ```html
