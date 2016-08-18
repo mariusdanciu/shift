@@ -77,5 +77,56 @@ where:
 
 
 ## Inlines
+Inlines are very much like snippets but they do not require a page fragment to be provided. The way to use it is:
+
+```html
+<!--inline:userInfo(firstName) -->
+```
+
+On the Scala size we need to have:
+
+```scala
+new DynamicContent[String] {
+override def inlines = List(
+      inline("userInfo") {
+        _.params match {
+          case "firstName" :: _ => Success(("repl", "Marius"))
+          case "lastName" :: _  => Success(("repl", "Danciu"))
+          case _                => Success(("repl", "?"))
+        }
+      })
+   ...
+}
+```
+
+Inlines and snippets can be parameterized from the html page. In the above exmple we provide firstName as the parameter to userInfo inline. To supply multip[le parameters, just use comma separator like: <!--inline:userInfo(firstName, test) -->
+
 ## Templates reference
+```html
+<!--template:head -->
+```
+Here we invoke the head template. This is where the TemplateFinder object is used. This is actually a function that maps a name to a page content.
+
+net.shift.template.Template object provides an implicit TemplateFinder that that load the template from file system using the path s"web/templates/$name.html".
+
 ## Localization
+```html
+<!--loc:name -->
+```
+where name is the property name provided in the localization json file located on the path "localization/{lang}.json" file. The localization file structure is:
+```json
+[
+ {
+   "code" : "M101",
+   "name" : "first",
+   "text" : "This %s is it"
+ },
+ {
+   "code" : "M102",
+   "name" : "second",
+   "text" : "Second"
+ }
+]
+```
+
+See the snippets in action here: https://github.com/mariusdanciu/shift/blob/master/shift-template/src/test/scala/net/shift/template/test/TemplateTest.scala
