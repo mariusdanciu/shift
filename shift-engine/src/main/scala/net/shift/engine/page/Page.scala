@@ -19,14 +19,24 @@ import scala.util.Failure
 import net.shift.io.IO
 import scala.xml.XML
 import java.io.StringReader
+import net.shift.common.State._
 
 object Html5 {
 
-  import Template._
+  def page[T](path: Path,
+              snippets: DynamicContent[T])(
+                implicit fs: FileSystem, tq: TemplateQuery): State[PageState[T], String] = state[PageState[T], String] {
+    s =>
+      for {
+        input <- fs reader path
+        content <- StringUtils.load(input)
+        (state, n) <- Template().run(content, snippets, s)
+      } yield (state, n)
+  }
 
   def pageFromFile[T](state: PageState[T],
                       path: Path,
-                      snippets: DynamicContent[T])(implicit fs: FileSystem): Attempt =
+                      snippets: DynamicContent[T])(implicit fs: FileSystem, tq: TemplateQuery): Attempt =
     for {
       input <- fs reader path
       content <- StringUtils.load(input)
@@ -37,7 +47,7 @@ object Html5 {
 
   def runPageFromFile[T](state: PageState[T],
                          path: Path,
-                         snippets: DynamicContent[T])(implicit fs: FileSystem): Try[(PageState[T], NodeSeq)] =
+                         snippets: DynamicContent[T])(implicit fs: FileSystem, tq: TemplateQuery): Try[(PageState[T], NodeSeq)] =
     for {
       input <- fs reader path
       content <- StringUtils.load(input)

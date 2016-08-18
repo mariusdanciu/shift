@@ -70,27 +70,6 @@ class Template {
           case Comment(s) :: tail =>
             val (st, content, rest) = exec(state, tail)
             (st, "<!--" + s + "-->" + content, rest)
-          /*     case Dynamic(name, params, markup) :: tail =>
-          exec(state, markup.contents) flatMap {
-            case (_, str) =>
-              snipMap.get(name) match {
-                case Some(snip) =>
-                  val xml = XML.load(new java.io.ByteArrayInputStream(("<group>" + str + "</group>").getBytes("UTF-8"))).child
-                  (for {
-                    (st, nodes) <- snip(SnipState(state, params, xml))
-                    val s = XmlUtils.mkString(nodes)
-                    (rs, rc) <- exec(st.state, tail)
-                  } yield {
-                    (rs, s + rc)
-                  }).recoverWith {
-                    case t => exec(state, tail) map { r => (r._1, s"ERROR : Failed to run snippet $name: $t" + r._2) }
-                  }
-
-                case _ =>
-                  val msg = s"ERROR: Snippet '$name' was not found.\n" + markup
-                  exec(state, tail) map { r => (r._1, msg + r._2) }
-              }
-          }*/
           case TemplateRef(name) :: tail =>
             lazy val (st, content, rest) = exec(state, tail)
             (for {
