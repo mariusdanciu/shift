@@ -94,7 +94,11 @@ override def inlines = List(
           case "lastName" :: _  => Success(("repl", "Danciu"))
           case _                => Success(("repl", "?"))
         }
-      })
+      },
+      inline("address") {
+          case _                => Success(("some state", "21 Jump Street"))
+      }
+      )
    ...
 }
 ```
@@ -111,7 +115,7 @@ You can also use inlines to provide dynamic values for attributes. For example:
 ```html
  <input type="text" name="address" value="21 Jump Street" />
 ```
-if the userAddress Inline Scala implementat would return "21 Jump Street" value.
+if the userAddress Inline Scala implementation would return "21 Jump Street" value.
 
 ## Templates reference
 ```html
