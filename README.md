@@ -56,6 +56,8 @@ The page fragment between the two comments is the page fragment that will be pas
   }
 
 ```
+Note that mysnippet used in snip("mysnippet") is the same name used in the html page: <!-- snip:mysnippet -->. This is the name by which we link the two constructs.
+
 Here we used the bind API in order to manipulate the HTML fragment (s.node). Here we are just looking for the img node and append the src attribute. You can manipulate s.node in any other way of course.
 
 Manually running this template can be done with :
