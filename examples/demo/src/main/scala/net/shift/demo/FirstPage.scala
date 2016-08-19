@@ -10,7 +10,9 @@ import net.shift.loc.Language
 import scala.util.Success
 import net.shift.io.IODefaults
 
-object FirstPage extends DynamicContent[Request] with IODefaults {
+import net.shift.io.IODefaults._
+
+object FirstPage extends DynamicContent[Request] {
 
   val ? = loc("test", Language("ro")) _
 

@@ -24,8 +24,14 @@ import net.shift.io.IODefaults
 import net.shift.spray.SprayServer
 
 import Template._
+import HttpPredicates._
+import ShiftUtils._
+import net.shift.io.IODefaults._
+import scala.util.Try
+import net.shift.common.ShiftFailure
+import scala.util.Success
 
-object Main extends App with HttpPredicates with ShiftUtils with IODefaults {
+object Main extends App {
   println("Starting Demo server")
 
   BasicConfigurator.configure
@@ -119,13 +125,13 @@ object Main extends App with HttpPredicates with ShiftUtils with IODefaults {
       service(_(TextResponse("admin")))
     }
 
-    implicit def login(creds: Credentials): Option[User] = {
+    implicit def login(creds: Credentials): Try[User] = {
       creds match {
-        case BasicCredentials("marius", "boot") => Some(User("marius", None, Set(Permission("read"), Permission("write"))))
-        case BasicCredentials("ali", "boot")    => Some(User("ali", None, Set(Permission("read"))))
+        case BasicCredentials("marius", "boot") => Success(User("marius", None, Set(Permission("read"), Permission("write"))))
+        case BasicCredentials("ali", "boot")    => Success(User("ali", None, Set(Permission("read"))))
         case c =>
           println(c)
-          None
+          ShiftFailure("fail").toTry
       }
     }
 

@@ -10,7 +10,9 @@ import scala.util.Success
 import net.shift.io.IODefaults
 import scala.util.Failure
 
-object TemplateTest extends App with IODefaults {
+import net.shift.io.IODefaults._
+
+object TemplateTest extends App {
 
   val page =
     """

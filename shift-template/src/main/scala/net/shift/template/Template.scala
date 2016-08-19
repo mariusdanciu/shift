@@ -27,7 +27,7 @@ import net.shift.loc.Language
 import net.shift.security.User
 
 object Template {
-  implicit def defaultTemplateQuery(implicit fs: FileSystem): TemplateFinder = name => for {
+  implicit def defaultTemplateFinder(implicit fs: FileSystem): TemplateFinder = name => for {
     input <- fs reader Path(s"web/templates/$name.html")
     content <- StringUtils.load(input)
   } yield content

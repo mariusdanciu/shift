@@ -7,8 +7,7 @@ import net.shift.template._
 import http._
 import common._
 import net.shift.loc.Language
-import net.shift.engine.http.Html5Response
-import net.shift.engine.http.Html5Response
+import net.shift.engine.http._
 import scala.util.Try
 import scala.util.Success
 import net.shift.common.DefaultLog
@@ -20,8 +19,27 @@ import net.shift.io.IO
 import scala.xml.XML
 import java.io.StringReader
 import net.shift.common.State._
+import net.shift.security.Credentials
+import HttpPredicates._
 
 object Html5 {
+
+  def servePage[T](uri: String, filePath: Path, snipets: DynamicContent[Request])(implicit fs: FileSystem, tq: TemplateFinder) = for {
+    r <- path(uri)
+  } yield {
+    Html5.pageFromFile(PageState(r, r.language, None), filePath, snipets)
+  }
+
+  def servePageForUser[T](uri: String, filePath: Path, snipets: DynamicContent[Request])(
+    implicit fs: FileSystem, tq: TemplateFinder,
+    login: Credentials => Try[User],
+    conf: Config) = for {
+    r <- path(uri)
+    u <- user
+  } yield {
+    val logout = !r.param("logout").isEmpty
+    Html5.pageFromFile(PageState(r, r.language, if (logout) None else u), filePath, snipets)
+  }
 
   def page[T](path: Path,
               snippets: DynamicContent[T])(
