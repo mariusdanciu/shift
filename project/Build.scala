@@ -15,6 +15,7 @@ object ShiftBuild extends Build {
   val distShiftTemplate = TaskKey[File]("distShiftTemplate", "")
   val distShiftSpray = TaskKey[File]("distShiftSpray", "")
   val distShiftHtml = TaskKey[File]("distShiftHtml", "")
+  val distShiftHttp = TaskKey[File]("distShiftHttp", "")
   val distShiftDemo = TaskKey[File]("distShiftDemo", "")
   val dist = TaskKey[Unit]("dist", "")
   val distSrc = TaskKey[Unit]("distSrc", "")
@@ -131,6 +132,16 @@ object ShiftBuild extends Build {
     }
   }
 
+  val distShiftHttpSetting = distShiftHttp <<= (target, managedClasspath in Runtime, publishLocal, packageBin in Compile) map {
+    (target, cp, _, pack) => {
+        println("dist > shifthttp")
+        for {jar <- cp} {
+          IO.copyFile(jar.data, libDir / jar.data.name);
+        }
+	pack
+    }
+  }
+
   val distShiftDemoSetting = distShiftDemo <<= (target, managedClasspath in Runtime, publishLocal, packageBin in Compile) map {
     (target, cp, _, pack) => {
         println("dist > shiftdemo")
@@ -143,8 +154,8 @@ object ShiftBuild extends Build {
                           base = file("."),
                           settings = Defaults.defaultSettings ++ Seq(incSetting, distSrcSetting, distSetting, distShiftCommonSetting, 
                                      distShiftEngineSetting, distShiftTemplateSetting, distShiftSpraySetting,
-                                     distShiftHtmlSetting, distShiftDemoSetting)) aggregate(shift_common, shift_engine, shift_spray, 
-				     shift_template, shift_html, shift_demo)
+                                     distShiftHtmlSetting, distShiftHttpSetting, distShiftDemoSetting)) aggregate(shift_common, shift_engine, shift_spray,
+				     shift_template, shift_html, shift_http, shift_demo)
 
   lazy val shift_common = Project(id = "shift-common",
 				  base = file("shift-common"),
@@ -165,6 +176,10 @@ object ShiftBuild extends Build {
   lazy val shift_html = Project(id = "shift-html",
 	                        base = file("shift-html"),
                                 settings = Defaults.defaultSettings ++ Seq(distShiftHtmlSetting)) dependsOn (shift_common)
+
+  lazy val shift_http = Project(id = "shift-http",
+	                        base = file("shift-http"),
+                                settings = Defaults.defaultSettings ++ Seq(distShiftHttpSetting)) dependsOn (shift_common)
 
 
   lazy val shift_demo = Project(id = "demo",

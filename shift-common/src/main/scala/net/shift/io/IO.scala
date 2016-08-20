@@ -14,7 +14,7 @@ import java.io.Closeable
 import scala.util.control.Exception._
 import net.shift.common.Config
 
-trait IODefaults {
+object IODefaults {
 
   implicit val fs: FileSystem = FileOps
 }
@@ -96,7 +96,7 @@ object IO extends App {
     }) match {
       case Done(v, _) => Success(v.toArray)
       case Error(t)   => Failure(t)
-      case k => Failure(new IllegalStateException)
+      case k          => Failure(new IllegalStateException)
     }
   }
 

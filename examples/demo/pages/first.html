@@ -1,7 +1,8 @@
 <html>
 <head>
-<script type="text/javascript" src="/static/js/admin.js"
-	data-permissions="write"></script>
+<!-- snip:permissions(write) -->
+<script type="text/javascript" src="/static/js/admin.js"></script>
+<!-- end -->
 </head>
 <body>
 
@@ -15,29 +16,34 @@ and line breaks.
 
 	<p>The pre tag is good for displaying computer code:</p>
 
-	<pre data-snip="elem1">
+
+	<!-- snip:elem1 -->
+	<pre>
  to be replaced
- 	<pre data-snip="elem2"></pre>
+    <!-- snip:elem2 -->
+ 	<pre></pre>
+    <!-- end -->
  to be replaced
 </pre>
-
-	<pre data-snip="elem2">
+	<!-- end -->
+	<!-- snip:elem2 -->
+	<pre>
  to be replaced
 </pre>
+	<!-- end -->
 
-	<h1 data-loc="second" />
+	<h1>
+		<!-- loc:second -->
+	</h1>
 
-	<img data-unique="src" src="/static/pic/ajax-loader.gif" />
-
-	<form action="/form" enctype="multipart/form-data" method="post"
-		data-permissions="write">
+	<img src="/static/pic/ajax-loader.gif" />
+	<!-- snip:permissions(write) -->
+	<form action="/form" enctype="multipart/form-data" method="post">
 		<input type="file" name="datafile1" size="40" /> <input type="file"
-			name="datafile2" size="40" /> <input type="text" name="text" placeholder="loc:second"
-			size="40" /> <input type="submit" value="Send" />
+			name="datafile2" size="40" /> <input type="text" name="text"
+			placeholder="loc:second" size="40" /> <input type="submit"
+			value="Send" />
 	</form>
-
-	<span data-notthesepermissions="write" data-snip="test">SPAN</span>
-
-
+	<!-- end -->
 </body>
 </html>

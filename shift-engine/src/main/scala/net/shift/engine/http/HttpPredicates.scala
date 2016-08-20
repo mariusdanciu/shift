@@ -26,94 +26,43 @@ import net.shift.security.SecurityFailure
 import net.shift.security.User
 import net.shift.security.Users
 import net.shift.security.Permission
+import net.shift.engine.utils.ShiftUtils
+import scala.util.Try
 
-trait HttpPredicates {
+object HttpPredicates {
   val Pattern = new Regex("""\w+:\w*:w*""")
 
   implicit def httpMethod2State(m: HttpMethod): State[Request, Request] = state {
     r => if (m is r.method) Success((r, r)) else ShiftFailure.toTry
   }
 
-  def permissions(failMsg: => String, p: Permission*)(implicit login: Credentials => Option[User], conf: Config): State[Request, User] =
+  def permissions(failMsg: => String, p: Permission*)(implicit login: Credentials => Try[User], conf: Config): State[Request, User] =
     for {
       u <- userRequired(failMsg) if (u.hasAllPermissions(p: _*))
     } yield {
       u
     }
 
-  def userRequired(failMsg: => String)(implicit login: Credentials => Option[User], conf: Config): State[Request, User] = state {
+  def userRequired(failMsg: => String)(implicit login: Credentials => Try[User], conf: Config): State[Request, User] = state {
     r =>
       {
-        val res = (r.header("Authorization"), r.cookie("identity"), r.cookie("secret")) match {
-          case (_, Some(Cookie(_, Base64(identity), _, _, _, _, _, _)), Some(Cookie(_, secret, _, _, _, _, _, _))) =>
-            val computedSecret = Base64.encode(HMac.encodeSHA256(identity, conf.string("hmac.auth.salt", "SHIFT-HMAC-SALT")))
-            if (computedSecret == secret) {
-              identity match {
-                case Users(u) => Some(u)
-                case _        => None
-              }
-            } else {
-              None
-            }
-          case (Some(Authorization(creds @ BasicCredentials(user, password))), None, None) =>
-            login(creds)
-          case _ => None
-        }
-        res match {
-          case Some(u) => Success((r, u))
-          case None    => ShiftFailure(failMsg).toTry
+        ShiftUtils.computeUser(r) match {
+          case Success(u) => Success((r, u))
+          case Failure(t) => Failure(t)
         }
       }
   }
 
-  def user(implicit login: Credentials => Option[User], conf: Config): State[Request, Option[User]] = state {
-    r =>
-      {
-        val res = (r.header("Authorization"), r.cookie("identity"), r.cookie("secret")) match {
-          case (_, Some(Cookie(_, Base64(identity), _, _, _, _, _, _)), Some(Cookie(_, secret, _, _, _, _, _, _))) =>
-            val computedSecret = Base64.encode(HMac.encodeSHA256(identity, conf.string("hmac.auth.salt", "SHIFT-HMAC-SALT")))
-            if (computedSecret == secret) {
-              identity match {
-                case Users(u) => Some(u)
-                case _        => None
-              }
-            } else {
-              None
-            }
-          case (Some(Authorization(creds @ BasicCredentials(user, password))), None, None) =>
-            login(creds)
-          case _ =>
-            None
-        }
-        Success((r, res))
-      }
+  def user(implicit login: Credentials => Try[User], conf: Config): State[Request, Option[User]] = state {
+    r => Success((r, ShiftUtils.computeUser(r).toOption))
   }
 
-  def authenticate(failMsg: => String, code: Int = 401)(implicit login: Credentials => Option[User], conf: Config): State[Request, User] = state {
+  def authenticate(failMsg: => String, code: Int = 401)(implicit login: Credentials => Try[User], conf: Config): State[Request, User] = state {
     r =>
       {
-        (r.header("Authorization"), r.cookie("identity"), r.cookie("secret")) match {
-
-          case (Some(Authorization(creds @ BasicCredentials(user, password))), _, _) =>
-            login(creds) match {
-              case Some(u) =>
-                Success((r, u))
-              case _ =>
-                Failure(SecurityFailure(failMsg, code))
-            }
-
-          case (_, Some(Cookie(_, Base64(identity), _, _, _, _, _, _)), Some(Cookie(_, secret, _, _, _, _, _, _))) =>
-            val computedSecret = Base64.encode(HMac.encodeSHA256(identity, conf.string("hmac.auth.salt", "SHIFT-HMAC-SALT")))
-            if (computedSecret == secret) {
-              identity match {
-                case Users(u) => Success((r, u))
-                case _        => Failure(SecurityFailure(failMsg, code))
-              }
-            } else {
-              Failure(SecurityFailure(failMsg, code))
-            }
-
-          case _ => Failure(SecurityFailure(failMsg, code))
+        ShiftUtils.computeUser(r) match {
+          case Success(user) => Success((r, user))
+          case _             => Failure(SecurityFailure(failMsg, code))
         }
       }
   }

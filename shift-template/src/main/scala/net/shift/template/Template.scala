@@ -27,18 +27,18 @@ import net.shift.loc.Language
 import net.shift.security.User
 
 object Template {
-  implicit def defaultTemplateQuery(implicit fs: FileSystem): TemplateQuery = name => for {
+  implicit def defaultTemplateFinder(implicit fs: FileSystem): TemplateFinder = name => for {
     input <- fs reader Path(s"web/templates/$name.html")
     content <- StringUtils.load(input)
   } yield content
 
   def defaultSnippets[T]: Map[String, State[SnipState[T], NodeSeq]] = Map(
     "permissions" -> state[SnipState[T], NodeSeq] {
-      case st @ SnipState(PageState(s, language, user), params, e: Elem) =>
+      case st @ SnipState(PageState(s, language, user), params, e) =>
         val perms = params map { Permission }
         val res = user match {
           case Some(u) => (u.requireAll(perms: _*) {
-            (st, new Elem(e.prefix, e.label, e.attributes, e.scope, e.child: _*))
+            (st, e)
           }).getOrElse((st, NodeSeq.Empty))
           case None => (st, NodeSeq.Empty)
         }
@@ -52,7 +52,7 @@ class Template {
 
   def run[T](html: String,
              snippets: DynamicContent[T],
-             state: PageState[T])(implicit finder: TemplateQuery,
+             state: PageState[T])(implicit finder: TemplateFinder,
                                   fs: FileSystem): Try[(PageState[T], String)] = {
 
     val snipMap = (Template.defaultSnippets[T] ++ snippets.snippetsMap)
@@ -70,27 +70,6 @@ class Template {
           case Comment(s) :: tail =>
             val (st, content, rest) = exec(state, tail)
             (st, "<!--" + s + "-->" + content, rest)
-          /*     case Dynamic(name, params, markup) :: tail =>
-          exec(state, markup.contents) flatMap {
-            case (_, str) =>
-              snipMap.get(name) match {
-                case Some(snip) =>
-                  val xml = XML.load(new java.io.ByteArrayInputStream(("<group>" + str + "</group>").getBytes("UTF-8"))).child
-                  (for {
-                    (st, nodes) <- snip(SnipState(state, params, xml))
-                    val s = XmlUtils.mkString(nodes)
-                    (rs, rc) <- exec(st.state, tail)
-                  } yield {
-                    (rs, s + rc)
-                  }).recoverWith {
-                    case t => exec(state, tail) map { r => (r._1, s"ERROR : Failed to run snippet $name: $t" + r._2) }
-                  }
-
-                case _ =>
-                  val msg = s"ERROR: Snippet '$name' was not found.\n" + markup
-                  exec(state, tail) map { r => (r._1, msg + r._2) }
-              }
-          }*/
           case TemplateRef(name) :: tail =>
             lazy val (st, content, rest) = exec(state, tail)
             (for {
