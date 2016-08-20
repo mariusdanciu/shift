@@ -124,7 +124,7 @@ class Template {
 
             val (ns, res) = snipMap.get(name) match {
               case Some(snip) =>
-                val xml = XML.load(new java.io.ByteArrayInputStream(("<group>" + content + "</group>").getBytes("UTF-8"))).child
+                val xml = XML.load(new java.io.ByteArrayInputStream(("<group>" + content.trim + "</group>").getBytes("UTF-8"))).child
                 (for {
                   (st, nodes) <- snip(SnipState(state, params, xml))
                   val s = XmlUtils.mkString(nodes)
