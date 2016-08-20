@@ -10,7 +10,7 @@ import io.IO._
 import net.shift.io.IterateeProducer._
 import net.shift.io.EOF
 import net.shift.io.Data
-import net.shift.io.FileOps._
+import net.shift.io.LocalFileSystem._
 import scala.util.Success
 import net.shift.io.IO
 

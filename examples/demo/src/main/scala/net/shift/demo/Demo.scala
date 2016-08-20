@@ -19,7 +19,7 @@ import net.shift.engine.page.Html5
 import net.shift.security.BasicCredentials
 import net.shift.security.Permission
 import net.shift.io.IO
-import net.shift.io.FileOps
+import net.shift.io.LocalFileSystem
 import net.shift.io.IODefaults
 import net.shift.spray.SprayServer
 
@@ -109,7 +109,7 @@ object Main extends App {
             for {
               ContentDisposition(value, params) <- h.get("Content-Disposition")
             } yield {
-              IO.arrayProducer(content)(FileOps writer Path(params.get("filename")))
+              IO.arrayProducer(content)(LocalFileSystem writer Path(params.get("filename")))
             }
           case t => println(t)
         }

@@ -84,35 +84,4 @@ object HMac {
 
 }
 
-object Sec extends App {
 
-  val u1 = User("me", None, Set(Permission("read"), Permission("write"), Permission("delete")))
-  val res1 = u1.requireAll(Permission("read")) {
-    println("do something 1")
-    1
-  }
-
-  val res2 = u1.requireAll(Permission("read"), Permission("create")) {
-    println("do something 2")
-    1
-  }
-
-  val res3 = u1.requireSome(Permission("read"), Permission("create")) {
-    println("do something 3")
-    1
-  }
-
-  println(res1)
-  println(res2)
-  println(res3)
-
-  val Pattern = new Regex("""(\w+):(\w*):([\w,]+)""")
-
-  val parse = "marius::read,write" match {
-    case Pattern(user, "", perms)  => Some(User(user, None, perms.split(",").map(Permission(_)).toSet))
-    case Pattern(user, org, perms) => Some(User(user, Some(Organization(org)), perms.split(",").map(Permission(_)).toSet))
-    case _                         => None
-  }
-
-  println(parse)
-}

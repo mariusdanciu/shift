@@ -6,9 +6,10 @@ import net.shift.engine.http.MultipartParser
 import net.shift.engine.http.BinReader
 import net.shift.engine.http.TextPart
 import net.shift.engine.http.BinaryPart
-import net.shift.io.FileOps
+import net.shift.io.LocalFileSystem
 import net.shift.common.Path
 import net.shift.io.IO
+import net.shift.io.LocalFileSystem
 
 class HttpTest extends FlatSpec with Matchers {
 
@@ -61,7 +62,7 @@ class HttpTest extends FlatSpec with Matchers {
   def test3 = {
 
     val v = for {
-      prod <- FileOps.reader(Path("c:/work/upload-1442129190413.bin"))
+      prod <- LocalFileSystem.reader(Path("c:/work/upload-1442129190413.bin"))
       array <- IO.toArray(prod)
     } yield {
       val parser = new MultipartParser("---------------------------3357733724543".getBytes("UTF-8"))

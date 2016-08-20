@@ -62,7 +62,6 @@ case class JsonString(value: String) extends JsExp {
   def toJsString = s"${value.replace("\"", "\\\"")}";
 }
 
-
 case class JsChain(elems: JsExp*) extends JsExp {
   def toJsString = {
     val p = elems map { _ toJsString }
@@ -70,7 +69,7 @@ case class JsChain(elems: JsExp*) extends JsExp {
   }
 }
 
-case class JsStatement(exp: JsExp*) extends Js {self =>
+case class JsStatement(exp: JsExp*) extends Js { self =>
   def toJsString = {
     ("" /: exp)((acc, l) => acc + l.toJsString + "; ")
   }
@@ -100,19 +99,5 @@ object JsDsl {
       s"function (${params.mkString(", ")}) { ${body.toJsString} }";
     }
   }
-
-}
-
-object Main extends App {
-
-  import JsDsl._
-
-  val s = func() {
-    $("div") ~
-      apply("css", "background-color", "blue") ~
-      apply("css", "background-color", "red") stmt
-  }.wrap.apply
-
-  println(s.toJsString)
 
 }

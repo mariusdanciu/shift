@@ -66,7 +66,7 @@ class MultipartParser(boundary: Array[Byte]) extends Parsers with Log {
   private def storeMultipart(in: Array[Byte])(implicit conf: Config) {
     if (conf.bool("trace.uploads", false)) {
       Future {
-        arrayProducer(in)(FileOps.writer(Path(s"./logs/upload-${System.currentTimeMillis}.bin")))
+        arrayProducer(in)(LocalFileSystem.writer(Path(s"./logs/upload-${System.currentTimeMillis}.bin")))
       }
     }
   }

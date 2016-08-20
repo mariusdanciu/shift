@@ -25,7 +25,7 @@ trait FileSystem {
   def lastModified(p: Path): Try[Long]
 }
 
-object FileOps extends FileSystem {
+object LocalFileSystem extends FileSystem {
 
   def exists(in: Path): Try[Boolean] = Try {
     new File(in.toString).exists

@@ -16,7 +16,7 @@ import net.shift.common.Config
 
 object IODefaults {
 
-  implicit val fs: FileSystem = FileOps
+  implicit val fs: FileSystem = LocalFileSystem
 }
 
 object IO extends App {
