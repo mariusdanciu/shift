@@ -21,7 +21,7 @@ object HttpParser extends App {
   new HttpParser().parse(http) match {
     case Success(h @ HTTP(_, _, body)) =>
       println(h)
-      println(new String(body.body, "UTF-8"))
+      println(new String(body.message, "UTF-8"))
     case f => println(f)
   }
 }
@@ -58,16 +58,21 @@ class HttpParser extends ShiftParsers {
     case line ~ headers ~ body => HTTP(line, headers, body)
   }
 
-  def parse(html: String): Try[HTTP] = {
-    http(BinReader(html.getBytes("UTF-8"))) match {
+  def parse(reader: BinReader): Try[HTTP] = {
+    http(reader) match {
       case Success(r, _) => scala.util.Success(r)
       case Failure(f, _) => scala.util.Failure(new Exception(f))
       case Error(f, _)   => scala.util.Failure(new Exception(f))
     }
   }
+
+  def parse(html: String): Try[HTTP] = parse(BinReader(html.getBytes("UTF-8")))
 }
 
-case class HTTP(line: HTTPLine, headers: List[HTTPHeader], body: HTTPBody)
+case class HTTP(line: HTTPLine, headers: List[HTTPHeader], body: HTTPBody) {
+  def header(name: String): Option[HTTPHeader] = headers find { _.name == name }
+}
+
 case class HTTPLine(method: String,
                     uri: String,
                     port: Int,
@@ -77,4 +82,4 @@ case class HTTPLine(method: String,
 case class HTTPParam(name: String, value: List[String])
 case class HTTPVer(major: Byte, minor: Byte)
 case class HTTPHeader(name: String, value: String)
-case class HTTPBody(body: Array[Byte])
+case class HTTPBody(message: Array[Byte])
