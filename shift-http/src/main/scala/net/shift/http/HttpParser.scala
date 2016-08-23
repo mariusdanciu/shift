@@ -1,11 +1,10 @@
 package net.shift.http
 
-import scala.util.parsing.combinator.Parsers
-import net.shift.common.ShiftParsers
-import scala.util.parsing.input.CharSequenceReader
-import scala.util.Try
-import net.shift.common.BinReader
 import scala.util.Success
+import scala.util.Try
+
+import net.shift.common.BinReader
+import net.shift.common.ShiftParsers
 
 object HttpParser extends App {
 
@@ -21,7 +20,7 @@ object HttpParser extends App {
   new HttpParser().parse(http) match {
     case Success(h @ HTTPRequest(_, _, _, _, body)) =>
       println(h)
-      println(new String(body.message, "UTF-8"))
+      println(new String(body.parts.toArray.flatten, "UTF-8"))
     case f => println(f)
   }
 }
@@ -53,7 +52,7 @@ class HttpParser extends ShiftParsers {
     }
   }
 
-  def httpBody = until(atEnd, false) ^^ { HTTPBody }
+  def httpBody = until(atEnd, false) ^^ { a => HTTPBody(List(a)) }
 
   def http = httpLine ~ (crlf ~> httpHeaders) ~ (crlf ~> httpBody) ^^ {
     case (method, uri, ver) ~ headers ~ body => HTTPRequest(method, uri, ver, headers, body)

@@ -6,25 +6,26 @@ import java.nio.channels.SelectionKey
 import java.nio.channels.Selector
 import java.nio.channels.ServerSocketChannel
 import java.nio.channels.SocketChannel
-
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
 import scala.collection.mutable.{ Map => MMap }
 import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
-
 import net.shift.common.BinReader
 import net.shift.io.IO
+import scala.concurrent.ExecutionContext
+import scala.concurrent.Future
 
 object HTTPServer extends App {
 
+  import scala.concurrent.ExecutionContext.Implicits.global
   new HTTPServer().start(8080)
 }
 
 class HTTPServer {
 
-  def start(port: Int) = {
+  def start(port: Int)(implicit ctx: ExecutionContext) = {
 
     val serverChannel = ServerSocketChannel.open()
     serverChannel.configureBlocking(false)
@@ -63,10 +64,10 @@ class HTTPServer {
 
   }
 
-  private def readChunk(key: SelectionKey) = {
+  private def readChunk(key: SelectionKey)(implicit ctx: ExecutionContext) = {
     val client = key.channel().asInstanceOf[SocketChannel]
 
-    val buf = ByteBuffer.allocate(512)
+    val buf = ByteBuffer.allocate(100)
     var size = client.read(buf)
     if (size > 0) {
       buf.flip()
@@ -74,24 +75,40 @@ class HTTPServer {
       buf.get(arr)
       buf.clear()
 
-      val currentMsgs = key.attachment().asInstanceOf[TCPMessage]
+      val attach = key.attachment()
 
-      val msgs = if (currentMsgs != null) {
-        currentMsgs ++ List(arr)
-      } else {
-        TCPMessage(List(arr))
-      }
+      attach match {
+        case RawExtract(bufs) =>
+          val msgs = bufs ++ List(arr)
 
-      key.attach(msgs)
+          tryParse(msgs) match {
+            case Some(http) =>
+              val sz = http.body.size
+              val cl = http.contentLength
+              if (cl > sz) {
+                key.attach(http)
+              } else {
+                println("END " + http)
+                key.attach(null)
+              }
+            case None =>
+              key.attach(msgs)
+              println("continue reading ")
+          }
+        case h @ HTTPRequest(m, u, v, hd, body) =>
+          val newSize = body.size + size
+          val cl = h.contentLength
+          val msg = HTTPBody(body.parts ++ Seq(arr))
+          val req = HTTPRequest(m, u, v, hd, msg)
+          if (cl > newSize) {
+            println(msg.size)
+            key.attach(req)
+          } else {
+            println(h)
+            println(new String(req.body.compact, "UTF-8"))
+            key.attach(null)
+          }
 
-      continue(msgs) match {
-        case Some(http) =>
-          println(http)
-          println(new String(http.body.message, "UTF-8"))
-          key.attach(null)
-          key.cancel()
-        case None =>
-          println("continue reading")
       }
 
     } else if (size < 0) {
@@ -101,11 +118,11 @@ class HTTPServer {
     }
   }
 
-  private def continue(msg: TCPMessage): Option[HTTPRequest] = {
+  private def tryParse(msg: Raw): Option[HTTPRequest] = {
     BinReader(IO.fromArrays(msg.buffers)).toOption.flatMap { reader =>
       new HttpParser().parse(reader) match {
         case Success(h @ HTTPRequest(_, _, _, headers, body)) =>
-          for { cl <- h.header("Content-Length") if (cl.value.trim.toInt == body.message.length) } yield {
+          for { cl <- h.header("Content-Length") } yield {
             h
           }
         case Failure(f) =>
@@ -120,8 +137,21 @@ class HTTPServer {
 
 }
 
-case class TCPMessage(buffers: List[Array[Byte]]) {
-  def +(b: Array[Byte]) = TCPMessage(buffers ++ List(b))
-  def ++(b: Seq[Array[Byte]]) = TCPMessage(buffers ++ b)
+object RawExtract {
+
+  def unapply(t: Any): Option[Raw] =
+    if (t == null)
+      Some(Raw(Nil))
+    else {
+      t match {
+        case r: Raw => Some(Raw(r.buffers))
+        case _      => None
+      }
+    }
+}
+
+case class Raw(buffers: List[Array[Byte]]) {
+  def +(b: Array[Byte]) = Raw(buffers ++ List(b))
+  def ++(b: Seq[Array[Byte]]) = Raw(buffers ++ b)
 }
 
