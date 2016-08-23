@@ -41,7 +41,7 @@ class HttpParser extends ShiftParsers {
     case method ~ uri ~ params ~ port ~ major ~ minor =>
       HTTPLine(method,
         uri,
-        port getOrElse 80,
+        port,
         HTTPVer(major, minor),
         params getOrElse Nil)
   }
@@ -75,7 +75,7 @@ case class HTTP(line: HTTPLine, headers: List[HTTPHeader], body: HTTPBody) {
 
 case class HTTPLine(method: String,
                     uri: String,
-                    port: Int,
+                    port: Option[Int],
                     version: HTTPVer,
                     params: List[HTTPParam])
 
