@@ -9,7 +9,7 @@ import scala.util.Success
 
 object HttpParser extends App {
 
-  val http = "GET /where?q=now,is,here:8080 HTTP/1.1\r\nContent-Length: 13\r\nContent-Type: text/html\r\n\r\n" + """<html>
+  val http = "GET /product?id=123123 HTTP/1.1\r\nContent-Length: 13\r\nContent-Type: text/html\r\n\r\n" + """<html>
 <head>
   <title>An Example Page</title>
 </head>
@@ -19,7 +19,7 @@ object HttpParser extends App {
 </html>"""
 
   new HttpParser().parse(http) match {
-    case Success(h @ HTTP(_, _, body)) =>
+    case Success(h @ HTTPRequest(_, _, _, _, body)) =>
       println(h)
       println(new String(body.message, "UTF-8"))
     case f => println(f)
@@ -28,25 +28,26 @@ object HttpParser extends App {
 
 class HttpParser extends ShiftParsers {
 
-  def uri = opt(str("http://")) ~> (ws ~> uriValid)
+  def uri = ws ~> (opt((str("http://") ~> notReserved()) ~ opt(chr(':') ~> int)) ~ opt(notReserved('/')) ~ (ws ~> opt(params))) ^^ {
+    case Some(host ~ port) ~ path ~ params => HTTPUri(Some(host), port, path getOrElse "/", params getOrElse Nil)
+    case None ~ path ~ params              => HTTPUri(None, None, path getOrElse "/", params getOrElse Nil)
+  }
 
   def params: Parser[List[HTTPParam]] = chr('?') ~>
-    repsep((notReserved <~ chr('=')) ~ repsep(notReserved, chr(',')), chr(';')) ^^ {
+    repsep((notReserved() <~ chr('=')) ~ repsep(notReserved(), chr(',')), chr(';')) ^^ {
       _ map {
         case name ~ value => HTTPParam(name, value)
       }
     }
 
-  def httpLine = capitals ~ uri ~ opt(params) ~ opt(chr(':') ~> int) ~ (str("HTTP/") ~> digit) ~ (chr('.') ~> digit) ^^ {
-    case method ~ uri ~ params ~ port ~ major ~ minor =>
-      HTTPLine(method,
+  def httpLine = capitals ~ uri ~ (str("HTTP/") ~> digit) ~ (chr('.') ~> digit) ^^ {
+    case method ~ uri ~ major ~ minor =>
+      (method,
         uri,
-        port,
-        HTTPVer(major, minor),
-        params getOrElse Nil)
+        HTTPVer(major, minor))
   }
 
-  def httpHeaders: Parser[List[HTTPHeader]] = rep((notReserved <~ chr(':')) ~ until(crlf, false)) ^^ {
+  def httpHeaders: Parser[List[HTTPHeader]] = rep((notReserved() <~ chr(':')) ~ until(crlf, false)) ^^ {
     _ map {
       case name ~ value => HTTPHeader(name, new String(value, "UTF-8"))
     }
@@ -55,10 +56,10 @@ class HttpParser extends ShiftParsers {
   def httpBody = until(atEnd, false) ^^ { HTTPBody }
 
   def http = httpLine ~ (crlf ~> httpHeaders) ~ (crlf ~> httpBody) ^^ {
-    case line ~ headers ~ body => HTTP(line, headers, body)
+    case (method, uri, ver) ~ headers ~ body => HTTPRequest(method, uri, ver, headers, body)
   }
 
-  def parse(reader: BinReader): Try[HTTP] = {
+  def parse(reader: BinReader): Try[HTTPRequest] = {
     http(reader) match {
       case Success(r, _) => scala.util.Success(r)
       case Failure(f, _) => scala.util.Failure(new Exception(f))
@@ -66,20 +67,6 @@ class HttpParser extends ShiftParsers {
     }
   }
 
-  def parse(html: String): Try[HTTP] = parse(BinReader(html.getBytes("UTF-8")))
+  def parse(html: String): Try[HTTPRequest] = parse(BinReader(html.getBytes("UTF-8")))
 }
 
-case class HTTP(line: HTTPLine, headers: List[HTTPHeader], body: HTTPBody) {
-  def header(name: String): Option[HTTPHeader] = headers find { _.name == name }
-}
-
-case class HTTPLine(method: String,
-                    uri: String,
-                    port: Option[Int],
-                    version: HTTPVer,
-                    params: List[HTTPParam])
-
-case class HTTPParam(name: String, value: List[String])
-case class HTTPVer(major: Byte, minor: Byte)
-case class HTTPHeader(name: String, value: String)
-case class HTTPBody(message: Array[Byte])

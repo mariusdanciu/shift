@@ -101,10 +101,10 @@ class HTTPServer {
     }
   }
 
-  private def continue(msg: TCPMessage): Option[HTTP] = {
+  private def continue(msg: TCPMessage): Option[HTTPRequest] = {
     BinReader(IO.fromArrays(msg.buffers)).toOption.flatMap { reader =>
       new HttpParser().parse(reader) match {
-        case Success(h @ HTTP(_, headers, body)) =>
+        case Success(h @ HTTPRequest(_, _, _, headers, body)) =>
           for { cl <- h.header("Content-Length") if (cl.value.trim.toInt == body.message.length) } yield {
             h
           }

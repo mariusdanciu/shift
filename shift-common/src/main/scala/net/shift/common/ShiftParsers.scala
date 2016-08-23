@@ -15,7 +15,7 @@ trait ShiftParsers extends Parsers {
   implicit def charToByte(c: Char): Byte = c.toByte
   implicit def charToBytes(c: Char): List[Byte] = List(c.toByte)
 
-  val reserved = Set(';', '/', '?', ':', '@', '&', '=', '+', '$', ',', '\r', '\n')
+  val reserved = Set(';', '/', '?', ':', '@', '&', '=', '+', '$', ',', '\r', '\n', ' ')
 
   def capitals: Parser[String] = rep1(acceptIf(b => b >= 'A' && b <= 'Z')(err => "Not a capital character " + err)) ^^ { _ map { _ toChar } mkString }
 
@@ -33,7 +33,11 @@ trait ShiftParsers extends Parsers {
 
   def chr(c: Char): Parser[Byte] = accept(c)
 
-  def notReserved: Parser[String] = rep1(acceptIf(b => !(reserved contains b.toChar))(err => "Not a reserved character " + err)) ^^ {
+  def notReserved(allow: Char*): Parser[String] = rep1(acceptIf {
+    case b =>
+      val res = reserved contains b.toChar
+      !res || (res && allow.contains(b))
+  }(err => "Not a reserved character " + err)) ^^ {
     _ map { _ toChar } mkString
   }
 
@@ -41,7 +45,8 @@ trait ShiftParsers extends Parsers {
     b != ' ' &&
       b != '\t' &&
       b != ':' &&
-      b != '?'
+      b != '?' &&
+      b != '/'
   }(err => "Not a uri character " + err)) ^^ { _ map { _ toChar } mkString }
 
   def atEnd: Parser[Unit] = new Parser[Unit] {
