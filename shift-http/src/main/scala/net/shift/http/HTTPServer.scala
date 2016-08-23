@@ -17,13 +17,12 @@ import scala.util.Try
 import net.shift.common.BinReader
 import net.shift.io.IO
 
-object HTTPServer {
+object HTTPServer extends App {
 
+  new HTTPServer().start(8080)
 }
 
 class HTTPServer {
-
-  val state: MMap[SocketChannel, TCPMessage] = MMap.empty
 
   def start(port: Int) = {
 
@@ -33,49 +32,30 @@ class HTTPServer {
 
     val selector = Selector.open
 
-    val key = serverChannel.register(selector, serverChannel.validOps(), null)
+    val key = serverChannel.register(selector, SelectionKey.OP_ACCEPT, null)
 
     while (true) {
 
-      selector.select()
+      val r = selector.select()
 
-      val keys = selector.selectedKeys().asScala
+      val keys = selector.selectedKeys().iterator()
 
-      for { key <- keys } {
+      while (keys.hasNext()) {
+        val key = keys.next()
+
         if (key.isAcceptable()) {
           val client = serverChannel.accept()
-          client.configureBlocking(false)
-          client.register(selector, SelectionKey.OP_READ | SelectionKey.OP_WRITE)
+          if (client != null) {
+            client.configureBlocking(false)
+            client.register(selector, SelectionKey.OP_READ)
+          }
         } else if (key.isReadable()) {
-          val client = key.channel().asInstanceOf[SocketChannel]
-
-          val buf = ByteBuffer.allocate(512)
-          var size = client.read(buf)
-          val list = new ListBuffer[Array[Byte]]()
-          while (size > 0) {
-            buf.limit(size)
-            val arr = new Array[Byte](size)
-            buf.get(arr)
-            buf.clear()
-            size = client.read(buf)
-          }
-
-          if (state.contains(client)) {
-            state(client) ++ list.toList
-          } else {
-            state += (client -> TCPMessage(list.toList))
-          }
-
-          continue(state(client)) match {
-            case Some(http) =>
-              println("read full message")
-              println(http)
-            case None => println("continue reading")
-          }
-
+          readChunk(key)
         } else if (key.isWritable()) {
-
+          println("Write")
         }
+
+        keys.remove()
       }
 
       //do something with socketChannel...
@@ -83,14 +63,54 @@ class HTTPServer {
 
   }
 
-  private def continue(msg: TCPMessage): Option[HTTP] = BinReader(IO.fromArrays(msg.buffers)).toOption.flatMap { reader =>
-    new HttpParser().parse(reader) match {
-      case Success(h @ HTTP(_, headers, body)) =>
-        println(h)
-        for { cl <- h.header("Content-Length") if (cl.value.toInt == body.message.length) } yield {
-          h
-        }
-      case Failure(f) => None
+  private def readChunk(key: SelectionKey) = {
+    val client = key.channel().asInstanceOf[SocketChannel]
+
+    val buf = ByteBuffer.allocate(512)
+    var size = client.read(buf)
+    if (size > 0) {
+      buf.flip()
+      val arr = new Array[Byte](size)
+      buf.get(arr)
+      buf.clear()
+
+      val currentMsgs = key.attachment().asInstanceOf[TCPMessage]
+
+      val msgs = if (currentMsgs != null) {
+        currentMsgs ++ List(arr)
+      } else {
+        TCPMessage(List(arr))
+      }
+
+      key.attach(msgs)
+
+      continue(msgs) match {
+        case Some(http) =>
+          println(http)
+          println(new String(http.body.message, "UTF-8"))
+          key.attach(null)
+          key.cancel()
+        case None =>
+          println("continue reading")
+      }
+
+    } else if (size < 0) {
+      key.attach(null)
+      key.cancel()
+      client.close()
+    }
+  }
+
+  private def continue(msg: TCPMessage): Option[HTTP] = {
+    BinReader(IO.fromArrays(msg.buffers)).toOption.flatMap { reader =>
+      new HttpParser().parse(reader) match {
+        case Success(h @ HTTP(_, headers, body)) =>
+          for { cl <- h.header("Content-Length") if (cl.value.trim.toInt == body.message.length) } yield {
+            h
+          }
+        case Failure(f) =>
+          None
+      }
     }
   }
 

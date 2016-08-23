@@ -32,8 +32,8 @@ object IO extends App {
       f
     }
 
-  def fromArrays[O](in: Seq[Array[Byte]]) = {
-    val data = in map { Data(_) }
+  def fromArrays[O](in: Seq[Array[Byte]]): BinProducer = {
+    val data = (in map { d => Data(d) }) ++ List(EOF)
     new BinProducer {
 
       def apply[O](it: Iteratee[Array[Byte], O]): Iteratee[Array[Byte], O] = {
