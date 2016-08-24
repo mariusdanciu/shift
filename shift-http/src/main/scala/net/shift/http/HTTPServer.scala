@@ -40,7 +40,7 @@ object Test extends App {
 
 object HTTPServer {
 
-  val system = ActorSystem("HTTPServer")
+  protected[http] val system = ActorSystem("HTTPServer")
 
 }
 
