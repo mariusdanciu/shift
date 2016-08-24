@@ -34,18 +34,28 @@ object Test extends App {
   }
 
   val srv = new HTTPServer()
-  srv.start(serve, 8080)
 
+  import scala.concurrent.ExecutionContext.Implicits.global
+  Future {
+    Thread.sleep(10000)
+    srv.stop()
+  }
+
+  srv.start(serve, 8080)
+  println("done")
 }
 
 object HTTPServer {
-
-  protected[http] val system = ActorSystem("HTTPServer")
 
 }
 
 class HTTPServer() {
 
+  protected[http] val system = ActorSystem("HTTPServer")
+  val selector = Selector.open
+
+  @volatile
+  private var running = false;
   val actors: TrieMap[SelectionKey, ActorRef] = new TrieMap[SelectionKey, ActorRef]
 
   def start(service: HTTPService, port: Int) = {
@@ -54,11 +64,10 @@ class HTTPServer() {
     serverChannel.configureBlocking(false)
     serverChannel.bind(new InetSocketAddress(port))
 
-    val selector = Selector.open
-
     val key = serverChannel.register(selector, SelectionKey.OP_ACCEPT, null)
 
-    while (true) {
+    running = true
+    while (running) {
 
       val r = selector.select()
 
@@ -66,30 +75,35 @@ class HTTPServer() {
 
       while (keys.hasNext()) {
         val key = keys.next()
-        if (key.isValid()) {
-          if (key.isAcceptable()) {
-            val client = serverChannel.accept()
-            if (client != null) {
-              client.configureBlocking(false)
-              val clientKey = client.register(selector, SelectionKey.OP_READ)
-              actors.put(clientKey, HTTPServer.system.actorOf(Props[ClientActor]))
+        if (!running) {
+          key.attach(null)
+          key.cancel()
+        } else {
+          if (key.isValid()) {
+            if (key.isAcceptable()) {
+              val client = serverChannel.accept()
+              if (client != null) {
+                client.configureBlocking(false)
+                val clientKey = client.register(selector, SelectionKey.OP_READ)
+                actors.put(clientKey, system.actorOf(Props[ClientActor]))
+              }
+            } else if (key.isReadable()) {
+              actors(key) ! Read(key, service)
+            } else if (key.isWritable()) {
+              actors(key) ! Write(key)
             }
-          } else if (key.isReadable()) {
-            actors(key) ! Read(key, service)
-          } else if (key.isWritable()) {
-            actors(key) ! Write(key)
           }
+          keys.remove()
         }
-        keys.remove()
       }
-
-      //do something with socketChannel...
     }
 
   }
 
   def stop() = {
-
+    running = false;
+    selector.wakeup()
+    system.shutdown()
   }
 
 }
@@ -104,7 +118,6 @@ class ClientActor extends Actor {
   def receive = {
     case Read(key, service) => readChunk(key, service)
     case Write(key)         => writeResponse(key)
-
   }
 
   private def writeResponse(key: SelectionKey) = {
