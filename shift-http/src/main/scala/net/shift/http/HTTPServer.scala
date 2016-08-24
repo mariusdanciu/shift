@@ -31,6 +31,7 @@ object HTTPServer extends App {
     case (req, f) =>
       println(req)
       println(IO.toString(req.body))
+      f(Responses.text("Some response"))
   }
 
   new HTTPServer(serve).start(8080)
@@ -97,7 +98,17 @@ class ClientActor extends Actor {
 
   def receive = {
     case Read(key, service) => readChunk(key, service)
-    case Write(key)         => println("Writing response")
+    case Write(key) =>
+      val resp = key.attachment().asInstanceOf[ByteBuffer]
+      if (resp != null) {
+        val client = key.channel().asInstanceOf[SocketChannel]
+        val written = client.write(resp)
+        if (!resp.hasRemaining()) {
+          key.attach(null)
+          key.interestOps(SelectionKey.OP_READ)
+        }
+      }
+
   }
 
   private def readChunk(key: SelectionKey, service: HTTPService) = {
@@ -122,10 +133,14 @@ class ClientActor extends Actor {
               if (cl > sz) {
                 key.attach(http)
               } else {
-                service(http, resp => {
-                  // Send response here
-                })
                 key.attach(null)
+                service(http, resp => {
+                  IO.toArray(resp) map { arr =>
+                    key.attach(ByteBuffer.wrap(arr))
+                    key.interestOps(SelectionKey.OP_WRITE)
+                    key.selector().wakeup()
+                  }
+                })
               }
             case None =>
               key.attach(msgs)
@@ -138,11 +153,13 @@ class ClientActor extends Actor {
           if (cl > newSize) {
             key.attach(req)
           } else {
-            service(req, resp => {
-              // Send response here
-            })
             key.attach(null)
-            //key.interestOps(SelectionKey.OP_WRITE)
+            service(req, resp => {
+              IO.toArray(resp) map { arr =>
+                key.attach(ByteBuffer.wrap(arr))
+                key.interestOps(SelectionKey.OP_WRITE)
+              }
+            })
           }
 
       }

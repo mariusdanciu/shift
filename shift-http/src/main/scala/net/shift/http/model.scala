@@ -6,6 +6,9 @@ case class HTTPParam(name: String, value: List[String])
 case class HTTPVer(major: Byte, minor: Byte)
 case class HTTPHeader(name: String, value: String)
 
+object HTTPBody {
+  def apply(body: String) = new HTTPBody(List(body.getBytes("UTF-8")))
+}
 case class HTTPBody(parts: Seq[Array[Byte]]) extends BinProducer {
   def size = parts.map { _.length }.sum
 
@@ -42,8 +45,24 @@ case class Cookie(name: String,
                   httpOnly: Boolean)
 
 case class HTTPResponse(code: Int,
-                        reason: String,
-                        cookies: List[Cookie],
-                        headers: List[HTTPHeader],
-                        body: HTTPBody)
+                        reason: String = "OK",
+                        cookies: List[Cookie] = Nil,
+                        headers: List[HTTPHeader] = Nil,
+                        body: HTTPBody) extends BinProducer {
+
+  def apply[O](it: Iteratee[Array[Byte], O]): Iteratee[Array[Byte], O] = {
+
+    val headersStr = headers map {
+      case HTTPHeader(name, value) => s"$name: $value\r\n"
+    } mkString
+
+    val heads = Data(s"HTTP/1.1 $code $reason\r\n$headersStr\r\n".getBytes("UTF-8"))
+    val next = it match {
+      case Cont(f) => f(heads)
+      case r       => r
+    }
+    body(next)
+
+  }
+}
 
