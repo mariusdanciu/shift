@@ -25,8 +25,7 @@ import akka.actor.PoisonPill
 import java.net.SocketOption
 import java.net.StandardSocketOptions
 
-object HTTPServer extends App {
-
+object Test extends App {
   def serve: HTTPService = {
     case (req, f) =>
       println(req)
@@ -34,16 +33,22 @@ object HTTPServer extends App {
       f(Responses.text("Some response"))
   }
 
-  new HTTPServer(serve).start(8080)
+  val srv = new HTTPServer()
+  srv.start(serve, 8080)
+
 }
 
-class HTTPServer(service: HTTPService) {
-
-  val actors: TrieMap[SelectionKey, ActorRef] = new TrieMap[SelectionKey, ActorRef]
+object HTTPServer {
 
   val system = ActorSystem("HTTPServer")
 
-  def start(port: Int) = {
+}
+
+class HTTPServer() {
+
+  val actors: TrieMap[SelectionKey, ActorRef] = new TrieMap[SelectionKey, ActorRef]
+
+  def start(service: HTTPService, port: Int) = {
 
     val serverChannel = ServerSocketChannel.open()
     serverChannel.configureBlocking(false)
@@ -67,7 +72,7 @@ class HTTPServer(service: HTTPService) {
             if (client != null) {
               client.configureBlocking(false)
               val clientKey = client.register(selector, SelectionKey.OP_READ)
-              actors.put(clientKey, system.actorOf(Props[ClientActor]))
+              actors.put(clientKey, HTTPServer.system.actorOf(Props[ClientActor]))
             }
           } else if (key.isReadable()) {
             actors(key) ! Read(key, service)
@@ -89,26 +94,32 @@ class HTTPServer(service: HTTPService) {
 
 }
 
-trait ClientMessages
+trait ServerMessage
 
-case class Read(key: SelectionKey, service: HTTPService) extends ClientMessages
-case class Write(key: SelectionKey) extends ClientMessages
+case class Read(key: SelectionKey, service: HTTPService) extends ServerMessage
+case class Write(key: SelectionKey) extends ServerMessage
 
 class ClientActor extends Actor {
 
   def receive = {
     case Read(key, service) => readChunk(key, service)
-    case Write(key) =>
-      val resp = key.attachment().asInstanceOf[ByteBuffer]
-      if (resp != null) {
-        val client = key.channel().asInstanceOf[SocketChannel]
-        val written = client.write(resp)
-        if (!resp.hasRemaining()) {
-          key.attach(null)
-          key.interestOps(SelectionKey.OP_READ)
-        }
-      }
+    case Write(key)         => writeResponse(key)
 
+  }
+
+  private def writeResponse(key: SelectionKey) = {
+    val resp = key.attachment().asInstanceOf[ByteBuffer]
+    if (resp != null) {
+      val client = key.channel().asInstanceOf[SocketChannel]
+      val written = client.write(resp)
+      if (!resp.hasRemaining()) {
+        key.attach(null)
+        //key.interestOps(SelectionKey.OP_READ)
+        key.cancel()
+        client.close()
+        context.stop(self)
+      }
+    }
   }
 
   private def readChunk(key: SelectionKey, service: HTTPService) = {
