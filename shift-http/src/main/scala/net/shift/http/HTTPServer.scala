@@ -16,16 +16,33 @@ import net.shift.common.BinReader
 import net.shift.io.IO
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
+import akka.actor.Actor
+import scala.collection.concurrent.TrieMap
+import akka.actor.ActorSystem
+import akka.actor.Props
+import akka.actor.ActorRef
+import akka.actor.PoisonPill
+import java.net.SocketOption
+import java.net.StandardSocketOptions
 
 object HTTPServer extends App {
 
-  import scala.concurrent.ExecutionContext.Implicits.global
-  new HTTPServer().start(8080)
+  def serve: HTTPService = {
+    case (req, f) =>
+      println(req)
+      println(IO.toString(req.body))
+  }
+
+  new HTTPServer(serve).start(8080)
 }
 
-class HTTPServer {
+class HTTPServer(service: HTTPService) {
 
-  def start(port: Int)(implicit ctx: ExecutionContext) = {
+  val actors: TrieMap[SelectionKey, ActorRef] = new TrieMap[SelectionKey, ActorRef]
+
+  val system = ActorSystem("HTTPServer")
+
+  def start(port: Int) = {
 
     val serverChannel = ServerSocketChannel.open()
     serverChannel.configureBlocking(false)
@@ -43,19 +60,20 @@ class HTTPServer {
 
       while (keys.hasNext()) {
         val key = keys.next()
-
-        if (key.isAcceptable()) {
-          val client = serverChannel.accept()
-          if (client != null) {
-            client.configureBlocking(false)
-            client.register(selector, SelectionKey.OP_READ)
+        if (key.isValid()) {
+          if (key.isAcceptable()) {
+            val client = serverChannel.accept()
+            if (client != null) {
+              client.configureBlocking(false)
+              val clientKey = client.register(selector, SelectionKey.OP_READ)
+              actors.put(clientKey, system.actorOf(Props[ClientActor]))
+            }
+          } else if (key.isReadable()) {
+            actors(key) ! Read(key, service)
+          } else if (key.isWritable()) {
+            actors(key) ! Write(key)
           }
-        } else if (key.isReadable()) {
-          readChunk(key)
-        } else if (key.isWritable()) {
-          println("Write")
         }
-
         keys.remove()
       }
 
@@ -64,10 +82,28 @@ class HTTPServer {
 
   }
 
-  private def readChunk(key: SelectionKey)(implicit ctx: ExecutionContext) = {
+  def stop() = {
+
+  }
+
+}
+
+trait ClientMessages
+
+case class Read(key: SelectionKey, service: HTTPService) extends ClientMessages
+case class Write(key: SelectionKey) extends ClientMessages
+
+class ClientActor extends Actor {
+
+  def receive = {
+    case Read(key, service) => readChunk(key, service)
+    case Write(key)         => println("Writing response")
+  }
+
+  private def readChunk(key: SelectionKey, service: HTTPService) = {
     val client = key.channel().asInstanceOf[SocketChannel]
 
-    val buf = ByteBuffer.allocate(100)
+    val buf = ByteBuffer.allocate(512)
     var size = client.read(buf)
     if (size > 0) {
       buf.flip()
@@ -75,9 +111,7 @@ class HTTPServer {
       buf.get(arr)
       buf.clear()
 
-      val attach = key.attachment()
-
-      attach match {
+      key.attachment() match {
         case RawExtract(bufs) =>
           val msgs = bufs ++ List(arr)
 
@@ -88,12 +122,13 @@ class HTTPServer {
               if (cl > sz) {
                 key.attach(http)
               } else {
-                println("END " + http)
+                service(http, resp => {
+                  // Send response here
+                })
                 key.attach(null)
               }
             case None =>
               key.attach(msgs)
-              println("continue reading ")
           }
         case h @ HTTPRequest(m, u, v, hd, body) =>
           val newSize = body.size + size
@@ -101,12 +136,13 @@ class HTTPServer {
           val msg = HTTPBody(body.parts ++ Seq(arr))
           val req = HTTPRequest(m, u, v, hd, msg)
           if (cl > newSize) {
-            println(msg.size)
             key.attach(req)
           } else {
-            println(h)
-            println(new String(req.body.compact, "UTF-8"))
+            service(req, resp => {
+              // Send response here
+            })
             key.attach(null)
+            //key.interestOps(SelectionKey.OP_WRITE)
           }
 
       }
@@ -115,6 +151,7 @@ class HTTPServer {
       key.attach(null)
       key.cancel()
       client.close()
+      context.stop(self)
     }
   }
 
@@ -129,10 +166,6 @@ class HTTPServer {
           None
       }
     }
-  }
-
-  def stop() = {
-
   }
 
 }

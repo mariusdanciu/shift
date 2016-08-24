@@ -32,6 +32,8 @@ object IO extends App {
       f
     }
 
+  def fromArray[O](in: Array[Byte]): BinProducer = fromArrays(List(in))
+
   def fromArrays[O](in: Seq[Array[Byte]]): BinProducer = {
     val data = (in map { d => Data(d) }) ++ List(EOF)
     new BinProducer {
@@ -46,7 +48,17 @@ object IO extends App {
     }
   }
 
-  private def singleProducer[O](in: In[Array[Byte]]) = new BinProducer {
+  def append[O](b: BinProducer, in: Array[Byte]): BinProducer = {
+    new BinProducer {
+
+      def apply[O](it: Iteratee[Array[Byte], O]): Iteratee[Array[Byte], O] = {
+        val res = b(it)
+        singleProducer(Data(in))(res)
+      }
+    }
+  }
+
+  def singleProducer[O](in: In[Array[Byte]]) = new BinProducer {
 
     def apply[O](it: Iteratee[Array[Byte], O]): Iteratee[Array[Byte], O] = it match {
       case Cont(f) => f(in) match {

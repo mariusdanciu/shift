@@ -20,7 +20,6 @@ object HttpParser extends App {
   new HttpParser().parse(http) match {
     case Success(h @ HTTPRequest(_, _, _, _, body)) =>
       println(h)
-      println(new String(body.parts.toArray.flatten, "UTF-8"))
     case f => println(f)
   }
 }
