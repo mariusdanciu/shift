@@ -13,6 +13,11 @@ import scala.util.control.Exception._
 import net.shift.common.Path
 import java.io.FileInputStream
 import java.io.BufferedInputStream
+import java.nio.ByteBuffer
+import java.nio.channels.FileChannel
+import java.nio.file.OpenOption
+import java.io.RandomAccessFile
+import java.nio.file.Paths
 
 trait FileSystem {
   def exists(in: Path): Try[Boolean]
@@ -20,7 +25,7 @@ trait FileSystem {
   def ls(in: Path): Try[List[Path]]
   def mkdir(p: Path): Boolean
   def deletePath(in: Path): Try[Path]
-  def writer(p: Path): Iteratee[Array[Byte], Path]
+  def writer(p: Path): Iteratee[ByteBuffer, Path]
   def reader(p: Path, bufSize: Int = 32768): Try[BinProducer]
   def lastModified(p: Path): Try[Long]
 }
@@ -74,11 +79,18 @@ object LocalFileSystem extends FileSystem {
     }
   }
 
-  def writer(p: Path): Iteratee[Array[Byte], Path] = IO failover {
+  def writer(p: Path): Iteratee[ByteBuffer, Path] = IO failover {
     mkdir(p.dropLast)
+
+    val fc = new FileOutputStream(p.toString()).getChannel
+
     for {
-      out <- Iteratee.foldLeft[Array[Byte], OutputStream](new BufferedOutputStream(new FileOutputStream(p.toString))) {
-        (acc, e) => { acc.write(e); acc }
+      out <- Iteratee.foldLeft[ByteBuffer, FileChannel](fc) {
+        (acc, e) =>
+          {
+            acc.write(e)
+            acc
+          }
       }
     } yield {
       IO close out
@@ -88,7 +100,7 @@ object LocalFileSystem extends FileSystem {
 
   def reader(p: Path, bufSize: Int = 32768): Try[BinProducer] =
     try {
-      Success(IO inputStreamProducer (new BufferedInputStream(new FileInputStream(p.toString()), bufSize), bufSize))
+      IO fileProducer (p, bufSize)
     } catch {
       case e: Exception => Failure(e)
     }

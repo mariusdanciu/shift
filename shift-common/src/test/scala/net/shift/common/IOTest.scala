@@ -13,13 +13,14 @@ import net.shift.io.Data
 import net.shift.io.LocalFileSystem._
 import scala.util.Success
 import net.shift.io.IO
+import java.nio.ByteBuffer
 
 trait UnitTest extends FlatSpec with Matchers
 
 class IOTest extends UnitTest {
 
   implicit def string2Iterable(in: String) =
-    in.map(c => Data(Array[Byte](c.toByte))) ++ List(EOF)
+    in.map(c => Data(ByteBuffer.wrap(Array[Byte](c.toByte)))) ++ List(EOF)
 
   val str = "This is a text."
   "IO" should "read/write correctly" in {
@@ -28,7 +29,10 @@ class IOTest extends UnitTest {
     val res = for {
       r <- reader(Path("test.txt"))
       s <- IO toString r
-    } yield s
+    } yield {
+      println("s = " + s)
+      s
+    }
 
     res should equal(Success(str))
   }
@@ -53,7 +57,7 @@ class IOTest extends UnitTest {
     Path("c:/a/b/c").scheme should equal(Some("c"))
     Path("a/b/c/") match {
       case Path(None, "a" :: "b" :: "c" :: "" :: Nil) => println("OK")
-      case _                                    => fail("a/b/c did no extract correctly")
+      case _ => fail("a/b/c did no extract correctly")
     }
 
     Path("c:/a/b/c") match {
@@ -65,8 +69,7 @@ class IOTest extends UnitTest {
       case EmptyPath => println("OK")
       case _         => fail("c:a/b/c should be invalid")
     }
-    
-    
+
   }
 
 }

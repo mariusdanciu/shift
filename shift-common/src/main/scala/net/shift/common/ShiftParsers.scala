@@ -8,6 +8,7 @@ import net.shift.io.BinProducer
 import scala.util.parsing.input.Reader
 import scala.util.parsing.input.Position
 import net.shift.io.IO
+import java.io.IOException
 
 trait ShiftParsers extends Parsers {
   type Elem = Byte
@@ -17,7 +18,8 @@ trait ShiftParsers extends Parsers {
 
   val reserved = Set(';', '/', '?', ':', '@', '&', '=', '+', '$', ',', '\r', '\n', ' ')
 
-  def capitals: Parser[String] = rep1(acceptIf(b => b >= 'A' && b <= 'Z')(err => "Not a capital character " + err)) ^^ { _ map { _ toChar } mkString }
+  def capitals: Parser[String] = rep1(acceptIf(b =>
+    b >= 'A' && b <= 'Z')(err => "Not a capital character " + err)) ^^ { _ map { _ toChar } mkString }
 
   def digit: Parser[Byte] = acceptIf(b => b >= '0' && b <= '9')(err => "Not a digit character " + err) ^^ { b => (b - 48).toByte }
 
@@ -58,8 +60,8 @@ trait ShiftParsers extends Parsers {
     }
   }
 
-  def until[T](p: Parser[T], retryPInput: Boolean): Parser[Array[Byte]] = new Parser[Array[Byte]] {
-    def apply(in: Input): ParseResult[Array[Byte]] = {
+  def until[T](p: Parser[T], retryPInput: Boolean): Parser[ByteBuffer] = new Parser[ByteBuffer] {
+    def apply(in: Input): ParseResult[ByteBuffer] = {
 
       @tailrec
       def walk(i: Input, acc: ListBuffer[Byte]): (Input, ListBuffer[Byte]) = {
@@ -82,9 +84,9 @@ trait ShiftParsers extends Parsers {
         if (res.isEmpty)
           Failure("No content found", i)
         else
-          Success(res.toArray, i)
+          Success(ByteBuffer.wrap(res.toArray), i)
       } else
-        Success(res.toArray, i)
+        Success(ByteBuffer.wrap(res.toArray), i)
 
     }
   }
@@ -92,14 +94,32 @@ trait ShiftParsers extends Parsers {
 
 object BinReader {
   import IO._
-  def apply(in: BinProducer) = toArray(in) map { arr => new BinReader(arr, 0) }
+  def apply(in: BinProducer) = chunks(in) map { arr => new BinReader(arr, 0) }
 }
 
-case class BinReader(in: Array[Byte], position: Int = 0) extends Reader[Byte] {
+case class BinReader(in: Seq[ByteBuffer], position: Int = 0) extends Reader[Byte] {
 
-  def first = in(position)
+  lazy val size = in.map { _.limit }.sum
 
-  def rest = new BinReader(in, position + 1)
+  lazy val first = {
+    if (!in.isEmpty && in.head.hasRemaining()) {
+      in.head.get
+    } else {
+      throw new IOException("Not enough data")
+    }
+  }
+
+  def rest = {
+    if (!in.isEmpty) {
+      if (in.head.hasRemaining()) {
+        BinReader(in, position + 1)
+      } else {
+        BinReader(in.tail, position + 1)
+      }
+    } else {
+      throw new IOException("Not enough data")
+    }
+  }
 
   def pos: Position = new Position {
     def line = 0
@@ -107,5 +127,5 @@ case class BinReader(in: Array[Byte], position: Int = 0) extends Reader[Byte] {
     def lineContents: String = ""
   }
 
-  def atEnd: Boolean = position >= in.length
+  def atEnd: Boolean = position >= size
 }

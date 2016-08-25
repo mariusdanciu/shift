@@ -1,18 +1,22 @@
 package net.shift
 package io
 
+import java.io.Closeable
+import java.io.FileInputStream
 import java.io.InputStream
+import java.nio.ByteBuffer
+import java.nio.channels.FileChannel
 import scala.annotation.tailrec
-import scala.collection.mutable.ArrayBuffer
 import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
-import net.shift.common.Path
+import scala.util.control.Exception.catching
 import scala.xml.NodeSeq
-import net.shift.common.XmlUtils._
-import java.io.Closeable
-import scala.util.control.Exception._
-import net.shift.common.Config
+import net.shift.common.Path
+import net.shift.common.XmlUtils.mkString
+import java.nio.file.Files
+import java.nio.file.Paths
+import java.nio.file.StandardOpenOption
 
 object IODefaults {
 
@@ -32,35 +36,34 @@ object IO extends App {
       f
     }
 
-  def fromArray[O](in: Array[Byte]): BinProducer = fromArrays(List(in))
+  def fromArray[O](in: ByteBuffer): BinProducer = fromChunks(List(in))
 
-  def fromArrays[O](in: Seq[Array[Byte]]): BinProducer = {
+  def fromChunks[O](in: Seq[ByteBuffer]): BinProducer = {
     val data = (in map { d => Data(d) }) ++ List(EOF)
     new BinProducer {
 
-      def apply[O](it: Iteratee[Array[Byte], O]): Iteratee[Array[Byte], O] = {
-        val i = (it /: data) {
+      def apply[O](it: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = {
+        (it /: data) {
           case (Cont(f), e) => f(e)
           case (r, _)       => r
         }
-        i
       }
     }
   }
 
-  def append[O](b: BinProducer, in: Array[Byte]): BinProducer = {
+  def append[O](b: BinProducer, in: ByteBuffer): BinProducer = {
     new BinProducer {
 
-      def apply[O](it: Iteratee[Array[Byte], O]): Iteratee[Array[Byte], O] = {
+      def apply[O](it: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = {
         val res = b(it)
         singleProducer(Data(in))(res)
       }
     }
   }
 
-  def singleProducer[O](in: In[Array[Byte]]) = new BinProducer {
+  def singleProducer[O](in: In[ByteBuffer]) = new BinProducer {
 
-    def apply[O](it: Iteratee[Array[Byte], O]): Iteratee[Array[Byte], O] = it match {
+    def apply[O](it: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = it match {
       case Cont(f) => f(in) match {
         case Cont(g) => g(EOF)
         case r       => r
@@ -71,32 +74,76 @@ object IO extends App {
 
   def emptyProducer = new BinProducer {
 
-    def apply[O](it: Iteratee[Array[Byte], O]): Iteratee[Array[Byte], O] = it match {
+    def apply[O](it: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = it match {
       case Cont(f) => f(Empty)
       case state   => state
     }
   }
 
-  def stringProducer(s: String): BinProducer = singleProducer(Data(s.getBytes("UTF-8")))
+  def stringProducer(s: String): BinProducer = singleProducer(Data(ByteBuffer.wrap(s.getBytes("UTF-8"))))
 
-  def arrayProducer(arr: Array[Byte]): BinProducer = singleProducer(Data(arr))
+  def arrayProducer(arr: Array[Byte]): BinProducer = singleProducer(Data(ByteBuffer.wrap(arr)))
 
-  def htmlProducer(s: NodeSeq): Try[BinProducer] = Try(singleProducer(Data(("<!DOCTYPE html>\n" + mkString(s)).getBytes("UTF-8"))))
+  def bufferProducer(buffer: ByteBuffer): BinProducer = singleProducer(Data(buffer))
+
+  def htmlProducer(s: NodeSeq): Try[BinProducer] = Try(stringProducer("<!DOCTYPE html>\n" + mkString(s)))
+
+  def fileProducer(path: Path, bufSize: Int = 32768): Try[BinProducer] = Try {
+
+    new BinProducer {
+
+      def apply[O](ait: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = {
+
+        @tailrec
+        def loop(it: Iteratee[ByteBuffer, O], fc: FileChannel): Iteratee[ByteBuffer, O] = {
+          val b = ByteBuffer.allocate(bufSize)
+          val read = fc.read(b)
+
+          if (read != -1) {
+            b.flip
+            val chunk = ByteBuffer.allocate(read)
+            chunk.put(b)
+            chunk.flip
+
+            val s = IO.bufferToString(chunk)
+
+            it match {
+              case Cont(f) => loop(f(Data(chunk)), fc)
+              case r       => r
+            }
+          } else {
+            it match {
+              case Cont(f) => f(EOF)
+              case r       => r
+            }
+          }
+        }
+
+        val fc = new FileInputStream(path.toString).getChannel
+        val it = failover(loop(ait, fc))
+        fc.close()
+        it
+      }
+
+    }
+  }
 
   def inputStreamProducer(in: InputStream, bufSize: Int = 32768) = new BinProducer {
 
-    def apply[O](ait: Iteratee[Array[Byte], O]): Iteratee[Array[Byte], O] = {
+    def apply[O](ait: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = {
 
       @tailrec
-      def walk[O](it: Iteratee[Array[Byte], O]): Iteratee[Array[Byte], O] = {
+      def walk[O](it: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = {
 
         val buf = Array.ofDim[Byte](bufSize)
 
         it match {
           case Cont(f) =>
             var r = in.read(buf);
+            val bf = ByteBuffer.wrap(buf, 0, r)
+
             if (r > -1)
-              walk(f(Data(buf.take(r))))
+              walk(f(Data(bf)))
             else {
               close(in)
               walk(f(EOF))
@@ -116,21 +163,53 @@ object IO extends App {
     }
   }
 
-  def toArray(in: BinProducer): Try[Array[Byte]] = {
-    in(Iteratee.foldLeft(new ArrayBuffer[Byte]) { (acc, e) =>
-      acc ++ e
+  def toBuffer(in: BinProducer): Try[ByteBuffer] = {
+    in(Iteratee.foldLeft(ByteBuffer.allocate(0)) { (acc, e) =>
+      concat(acc, e)
     }) match {
-      case Done(v, _) => Success(v.toArray)
+      case Done(v, _) => Success(v)
       case Error(t)   => Failure(t)
       case k          => Failure(new IllegalStateException)
     }
   }
 
-  def toArray(in: InputStream, bufSize: Int = 32768): Try[Array[Byte]] = {
-    inputStreamProducer(in)(Iteratee.foldLeft(new ArrayBuffer[Byte](bufSize)) { (acc, e) =>
-      acc ++ e
+  def chunks(in: BinProducer): Try[Seq[ByteBuffer]] = {
+    in(Iteratee.foldLeft(Nil: Seq[ByteBuffer]) { (acc, e) =>
+      acc ++ List(e)
     }) match {
-      case Done(v, _) => Success(v.toArray)
+      case Done(v, _) => Success(v)
+      case Error(t)   => Failure(t)
+      case k          => Failure(new IllegalStateException)
+    }
+  }
+
+  def toArray(in: BinProducer): Try[Array[Byte]] = {
+    toBuffer(in) map { v =>
+      val arr = new Array[Byte](v.capacity)
+      v.get(arr)
+      arr
+    }
+  }
+
+  def concat(a: ByteBuffer, b: ByteBuffer) = {
+    val nb = ByteBuffer.allocate(a.limit() + b.limit())
+    nb.put(a)
+    nb.put(b)
+    nb.flip
+    nb
+  }
+
+  def bufferToString(b: ByteBuffer): String = {
+    val arr = new Array[Byte](b.limit)
+    b get arr
+    new String(arr, "UTF-8")
+  }
+
+  def toBuffer(in: InputStream, bufSize: Int = 32768): Try[ByteBuffer] = {
+    inputStreamProducer(in, bufSize)(Iteratee.foldLeft(ByteBuffer.allocate(0)) { (acc, e) =>
+      concat(acc, e)
+    }) match {
+      case Done(v, _) => Success(v)
       case Error(t)   => Failure(t)
       case _          => Failure(new IllegalStateException)
     }

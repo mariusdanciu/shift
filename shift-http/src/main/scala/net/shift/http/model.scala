@@ -1,18 +1,19 @@
 package net.shift.http
 
 import net.shift.io._
+import java.nio.ByteBuffer
 
 case class HTTPParam(name: String, value: List[String])
 case class HTTPVer(major: Byte, minor: Byte)
 case class HTTPHeader(name: String, value: String)
 
 object HTTPBody {
-  def apply(body: String) = new HTTPBody(List(body.getBytes("UTF-8")))
+  def apply(body: String) = new HTTPBody(List(ByteBuffer.wrap(body.getBytes("UTF-8"))))
 }
-case class HTTPBody(parts: Seq[Array[Byte]]) extends BinProducer {
-  def size = parts.map { _.length }.sum
+case class HTTPBody(parts: Seq[ByteBuffer]) extends BinProducer {
+  def size = parts.map { _.limit }.sum
 
-  def apply[O](it: Iteratee[Array[Byte], O]): Iteratee[Array[Byte], O] = {
+  def apply[O](it: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = {
     val data = (parts map { d => Data(d) }) ++ List(EOF)
     (it /: data) {
       case (Cont(f), e) => f(e)
@@ -48,15 +49,15 @@ case class HTTPResponse(code: Int,
                         reason: String = "OK",
                         cookies: List[Cookie] = Nil,
                         headers: List[HTTPHeader] = Nil,
-                        body: HTTPBody) extends BinProducer {
+                        body: BinProducer) extends BinProducer {
 
-  def apply[O](it: Iteratee[Array[Byte], O]): Iteratee[Array[Byte], O] = {
+  def apply[O](it: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = {
 
     val headersStr = headers map {
       case HTTPHeader(name, value) => s"$name: $value\r\n"
     } mkString
 
-    val heads = Data(s"HTTP/1.1 $code $reason\r\n$headersStr\r\n".getBytes("UTF-8"))
+    val heads = Data(ByteBuffer.wrap(s"HTTP/1.1 $code $reason\r\n$headersStr\r\n".getBytes("UTF-8")))
     val next = it match {
       case Cont(f) => f(heads)
       case r       => r

@@ -1,6 +1,7 @@
 package net.shift
 
+import java.nio.ByteBuffer
 package object io {
-  type BinConsumer[O] = Iteratee[Array[Byte], O]
-  type BinProducer = IterateeProducer[Array[Byte]]
+  type BinConsumer[O] = Iteratee[ByteBuffer, O]
+  type BinProducer = IterateeProducer[ByteBuffer]
 }

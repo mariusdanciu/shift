@@ -2,9 +2,10 @@ package net.shift.http
 
 import scala.util.Success
 import scala.util.Try
-
 import net.shift.common.BinReader
 import net.shift.common.ShiftParsers
+import net.shift.io.IO
+import java.nio.ByteBuffer
 
 object HttpParser extends App {
 
@@ -47,7 +48,7 @@ class HttpParser extends ShiftParsers {
 
   def httpHeaders: Parser[List[HTTPHeader]] = rep((notReserved() <~ chr(':')) ~ until(crlf, false)) ^^ {
     _ map {
-      case name ~ value => HTTPHeader(name, new String(value, "UTF-8"))
+      case name ~ value => HTTPHeader(name, IO.bufferToString(value))
     }
   }
 
@@ -65,6 +66,6 @@ class HttpParser extends ShiftParsers {
     }
   }
 
-  def parse(html: String): Try[HTTPRequest] = parse(BinReader(html.getBytes("UTF-8")))
+  def parse(html: String): Try[HTTPRequest] = parse(BinReader(List(ByteBuffer.wrap(html.getBytes("UTF-8")))))
 }
 
