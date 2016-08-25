@@ -105,8 +105,6 @@ object IO extends App {
             chunk.put(b)
             chunk.flip
 
-            val s = IO.bufferToString(chunk)
-
             it match {
               case Cont(f) => loop(f(Data(chunk)), fc)
               case r       => r

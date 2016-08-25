@@ -20,6 +20,7 @@ import net.shift.security.HMac
 import net.shift.security.User
 import net.shift.io.FileSystem
 import net.shift.io.EOF
+import java.nio.ByteBuffer
 
 trait Request {
   def path: Path
@@ -157,7 +158,7 @@ case class RichResponse(r: Response) {
     override def body = new BinProducer {
 
       def apply[O](in: BinConsumer[O]): BinConsumer[O] = in match {
-        case Cont(f) => f(Data(content.getBytes("UTF-8"))) match {
+        case Cont(f) => f(Data(ByteBuffer.wrap(content.getBytes("UTF-8")))) match {
           case Cont(f) => f(EOF)
           case r       => r
         }
@@ -166,7 +167,7 @@ case class RichResponse(r: Response) {
     }
   }
 
-  def withBody(content: Array[Byte]): Response = new ResponseShell(r) {
+  def withBody(content: ByteBuffer): Response = new ResponseShell(r) {
     override def body = new BinProducer {
 
       def apply[O](in: BinConsumer[O]): BinConsumer[O] = in match {
