@@ -110,9 +110,9 @@ class HTTPServer(name: String) extends Log {
                   state.actors.put(clientKey, system.actorOf(Props[ClientActor]))
                 }
               } else if (key.isReadable()) {
-                state.actors(key) ! Read(key, state, service)
+                state.actors(key) ! ReadHttp(key, state, service)
               } else if (key.isWritable()) {
-                state.actors(key) ! Write(key, state)
+                state.actors(key) ! WriteHttp(key, state)
               }
             }
             keys.remove()
@@ -139,17 +139,17 @@ private[http] case class ServerState(
 
 trait ServerMessage
 
-case class Read(key: SelectionKey, state: ServerState, service: HTTPService) extends ServerMessage
-case class Write(key: SelectionKey, state: ServerState) extends ServerMessage
+case class ReadHttp(key: SelectionKey, state: ServerState, service: HTTPService) extends ServerMessage
+case class WriteHttp(key: SelectionKey, state: ServerState) extends ServerMessage
 
 class ClientActor extends Actor with ActorLogging {
 
   def receive = {
-    case r: Read  => readChunk(r)
-    case w: Write => writeResponse(w)
+    case r: ReadHttp  => readChunk(r)
+    case w: WriteHttp => writeResponse(w)
   }
 
-  private def writeResponse(wr: Write) = {
+  private def writeResponse(wr: WriteHttp) = {
     (wr.state.payloads get wr.key) match {
       case Some(Raw(resp :: Nil)) =>
         val client = wr.key.channel().asInstanceOf[SocketChannel]
@@ -165,10 +165,10 @@ class ClientActor extends Actor with ActorLogging {
 
   }
 
-  private def readChunk(r: Read) = {
+  private def readChunk(r: ReadHttp) = {
 
-    def checkRequestComplete(bodySize: Long, contentLength: Long, http: HTTPRequest) = {
-      if (contentLength > bodySize) {
+    def checkRequestComplete(bodySize: Long, contentLength: Option[Long], http: HTTPRequest) = {
+      if (contentLength.getOrElse(-1L) > bodySize) {
         r.state.payloads += (r.key -> http)
       } else {
         r.state.payloads -= r.key
@@ -194,13 +194,13 @@ class ClientActor extends Actor with ActorLogging {
           val msg = raw + buf
           tryParse(msg) match {
             case Some(http) =>
-              checkRequestComplete(http.body.size, http.contentLength, http)
+              checkRequestComplete(http.body.size, http.longHeader("Content-Length"), http)
             case None =>
               r.state.payloads += (r.key -> msg)
           }
         case Some(h @ HTTPRequest(m, u, v, hd, body)) =>
           val newSize = body.size + size
-          val cl = h.contentLength
+          val cl = h.longHeader("Content-Length")
           val msg = HTTPBody(body.parts ++ Seq(buf))
           val req = HTTPRequest(m, u, v, hd, msg)
           checkRequestComplete(newSize, cl, req)
@@ -218,9 +218,7 @@ class ClientActor extends Actor with ActorLogging {
     BinReader(IO.fromChunks(msg.buffers)).toOption.flatMap { reader =>
       new HttpParser().parse(reader) match {
         case Success(h @ HTTPRequest(_, _, _, headers, body)) =>
-          for { cl <- h.header("Content-Length") } yield {
-            h
-          }
+          Some(h)
         case Failure(f) =>
           None
       }

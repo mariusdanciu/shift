@@ -54,10 +54,12 @@ class HttpParser extends ShiftParsers {
     }
   }
 
-  def httpBody = until(atEnd, false) ^^ { a => HTTPBody(List(a)) }
+  def httpBody = until(atEnd, false) ^^ { a =>
+    HTTPBody(List(a))
+  }
 
-  def http = httpLine ~ (crlf ~> httpHeaders) ~ (crlf ~> httpBody) ^^ {
-    case (method, uri, ver) ~ headers ~ body => HTTPRequest(method, uri, ver, headers, body)
+  def http = httpLine ~ (crlf ~> httpHeaders) ~ (crlf ~> opt(httpBody)) ^^ {
+    case (method, uri, ver) ~ headers ~ body => HTTPRequest(method, uri, ver, headers, body getOrElse HTTPBody.empty)
   }
 
   def parse(reader: BinReader): Try[HTTPRequest] = {

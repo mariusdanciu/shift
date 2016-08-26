@@ -9,7 +9,8 @@ object Responses {
     val bd = HTTPBody(msg)
     HTTPResponse(code = 200,
       headers = List(TextHeader("Content-Type", "text/plain; charset=\"UTF-8\""),
-        TextHeader("Content-Length", bd.size.toString)),
+        TextHeader("Content-Length", bd.size.toString),
+        TextHeader("Test", "header")),
       body = bd)
   }
 

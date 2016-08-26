@@ -2,25 +2,23 @@ package net.shift.http
 
 import net.shift.io._
 import java.nio.ByteBuffer
+import scala.util.Try
 
 trait Payload
 
 case class HTTPParam(name: String, value: List[String])
 case class HTTPVer(major: Byte, minor: Byte)
 
-trait HeaderItem {
+sealed trait HeaderItem {
   def name: String
-  def raw: String
+  def headerLine: String
 }
 
 case class TextHeader(name: String, value: String) extends HeaderItem {
-  def raw = s"$name : $value"
+  def headerLine = s"$name: $value"
 }
 
 object Cookie {
-  def apply(name: String, value: String) = new Cookie(name, value, None, None, None, None, false, false)
-  def apply(name: String, value: String, path: String) = new Cookie(name, value, None, Some(path), None, None, false, false)
-
   def fromString(str: String): Seq[Cookie] = {
     ((Nil: List[Cookie]) /: str.split(";"))(
       (acc, e) => e.split("=").toList match {
@@ -30,18 +28,29 @@ object Cookie {
       })
   }
 }
+case class Cookie(cookieName: String, cookieValue: String) extends HeaderItem {
+  def name = "Cookie"
+  def headerLine: String = s"$name: $cookieName=cookieValue"
 
-case class Cookie(name: String,
-                  value: String,
-                  domain: Option[String],
-                  path: Option[String],
-                  maxAge: Option[Long],
-                  version: Option[Int],
-                  secure: Boolean,
-                  httpOnly: Boolean) extends HeaderItem {
+}
 
-  def setName(value: String) = this.copy(name = value)
-  def setValue(value: String) = this.copy(value = value)
+object SetCookie {
+  def apply(name: String, value: String) = new SetCookie(name, value, None, None, None, None, false, false)
+  def apply(name: String, value: String, path: String) = new SetCookie(name, value, None, Some(path), None, None, false, false)
+}
+case class SetCookie(cookieName: String,
+                     cookieValue: String,
+                     domain: Option[String],
+                     path: Option[String],
+                     maxAge: Option[Long],
+                     version: Option[Int],
+                     secure: Boolean,
+                     httpOnly: Boolean) extends HeaderItem {
+
+  def name = "Set-Cookie"
+
+  def setCookieName(value: String) = this.copy(cookieName = value)
+  def setCookieValue(value: String) = this.copy(cookieValue = value)
   def setDomain(value: String) = this.copy(domain = Some(value))
   def setPath(value: String) = this.copy(path = Some(value))
   def setMaxAge(value: Long) = this.copy(maxAge = Some(value))
@@ -49,7 +58,7 @@ case class Cookie(name: String,
   def setSecure(value: Boolean) = this.copy(secure = value)
   def setHttpOnly(value: Boolean) = this.copy(httpOnly = value)
 
-  def raw: String = s"${name}=${value}" +
+  def headerLine: String = s"$name: ${cookieName}=${cookieValue}" +
     domain.map(d => s";Domain=$d").getOrElse("") +
     maxAge.map(d => s";Max-Age=$d").getOrElse("") +
     path.map(d => s";Path=$d").getOrElse("") +
@@ -58,8 +67,8 @@ case class Cookie(name: String,
 }
 
 object HTTPBody {
-
   def apply(body: String) = new HTTPBody(List(ByteBuffer.wrap(body.getBytes("UTF-8"))))
+  def empty = HTTPBody(Nil)
 }
 case class HTTPBody(parts: Seq[ByteBuffer]) extends BinProducer {
   def size = parts.map { _.limit }.sum
@@ -84,16 +93,37 @@ case class HTTPRequest(
 
   def header(name: String): Option[HeaderItem] = headers find { _.name == name }
 
-  def contentLength = header("Content-Length").map {
-    case TextHeader(name, value) => value.trim.toInt
-  } getOrElse -1
+  def stringHeader(name: String): Option[String] = header(name) match {
+    case Some(TextHeader(name, value)) => Some(value.trim)
+    case _                             => None
+  }
+
+  def longHeader(name: String): Option[Long] = header(name) match {
+    case Some(TextHeader(name, value)) => Try(value.trim.toLong).toOption
+    case _                             => None
+  }
+
+  def intHeader(name: String): Option[Int] = header(name) match {
+    case Some(TextHeader(name, value)) => Try(value.trim.toInt).toOption
+    case _                             => None
+  }
+
+  def booleanHeader(name: String): Option[Boolean] = header(name) match {
+    case Some(TextHeader(name, value)) => Try(value.trim.toBoolean).toOption
+    case _                             => None
+  }
+
+  def doubleHeader(name: String): Option[Double] = header(name) match {
+    case Some(TextHeader(name, value)) => Try(value.trim.toDouble).toOption
+    case _                             => None
+  }
 
   lazy val cookies = headers flatMap {
     case c: Cookie => List(c)
     case _         => Nil
   }
 
-  def cookie(name: String) = cookies find (_.name == name)
+  def cookie(name: String) = cookies find (_.cookieName == name)
 }
 
 case class HTTPResponse(code: Int,
@@ -104,14 +134,19 @@ case class HTTPResponse(code: Int,
   def apply[O](it: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = {
 
     val headersStr = headers map {
-      case h => s"${h.raw}\r\n"
+      case h => s"${h.headerLine}\r\n"
     } mkString
 
-    val heads = Data(ByteBuffer.wrap(s"HTTP/1.1 $code $reason\r\n$headersStr\r\n".getBytes("UTF-8")))
+    val header = s"HTTP/1.1 $code $reason\r\n$headersStr\r\n"
+
+    println(header)
+
+    val heads = Data(ByteBuffer.wrap(header.getBytes("UTF-8")))
     val next = it match {
       case Cont(f) => f(heads)
       case r       => r
     }
+
     body(next)
 
   }
