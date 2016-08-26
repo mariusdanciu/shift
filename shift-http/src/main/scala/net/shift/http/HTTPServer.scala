@@ -22,6 +22,11 @@ import net.shift.io.IO
 import java.util.concurrent.Executors
 import net.shift.common.Log
 import org.apache.log4j.BasicConfigurator
+import java.util.logging.Logging
+import java.util.logging.Logging
+import java.util.logging.Logging
+import akka.event.Logging
+import akka.actor.ActorLogging
 
 object Test extends App {
   def serve: HTTPService = {
@@ -60,7 +65,7 @@ class HTTPServer(name: String) extends Log {
 
   @volatile
   private var running = false;
-  val actors: TrieMap[SelectionKey, ActorRef] = new TrieMap[SelectionKey, ActorRef]
+  val state = ServerState(new TrieMap[SelectionKey, ActorRef], new TrieMap[SelectionKey, Payload])
 
   def start(service: HTTPService, port: Int): Future[Unit] = {
     start(service, "*", port)
@@ -90,7 +95,8 @@ class HTTPServer(name: String) extends Log {
         while (keys.hasNext()) {
           val key = keys.next()
           if (!running) {
-            key.attach(null)
+            state.payloads -= key
+            key.channel().close()
             key.cancel()
           } else {
             if (key.isValid()) {
@@ -101,12 +107,12 @@ class HTTPServer(name: String) extends Log {
                   log.info("Accepter new connection from " + client.getRemoteAddress)
 
                   val clientKey = client.register(selector, SelectionKey.OP_READ)
-                  actors.put(clientKey, system.actorOf(Props[ClientActor]))
+                  state.actors.put(clientKey, system.actorOf(Props[ClientActor]))
                 }
               } else if (key.isReadable()) {
-                actors(key) ! Read(key, service)
+                state.actors(key) ! Read(key, state, service)
               } else if (key.isWritable()) {
-                actors(key) ! Write(key)
+                state.actors(key) ! Write(key, state)
               }
             }
             keys.remove()
@@ -127,79 +133,82 @@ class HTTPServer(name: String) extends Log {
 
 }
 
+private[http] case class ServerState(
+  actors: TrieMap[SelectionKey, ActorRef],
+  payloads: TrieMap[SelectionKey, Payload])
+
 trait ServerMessage
 
-case class Read(key: SelectionKey, service: HTTPService) extends ServerMessage
-case class Write(key: SelectionKey) extends ServerMessage
+case class Read(key: SelectionKey, state: ServerState, service: HTTPService) extends ServerMessage
+case class Write(key: SelectionKey, state: ServerState) extends ServerMessage
 
-class ClientActor extends Actor {
+class ClientActor extends Actor with ActorLogging {
 
   def receive = {
-    case Read(key, service) => readChunk(key, service)
-    case Write(key)         => writeResponse(key)
+    case r: Read  => readChunk(r)
+    case w: Write => writeResponse(w)
   }
 
-  private def writeResponse(key: SelectionKey) = {
-    val resp = key.attachment().asInstanceOf[ByteBuffer]
-    if (resp != null) {
-      val client = key.channel().asInstanceOf[SocketChannel]
-      val written = client.write(resp)
-      if (!resp.hasRemaining()) {
-        key.attach(null)
-        key.cancel()
-        client.close()
-        context.stop(self)
-      }
+  private def writeResponse(wr: Write) = {
+    (wr.state.payloads get wr.key) match {
+      case Some(Raw(resp :: Nil)) =>
+        val client = wr.key.channel().asInstanceOf[SocketChannel]
+        val written = client.write(resp)
+        if (!resp.hasRemaining()) {
+          wr.state.payloads -= wr.key
+          wr.key.cancel()
+          client.close()
+          context.stop(self)
+        }
+      case _ => log.error("Cannot handle response")
     }
+
   }
 
-  private def readChunk(key: SelectionKey, service: HTTPService) = {
+  private def readChunk(r: Read) = {
 
-    def checkRequestComplete(bodySize: Long, contentLength: Long, http: HTTPRequest, key: SelectionKey) = {
+    def checkRequestComplete(bodySize: Long, contentLength: Long, http: HTTPRequest) = {
       if (contentLength > bodySize) {
-        key.attach(http)
+        r.state.payloads += (r.key -> http)
       } else {
-        key.attach(null)
-        service(http, resp => {
+        r.state.payloads -= r.key
+        r.service(http, resp => {
           IO.toBuffer(resp) map { arr =>
-            key.attach(arr)
-            key.interestOps(SelectionKey.OP_WRITE)
-            key.selector().wakeup()
+            r.state.payloads += (r.key -> Raw(List(arr)))
+            r.key.interestOps(SelectionKey.OP_WRITE)
+            r.key.selector().wakeup()
           }
         })
       }
     }
 
-    val client = key.channel().asInstanceOf[SocketChannel]
+    val client = r.key.channel().asInstanceOf[SocketChannel]
 
     val buf = ByteBuffer.allocate(512)
     var size = client.read(buf)
 
     if (size > 0) {
       buf.flip()
-      key.attachment() match {
-        case RawExtract(bufs) =>
-          val msgs = bufs ++ List(buf)
-
-          tryParse(msgs) match {
+      (r.state.payloads get r.key) match {
+        case RawExtract(raw) =>
+          val msg = raw + buf
+          tryParse(msg) match {
             case Some(http) =>
-              val sz = http.body.size
-              val cl = http.contentLength
-              checkRequestComplete(sz, cl, http, key)
+              checkRequestComplete(http.body.size, http.contentLength, http)
             case None =>
-              key.attach(msgs)
+              r.state.payloads += (r.key -> msg)
           }
-        case h @ HTTPRequest(m, u, v, hd, body) =>
+        case Some(h @ HTTPRequest(m, u, v, hd, body)) =>
           val newSize = body.size + size
           val cl = h.contentLength
           val msg = HTTPBody(body.parts ++ Seq(buf))
           val req = HTTPRequest(m, u, v, hd, msg)
-          checkRequestComplete(newSize, cl, req, key)
-
+          checkRequestComplete(newSize, cl, req)
       }
+
     } else if (size < 0) {
-      key.attach(null)
-      key.cancel()
+      r.state.payloads -= r.key
+      r.key.cancel()
       client.close()
       context.stop(self)
     }
@@ -222,18 +231,14 @@ class ClientActor extends Actor {
 
 object RawExtract {
 
-  def unapply(t: Any): Option[Raw] =
-    if (t == null)
-      Some(Raw(Nil))
-    else {
-      t match {
-        case r: Raw => Some(Raw(r.buffers))
-        case _      => None
-      }
-    }
+  def unapply(t: Option[Payload]): Option[Raw] = t match {
+    case None           => Some(Raw(Nil))
+    case Some(raw: Raw) => Some(raw)
+    case _              => None
+  }
 }
 
-case class Raw(buffers: List[ByteBuffer]) {
+case class Raw(buffers: List[ByteBuffer]) extends Payload {
   def +(b: ByteBuffer) = Raw(buffers ++ List(b))
   def ++(b: Seq[ByteBuffer]) = Raw(buffers ++ b)
 }

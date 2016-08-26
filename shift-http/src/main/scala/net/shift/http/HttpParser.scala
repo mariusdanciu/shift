@@ -46,9 +46,11 @@ class HttpParser extends ShiftParsers {
         HTTPVer(major, minor))
   }
 
-  def httpHeaders: Parser[List[HTTPHeader]] = rep((notReserved() <~ chr(':')) ~ until(crlf, false)) ^^ {
-    _ map {
-      case name ~ value => HTTPHeader(name, IO.bufferToString(value))
+  def httpHeaders: Parser[Seq[HeaderItem]] = rep((notReserved() <~ chr(':')) ~ until(crlf, false)) ^^ {
+    _ flatMap {
+      case "Cookie" ~ value =>
+        Cookie.fromString(IO.bufferToString(value))
+      case name ~ value => List(TextHeader(name, IO.bufferToString(value)))
     }
   }
 

@@ -8,32 +8,32 @@ object Responses {
   def text(msg: String) = {
     val bd = HTTPBody(msg)
     HTTPResponse(code = 200,
-      headers = List(HTTPHeader("Content-Type", "text/plain; charset=\"UTF-8\""),
-        HTTPHeader("Content-Length", bd.size.toString)),
+      headers = List(TextHeader("Content-Type", "text/plain; charset=\"UTF-8\""),
+        TextHeader("Content-Length", bd.size.toString)),
       body = bd)
   }
 
   def html(msg: String) = {
     val bd = HTTPBody(msg)
     HTTPResponse(code = 200,
-      headers = List(HTTPHeader("Content-Type", "text/html; charset=\"UTF-8\""),
-        HTTPHeader("Content-Length", bd.size.toString)),
+      headers = List(TextHeader("Content-Type", "text/html; charset=\"UTF-8\""),
+        TextHeader("Content-Length", bd.size.toString)),
       body = bd)
   }
 
   def css(msg: String) = {
     val bd = HTTPBody(msg)
     HTTPResponse(code = 200,
-      headers = List(HTTPHeader("Content-Type", "text/css; charset=\"UTF-8\""),
-        HTTPHeader("Content-Length", bd.size.toString)),
+      headers = List(TextHeader("Content-Type", "text/css; charset=\"UTF-8\""),
+        TextHeader("Content-Length", bd.size.toString)),
       body = bd)
   }
 
   def javaScript(msg: String) = {
     val bd = HTTPBody(msg)
     HTTPResponse(code = 200,
-      headers = List(HTTPHeader("Content-Type", "text/javascript; charset=\"UTF-8\""),
-        HTTPHeader("Content-Length", bd.size.toString)),
+      headers = List(TextHeader("Content-Type", "text/javascript; charset=\"UTF-8\""),
+        TextHeader("Content-Length", bd.size.toString)),
       body = bd)
   }
 
@@ -43,13 +43,13 @@ object Responses {
   def accepted = HTTPResponse(code = 201, body = HTTPBody(Nil))
 
   def redirect(location: String) =
-    HTTPResponse(code = 302, headers = List(HTTPHeader("Location", location)), body = HTTPBody(Nil))
+    HTTPResponse(code = 302, headers = List(TextHeader("Location", location)), body = HTTPBody(Nil))
   def notModified = HTTPResponse(code = 304, body = HTTPBody(Nil))
 
   def badRequest = HTTPResponse(code = 400, body = HTTPBody(Nil))
 
   def basicAuthRequired(msg: String, realm: String) =
-    HTTPResponse(code = 401, headers = List(HTTPHeader("WWW-Authenticate", s"""Basic realm="$realm"""")), body = HTTPBody(msg))
+    HTTPResponse(code = 401, headers = List(TextHeader("WWW-Authenticate", s"""Basic realm="$realm"""")), body = HTTPBody(msg))
 
   def paymentRequired = HTTPResponse(code = 402, body = HTTPBody(Nil))
   def forbidden = HTTPResponse(code = 403, body = HTTPBody(Nil))
