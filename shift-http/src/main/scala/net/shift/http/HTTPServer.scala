@@ -65,7 +65,7 @@ class HTTPServer(name: String) extends Log {
 
   @volatile
   private var running = false;
-  val state = ServerState(new TrieMap[SelectionKey, ActorRef], new TrieMap[SelectionKey, Payload])
+  val actors = new TrieMap[SelectionKey, ActorRef]
 
   def start(service: HTTPService, port: Int): Future[Unit] = {
     start(service, "*", port)
@@ -95,7 +95,6 @@ class HTTPServer(name: String) extends Log {
         while (keys.hasNext()) {
           val key = keys.next()
           if (!running) {
-            state.payloads -= key
             key.channel().close()
             key.cancel()
           } else {
@@ -104,15 +103,15 @@ class HTTPServer(name: String) extends Log {
                 val client = serverChannel.accept()
                 if (client != null) {
                   client.configureBlocking(false)
-                  log.info("Accepter new connection from " + client.getRemoteAddress)
+                  log.info("Accepted new connection from " + client.getRemoteAddress)
 
                   val clientKey = client.register(selector, SelectionKey.OP_READ)
-                  state.actors.put(clientKey, system.actorOf(Props[ClientActor]))
+                  actors.put(clientKey, system.actorOf(Props[ClientActor]))
                 }
               } else if (key.isReadable()) {
-                state.actors(key) ! ReadHttp(key, state, service)
+                actors(key) ! ReadHttp(key, service)
               } else if (key.isWritable()) {
-                state.actors(key) ! WriteHttp(key, state)
+                actors(key) ! WriteHttp(key)
               }
             }
             keys.remove()
@@ -139,10 +138,12 @@ private[http] case class ServerState(
 
 trait ServerMessage
 
-case class ReadHttp(key: SelectionKey, state: ServerState, service: HTTPService) extends ServerMessage
-case class WriteHttp(key: SelectionKey, state: ServerState) extends ServerMessage
+case class ReadHttp(key: SelectionKey, service: HTTPService) extends ServerMessage
+case class WriteHttp(key: SelectionKey) extends ServerMessage
 
-class ClientActor extends Actor with ActorLogging {
+class ClientActor() extends Actor with ActorLogging {
+
+  var state: Option[Payload] = None
 
   def receive = {
     case r: ReadHttp  => readChunk(r)
@@ -150,12 +151,12 @@ class ClientActor extends Actor with ActorLogging {
   }
 
   private def writeResponse(wr: WriteHttp) = {
-    (wr.state.payloads get wr.key) match {
+    state match {
       case Some(Raw(resp :: Nil)) =>
         val client = wr.key.channel().asInstanceOf[SocketChannel]
         val written = client.write(resp)
         if (!resp.hasRemaining()) {
-          wr.state.payloads -= wr.key
+          state = None
           wr.key.cancel()
           client.close()
           context.stop(self)
@@ -169,12 +170,12 @@ class ClientActor extends Actor with ActorLogging {
 
     def checkRequestComplete(bodySize: Long, contentLength: Option[Long], http: HTTPRequest) = {
       if (contentLength.getOrElse(-1L) > bodySize) {
-        r.state.payloads += (r.key -> http)
+        state = Some(http)
       } else {
-        r.state.payloads -= r.key
+        state = None
         r.service(http, resp => {
           IO.toBuffer(resp) map { arr =>
-            r.state.payloads += (r.key -> Raw(List(arr)))
+            state = Some(Raw(List(arr)))
             r.key.interestOps(SelectionKey.OP_WRITE)
             r.key.selector().wakeup()
           }
@@ -189,14 +190,14 @@ class ClientActor extends Actor with ActorLogging {
 
     if (size > 0) {
       buf.flip()
-      (r.state.payloads get r.key) match {
+      state match {
         case RawExtract(raw) =>
           val msg = raw + buf
           tryParse(msg) match {
             case Some(http) =>
               checkRequestComplete(http.body.size, http.longHeader("Content-Length"), http)
             case None =>
-              r.state.payloads += (r.key -> msg)
+              state = Some(msg)
           }
         case Some(h @ HTTPRequest(m, u, v, hd, body)) =>
           val newSize = body.size + size
@@ -207,7 +208,7 @@ class ClientActor extends Actor with ActorLogging {
       }
 
     } else if (size < 0) {
-      r.state.payloads -= r.key
+      state = None
       r.key.cancel()
       client.close()
       context.stop(self)
