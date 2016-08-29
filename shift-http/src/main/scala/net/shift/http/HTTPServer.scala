@@ -60,6 +60,8 @@ object HTTPServer {
   def apply() = new HTTPServer(ServerSpecs("Shift-HTTPServer", "0.0.0.0", 8080))
 
   def apply(name: String) = new HTTPServer(ServerSpecs(name, "0.0.0.0", 8080))
+
+  def apply(port: Int) = new HTTPServer(ServerSpecs("Shift-HTTPServer", "0.0.0.0", port))
 }
 
 case class HTTPServer(specs: ServerSpecs) extends Log {
@@ -156,10 +158,6 @@ class ServerActor extends Actor with ActorLogging {
   }
 }
 
-private[http] case class ServerState(
-  actors: TrieMap[SelectionKey, ActorRef],
-  payloads: TrieMap[SelectionKey, Payload])
-
 trait ServerMessage
 
 case class ReadHttp(key: SelectionKey, service: HTTPService) extends ServerMessage
@@ -169,8 +167,9 @@ case class ClientConnect(key: SelectionKey) extends ServerMessage
 
 class ClientActor() extends Actor with ActorLogging {
 
-  var state: Option[Payload] = None
-  var response: Option[BinProducer] = None
+  var readState: Option[Payload] = None
+  var writeState: Option[ByteBuffer] = None
+
   var keepAlive: Boolean = false
 
   val responseIteratee: Iteratee[ByteBuffer, Unit] = Cont {
@@ -183,18 +182,31 @@ class ClientActor() extends Actor with ActorLogging {
     case w: WriteHttp => writeResponse(w)
   }
 
+  private def drain(client: SocketChannel, buffer: ByteBuffer): ByteBuffer = {
+    var written = client.write(buffer)
+    while (written > 0 && buffer.hasRemaining()) {
+      written = client.write(buffer)
+    }
+    buffer
+  }
+
+  private def handleResponseSent(key: SelectionKey) = {
+    writeState = None
+    if (!keepAlive) {
+      sender ! ClientTerminate(key)
+    } else {
+      key.interestOps(SelectionKey.OP_READ)
+    }
+  }
+
   private def writeResponse(wr: WriteHttp) = {
-    state match {
-      case Some(Raw(resp :: Nil)) =>
+    writeState match {
+      case Some(resp) =>
         val client = wr.key.channel().asInstanceOf[SocketChannel]
-        val written = client.write(resp)
+        val buf = drain(client, resp)
+
         if (!resp.hasRemaining()) {
-          state = None
-          if (!keepAlive) {
-            sender ! ClientTerminate(wr.key)
-          } else {
-            wr.key.interestOps(SelectionKey.OP_READ)
-          }
+          handleResponseSent(wr.key)
         }
       case _ =>
     }
@@ -205,15 +217,22 @@ class ClientActor() extends Actor with ActorLogging {
 
     def checkRequestComplete(bodySize: Long, contentLength: Option[Long], http: HTTPRequest) = {
       if (contentLength.getOrElse(-1L) > bodySize) {
-        state = Some(http)
+        readState = Some(http)
       } else {
-        state = None
-        keepAlive = http.stringHeader("Connection").map { _ == "keep-alive" } getOrElse false
+        readState = None
+        keepAlive = http.stringHeader("Connection").map { _ == "keep-alive" } getOrElse true
         r.service(http, resp => {
           IO.toBuffer(resp) map { arr =>
-            state = Some(Raw(List(arr)))
-            r.key.interestOps(SelectionKey.OP_WRITE)
-            r.key.selector().wakeup()
+            val client = r.key.channel().asInstanceOf[SocketChannel]
+            val buf = drain(client, arr)
+
+            if (buf.hasRemaining()) {
+              writeState = Some(buf)
+              r.key.interestOps(SelectionKey.OP_WRITE)
+              r.key.selector().wakeup()
+            } else {
+              handleResponseSent(r.key)
+            }
           }
         })
       }
@@ -226,14 +245,14 @@ class ClientActor() extends Actor with ActorLogging {
 
     if (size > 0) {
       buf.flip()
-      state match {
+      readState match {
         case RawExtract(raw) =>
           val msg = raw + buf
           tryParse(msg) match {
             case Some(http) =>
               checkRequestComplete(http.body.size, http.longHeader("Content-Length"), http)
             case None =>
-              state = Some(msg)
+              readState = Some(msg)
           }
         case Some(h @ HTTPRequest(m, u, v, hd, body)) =>
           val newSize = body.size + size
@@ -244,7 +263,7 @@ class ClientActor() extends Actor with ActorLogging {
       }
 
     } else if (size < 0) {
-      state = None
+      readState = None
       sender ! ClientTerminate(r.key)
     }
   }

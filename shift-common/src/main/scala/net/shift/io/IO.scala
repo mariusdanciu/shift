@@ -25,10 +25,8 @@ object IODefaults {
 
 object IO extends App {
 
-  def close(c: Closeable) = try {
+  def close(c: Closeable) = Try {
     c.close
-  } catch {
-    case e: Exception =>
   }
 
   def failover[I, O](f: => Iteratee[I, O]): Iteratee[I, O] =
@@ -119,7 +117,7 @@ object IO extends App {
 
         val fc = new FileInputStream(path.toString).getChannel
         val it = failover(loop(ait, fc))
-        fc.close()
+        close(fc)
         it
       }
 
