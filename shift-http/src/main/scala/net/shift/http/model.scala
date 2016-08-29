@@ -139,8 +139,6 @@ case class HTTPResponse(code: Int,
 
     val header = s"HTTP/1.1 $code $reason\r\n$headersStr\r\n"
 
-    println(header)
-
     val heads = Data(ByteBuffer.wrap(header.getBytes("UTF-8")))
     val next = it match {
       case Cont(f) => f(heads)

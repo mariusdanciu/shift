@@ -27,6 +27,12 @@ import java.util.logging.Logging
 import java.util.logging.Logging
 import akka.event.Logging
 import akka.actor.ActorLogging
+import akka.actor.PoisonPill
+import net.shift.io.Cont
+import net.shift.io.Data
+import net.shift.io._
+import net.shift.io.EOF
+import net.shift.io.Done
 
 object Test extends App {
   def serve: HTTPService = {
@@ -46,36 +52,34 @@ object Test extends App {
     //srv.stop
   }
 
-  srv.start(serve, 8080)
+  srv.start(serve)
 }
 
 object HTTPServer {
 
-  def apply() = new HTTPServer("Shift-HTTPServer")
+  def apply() = new HTTPServer(ServerSpecs("Shift-HTTPServer", "0.0.0.0", 8080))
 
-  def apply(name: String) = new HTTPServer(name)
+  def apply(name: String) = new HTTPServer(ServerSpecs(name, "0.0.0.0", 8080))
 }
 
-class HTTPServer(name: String) extends Log {
+case class HTTPServer(specs: ServerSpecs) extends Log {
 
   protected[http] val system = ActorSystem("HTTPServer")
-  val selector = Selector.open
 
-  def loggerName = name
+  private lazy val serverActor = system.actorOf(Props[ServerActor])
+
+  private val selector = Selector.open
+
+  def loggerName = specs.name
 
   @volatile
   private var running = false;
-  val actors = new TrieMap[SelectionKey, ActorRef]
 
-  def start(service: HTTPService, port: Int): Future[Unit] = {
-    start(service, "*", port)
-  }
-
-  def start(service: HTTPService, interface: String, port: Int): Future[Unit] = {
+  def start(service: HTTPService): Future[Unit] = {
 
     val serverChannel = ServerSocketChannel.open()
     serverChannel.configureBlocking(false)
-    val address = new InetSocketAddress(port)
+    val address = new InetSocketAddress(specs.address, specs.port)
     serverChannel.bind(address)
     log.info("Server bound to " + address)
 
@@ -106,12 +110,12 @@ class HTTPServer(name: String) extends Log {
                   log.info("Accepted new connection from " + client.getRemoteAddress)
 
                   val clientKey = client.register(selector, SelectionKey.OP_READ)
-                  actors.put(clientKey, system.actorOf(Props[ClientActor]))
+                  serverActor ! ClientConnect(clientKey)
                 }
               } else if (key.isReadable()) {
-                actors(key) ! ReadHttp(key, service)
+                serverActor ! ReadHttp(key, service)
               } else if (key.isWritable()) {
-                actors(key) ! WriteHttp(key)
+                serverActor ! WriteHttp(key)
               }
             }
             keys.remove()
@@ -132,6 +136,26 @@ class HTTPServer(name: String) extends Log {
 
 }
 
+class ServerActor extends Actor with ActorLogging {
+  private val actors = new TrieMap[SelectionKey, ActorRef]
+
+  def receive = {
+    case ClientConnect(key) =>
+      val clientActor = context.actorOf(Props[ClientActor])
+      actors.put(key, clientActor)
+    case ClientTerminate(key) =>
+      log.info("Client terminated")
+      key.cancel()
+      actors -= key
+      sender ! PoisonPill
+      key.channel().asInstanceOf[SocketChannel].close()
+
+    case r: ReadHttp  => actors.get(r.key) map (_ ! r)
+    case w: WriteHttp => actors.get(w.key) map (_ ! w)
+
+  }
+}
+
 private[http] case class ServerState(
   actors: TrieMap[SelectionKey, ActorRef],
   payloads: TrieMap[SelectionKey, Payload])
@@ -140,10 +164,19 @@ trait ServerMessage
 
 case class ReadHttp(key: SelectionKey, service: HTTPService) extends ServerMessage
 case class WriteHttp(key: SelectionKey) extends ServerMessage
+case class ClientTerminate(key: SelectionKey) extends ServerMessage
+case class ClientConnect(key: SelectionKey) extends ServerMessage
 
 class ClientActor() extends Actor with ActorLogging {
 
   var state: Option[Payload] = None
+  var response: Option[BinProducer] = None
+  var keepAlive: Boolean = false
+
+  val responseIteratee: Iteratee[ByteBuffer, Unit] = Cont {
+    case Data(d) => responseIteratee
+    case EOF     => Done((), EOF)
+  }
 
   def receive = {
     case r: ReadHttp  => readChunk(r)
@@ -157,11 +190,13 @@ class ClientActor() extends Actor with ActorLogging {
         val written = client.write(resp)
         if (!resp.hasRemaining()) {
           state = None
-          wr.key.cancel()
-          client.close()
-          context.stop(self)
+          if (!keepAlive) {
+            sender ! ClientTerminate(wr.key)
+          } else {
+            wr.key.interestOps(SelectionKey.OP_READ)
+          }
         }
-      case _ => log.error("Cannot handle response")
+      case _ =>
     }
 
   }
@@ -173,6 +208,7 @@ class ClientActor() extends Actor with ActorLogging {
         state = Some(http)
       } else {
         state = None
+        keepAlive = http.stringHeader("Connection").map { _ == "keep-alive" } getOrElse false
         r.service(http, resp => {
           IO.toBuffer(resp) map { arr =>
             state = Some(Raw(List(arr)))
@@ -209,9 +245,7 @@ class ClientActor() extends Actor with ActorLogging {
 
     } else if (size < 0) {
       state = None
-      r.key.cancel()
-      client.close()
-      context.stop(self)
+      sender ! ClientTerminate(r.key)
     }
   }
 
@@ -242,3 +276,6 @@ case class Raw(buffers: List[ByteBuffer]) extends Payload {
   def ++(b: Seq[ByteBuffer]) = Raw(buffers ++ b)
 }
 
+case class ServerSpecs(name: String,
+                       address: String,
+                       port: Int)
