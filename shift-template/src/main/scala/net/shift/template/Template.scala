@@ -85,19 +85,22 @@ class Template {
             val (st, content, rest) = exec(state, tail)
             (st, s + content, rest)
           case InlineRef(name, params) :: tail =>
-            lazy val (st, content, rest) = exec(state, tail)
-            snippets.inlinesMap.get(name) match {
+            val (st, out) = snippets.inlinesMap.get(name) match {
               case Some(inl) =>
                 (for {
-                  (_, s) <- inl(InlineState(state, params))
+                  (InlineState(oageState, _), s) <- inl(InlineState(state, params))
                 } yield {
-                  (st, s + content, rest)
+                  (oageState, s)
                 }).recover {
-                  case t => (st, s"ERROR : Failed to run inline $name: $t" + content, rest)
+                  case t => (state, s"ERROR : Failed to run inline $name: $t")
                 } get
 
-              case _ => (state, s"ERROR: Inline '$name' was not found.\n" + content, rest)
+              case _ => (state, s"ERROR: Inline '$name' was not found.\n")
             }
+
+            val (nst, content, rest) = exec(st, tail)
+
+            (nst, out + content, rest)
           case SnipStart(name, params) :: tail =>
             val (st, content, next) = exec(state, tail)
 
