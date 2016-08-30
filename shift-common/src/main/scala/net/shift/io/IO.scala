@@ -86,6 +86,36 @@ object IO extends App {
 
   def htmlProducer(s: NodeSeq): Try[BinProducer] = Try(stringProducer("<!DOCTYPE html>\n" + mkString(s)))
 
+  def segmentable(other: BinProducer): BinProducer = {
+    new BinProducer {
+
+      var next: Option[In[ByteBuffer]] = None
+
+      def apply[O](it: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = {
+
+        @tailrec
+        def handle(it: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = {
+          it match {
+            case d @ Done(out, data @ Data(rest)) =>
+              next = Some(data)
+              d
+            case c @ Cont(f) => handle(other(c))
+            case e           => e
+          }
+        }
+
+        next match {
+          case Some(data) => it match {
+            case Cont(f) => handle(f(data))
+            case d       => d
+          }
+          case _ => handle(other(it))
+        }
+
+      }
+    }
+  }
+
   def fileProducer(path: Path, bufSize: Int = 32768): Try[BinProducer] = Try {
 
     new BinProducer {
