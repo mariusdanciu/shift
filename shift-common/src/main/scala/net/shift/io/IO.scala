@@ -90,6 +90,8 @@ object IO extends App {
 
     new BinProducer {
 
+      lazy val fc = new FileInputStream(path.toString).getChannel
+
       def apply[O](ait: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = {
 
         @tailrec
@@ -108,6 +110,7 @@ object IO extends App {
               case r       => r
             }
           } else {
+            close(fc)
             it match {
               case Cont(f) => f(EOF)
               case r       => r
@@ -115,10 +118,7 @@ object IO extends App {
           }
         }
 
-        val fc = new FileInputStream(path.toString).getChannel
-        val it = failover(loop(ait, fc))
-        close(fc)
-        it
+        failover(loop(ait, fc))
       }
 
     }
@@ -138,17 +138,13 @@ object IO extends App {
             var r = in.read(buf);
             val bf = ByteBuffer.wrap(buf, 0, r)
 
-            if (r > -1)
+            if (r != -1)
               walk(f(Data(bf)))
             else {
               close(in)
               walk(f(EOF))
             }
-          case e @ Error(t) =>
-            close(in)
-            e
-          case done @ Done(v, rest) =>
-            done
+          case e => e
         }
       }
 
