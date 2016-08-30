@@ -86,9 +86,41 @@ object IO extends App {
 
   def htmlProducer(s: NodeSeq): Try[BinProducer] = Try(stringProducer("<!DOCTYPE html>\n" + mkString(s)))
 
+  def segmentable(other: BinProducer): BinProducer = {
+    new BinProducer {
+
+      var next: Option[In[ByteBuffer]] = None
+
+      def apply[O](it: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = {
+
+        @tailrec
+        def handle(it: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = {
+          it match {
+            case d @ Done(out, data @ Data(rest)) =>
+              next = Some(data)
+              d
+            case c @ Cont(f) => handle(other(c))
+            case e           => e
+          }
+        }
+
+        next match {
+          case Some(data) => it match {
+            case Cont(f) => handle(f(data))
+            case d       => d
+          }
+          case _ => handle(other(it))
+        }
+
+      }
+    }
+  }
+
   def fileProducer(path: Path, bufSize: Int = 32768): Try[BinProducer] = Try {
 
     new BinProducer {
+
+      lazy val fc = new FileInputStream(path.toString).getChannel
 
       def apply[O](ait: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = {
 
@@ -108,6 +140,7 @@ object IO extends App {
               case r       => r
             }
           } else {
+            close(fc)
             it match {
               case Cont(f) => f(EOF)
               case r       => r
@@ -115,10 +148,7 @@ object IO extends App {
           }
         }
 
-        val fc = new FileInputStream(path.toString).getChannel
-        val it = failover(loop(ait, fc))
-        close(fc)
-        it
+        failover(loop(ait, fc))
       }
 
     }
@@ -138,17 +168,13 @@ object IO extends App {
             var r = in.read(buf);
             val bf = ByteBuffer.wrap(buf, 0, r)
 
-            if (r > -1)
+            if (r != -1)
               walk(f(Data(bf)))
             else {
               close(in)
               walk(f(EOF))
             }
-          case e @ Error(t) =>
-            close(in)
-            e
-          case done @ Done(v, rest) =>
-            done
+          case e => e
         }
       }
 
