@@ -6,34 +6,24 @@ import java.nio.channels.SelectionKey
 import java.nio.channels.Selector
 import java.nio.channels.ServerSocketChannel
 import java.nio.channels.SocketChannel
+import java.util.concurrent.Executors
+
+import scala.annotation.tailrec
 import scala.collection.JavaConverters._
-import scala.collection.concurrent.TrieMap
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
-import scala.util.Failure
-import scala.util.Success
 import scala.util.Try
-import akka.actor.Actor
+
+import org.apache.log4j.BasicConfigurator
+
+import Selections._
+import akka.actor.ActorLogging
 import akka.actor.ActorRef
 import akka.actor.ActorSystem
 import akka.actor.Props
-import net.shift.common.BinReader
-import net.shift.io.IO
-import java.util.concurrent.Executors
 import net.shift.common.Log
-import org.apache.log4j.BasicConfigurator
-import java.util.logging.Logging
-import java.util.logging.Logging
-import java.util.logging.Logging
-import akka.event.Logging
-import akka.actor.ActorLogging
-import akka.actor.PoisonPill
-import net.shift.io.Cont
-import net.shift.io.Data
 import net.shift.io._
-import net.shift.io.EOF
-import net.shift.io.Done
-import Selections._
+import net.shift.io.IO
 
 object Test extends App {
   def serve: HTTPService = {
@@ -73,6 +63,8 @@ case class HTTPServer(specs: ServerSpecs) extends Log {
 
   private val selector = Selector.open
 
+  implicit val ctx = ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(1))
+
   def loggerName = specs.name
 
   @volatile
@@ -80,20 +72,9 @@ case class HTTPServer(specs: ServerSpecs) extends Log {
 
   def start(service: HTTPService): Future[Unit] = {
 
-    val serverChannel = ServerSocketChannel.open()
-    serverChannel.configureBlocking(false)
-    val address = new InetSocketAddress(specs.address, specs.port)
-    serverChannel.bind(address)
-    log.info("Server bound to " + address)
-
-    serverChannel.register(selector, SelectionKey.OP_ACCEPT, null)
-
-    running = true
-
-    implicit val ctx = ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(1))
-
-    Future {
-      while (running) {
+    @tailrec
+    def loop(serverChannel: ServerSocketChannel) {
+      if (running) {
 
         val r = selector.select()
 
@@ -125,11 +106,30 @@ case class HTTPServer(specs: ServerSpecs) extends Log {
             keys.remove()
           }
         }
+        loop(serverChannel)
       }
-      log.info("Shutting down server")
-      serverChannel.close()
-      system.shutdown()
-      ctx.shutdown()
+    }
+
+    val serverChannel = ServerSocketChannel.open()
+    serverChannel.configureBlocking(false)
+    val address = new InetSocketAddress(specs.address, specs.port)
+    serverChannel.bind(address)
+    log.info("Server bound to " + address)
+
+    serverChannel.register(selector, SelectionKey.OP_ACCEPT, null)
+
+    running = true
+
+    val listen = Future {
+      loop(serverChannel)
+    }
+
+    listen.map {
+      case _ =>
+        log.info("Shutting down server")
+        serverChannel.close()
+        system.shutdown()
+        ctx.shutdown()
     }
   }
 
