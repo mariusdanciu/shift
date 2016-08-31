@@ -23,7 +23,122 @@ object IODefaults {
   implicit val fs: FileSystem = LocalFileSystem
 }
 
-object IO extends App {
+object IOTest extends App {
+
+  val b1 = ByteBuffer.allocate(6)
+  b1.put(1 toByte)
+  b1.put(2 toByte)
+  b1.put(3 toByte)
+  b1.put(4 toByte)
+  b1.put(5 toByte)
+  b1.put(6 toByte)
+
+  val b2 = ByteBuffer.allocate(6)
+  b2.put(7 toByte)
+  b2.put(8 toByte)
+  b2.put(9 toByte)
+  b2.put(10 toByte)
+  b2.put(11 toByte)
+  b2.put(12 toByte)
+
+  b1.flip
+  b2.flip
+
+  import IO._
+  /* val prod = segmentable(fromChunks(List(b1, b2)))
+
+  prod(Cont {
+    case Data(buf) =>
+      println("Chunk 1")
+      println(buf.get())
+      println(buf.get())
+      println(buf.get())
+      Done(buf, Data(buf))
+  })
+
+  prod(Cont {
+    case Data(buf) =>
+      println("Chunk 2")
+      println(buf.get())
+      println(buf.get())
+      Done(buf, Data(buf))
+  })
+
+  prod(Cont {
+    case Data(buf) =>
+      println("Chunk 3")
+      println(buf.get())
+      Done(buf, Data(buf))
+  })
+
+  prod(Cont {
+    case Data(buf) =>
+      println("Chunk 4")
+      println(buf.get())
+      println(buf.get())
+      println(buf.get())
+      println(buf.get())
+      Done(buf, Data(buf))
+  })
+  prod(Cont {
+    case Data(buf) =>
+      println("Chunk 5")
+      println(buf.get())
+      println(buf.get())
+      Done(buf, Data(buf))
+  })
+*/
+  val k = for { fp <- fileProducer(Path("./build.sbt"), 10) } yield {
+    val p = segmentable(fp)
+
+    p(Cont {
+      case Data(buf) =>
+        println("Chunk 1 " + buf)
+        print(buf.get().toChar)
+        print(buf.get().toChar)
+        print(buf.get().toChar)
+        println()
+        Done(buf, Data(buf))
+    })
+
+    p(Cont {
+      case Data(buf) =>
+        println("Chunk 2 " + buf)
+        print(buf.get().toChar)
+        print(buf.get().toChar)
+        print(buf.get().toChar)
+        print(buf.get().toChar)
+        print(buf.get().toChar)
+        print(buf.get().toChar)
+        print(buf.get().toChar)
+        println()
+        Done(buf, Data(buf))
+    })
+    p(Cont {
+      case Data(buf) =>
+        println("Chunk 3 " + buf)
+        print(buf.get().toChar)
+        print(buf.get().toChar)
+        print(buf.get().toChar)
+        print(buf.get().toChar)
+        print(buf.get().toChar)
+        print(buf.get().toChar)
+        print(buf.get().toChar)
+        print(buf.get().toChar)
+        print(buf.get().toChar)
+        print(buf.get().toChar)
+        println()
+        Done(buf, Data(buf))
+    })
+
+    // println(IO.toString(p))
+  }
+
+  println(k)
+
+}
+
+object IO {
 
   def close(c: Closeable) = Try {
     c.close
@@ -38,13 +153,23 @@ object IO extends App {
 
   def fromChunks[O](in: Seq[ByteBuffer]): BinProducer = {
     val data = (in map { d => Data(d) }) ++ List(EOF)
+
     new BinProducer {
+      var rest = data
 
       def apply[O](it: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = {
-        (it /: data) {
-          case (Cont(f), e) => f(e)
-          case (r, _)       => r
+
+        def run(it: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = {
+          (rest, it) match {
+            case (head :: tail, Cont(f)) =>
+              val ni = f(head)
+              rest = tail
+              run(ni)
+            case (_, r) => r
+          }
         }
+
+        run(it)
       }
     }
   }
@@ -95,22 +220,25 @@ object IO extends App {
 
         @tailrec
         def handle(it: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = {
+
           it match {
-            case d @ Done(out, data @ Data(rest)) =>
+            case c @ Cont(f) =>
+              next match {
+                case Some(d @ Data(buf)) if (buf.hasRemaining) =>
+                  handle(f(d))
+                case _ =>
+                  handle(other(it))
+              }
+            case d @ Done(out, data @ Data(rest)) if (rest.hasRemaining()) =>
               next = Some(data)
               d
-            case c @ Cont(f) => handle(other(c))
-            case e           => e
+            case e =>
+              next = None
+              e
           }
         }
 
-        next match {
-          case Some(data) => it match {
-            case Cont(f) => handle(f(data))
-            case d       => d
-          }
-          case _ => handle(other(it))
-        }
+        handle(it)
 
       }
     }
@@ -126,25 +254,27 @@ object IO extends App {
 
         @tailrec
         def loop(it: Iteratee[ByteBuffer, O], fc: FileChannel): Iteratee[ByteBuffer, O] = {
-          val b = ByteBuffer.allocate(bufSize)
-          val read = fc.read(b)
+          it match {
+            case Cont(f) =>
 
-          if (read != -1) {
-            b.flip
-            val chunk = ByteBuffer.allocate(read)
-            chunk.put(b)
-            chunk.flip
+              val b = ByteBuffer.allocate(bufSize)
+              val read = fc.read(b)
 
-            it match {
-              case Cont(f) => loop(f(Data(chunk)), fc)
-              case r       => r
-            }
-          } else {
-            close(fc)
-            it match {
-              case Cont(f) => f(EOF)
-              case r       => r
-            }
+              if (read != -1) {
+                b.flip
+                val chunk = ByteBuffer.allocate(read)
+                chunk.put(b)
+                chunk.flip
+
+                loop(f(Data(chunk)), fc)
+              } else {
+                close(fc)
+                it match {
+                  case Cont(f) => f(EOF)
+                  case r       => r
+                }
+              }
+            case r => r
           }
         }
 
