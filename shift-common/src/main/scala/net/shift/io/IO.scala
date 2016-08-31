@@ -151,6 +151,15 @@ object IO {
 
   def fromArray[O](in: ByteBuffer): BinProducer = fromChunks(List(in))
 
+  @tailrec
+  def feed[O](f: () => In[ByteBuffer], it: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = {
+    val data = f()
+    (data, it) match {
+      case (d, Cont(c)) => feed(f, c(d))
+      case (_, i)       => i
+    }
+  }
+
   def fromChunks[O](in: Seq[ByteBuffer]): BinProducer = {
     val data = (in map { d => Data(d) }) ++ List(EOF)
 

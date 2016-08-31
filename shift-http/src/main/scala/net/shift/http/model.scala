@@ -1,8 +1,10 @@
 package net.shift.http
 
-import net.shift.io._
 import java.nio.ByteBuffer
+
 import scala.util.Try
+
+import net.shift.io._
 
 trait Payload
 
@@ -129,24 +131,43 @@ case class HTTPRequest(
 case class HTTPResponse(code: Int,
                         reason: String = "OK",
                         headers: List[HeaderItem] = Nil,
-                        body: BinProducer) extends BinProducer with Payload {
+                        body: BinProducer) extends Payload {
 
-  def apply[O](it: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = {
+  def asBinProducer: BinProducer = new BinProducer {
 
-    val headersStr = headers map {
-      case h => s"${h.headerLine}\r\n"
-    } mkString
+    var sendOnlyBody: Boolean = false;
 
-    val header = s"HTTP/1.1 $code $reason\r\n$headersStr\r\n"
+    def headerBuffer = {
+      val headersStr = headers map {
+        case h => s"${h.headerLine}\r\n"
+      } mkString
 
-    val heads = Data(ByteBuffer.wrap(header.getBytes("UTF-8")))
-    val next = it match {
-      case Cont(f) => f(heads)
-      case r       => r
+      val header = s"HTTP/1.1 $code $reason\r\n$headersStr\r\n"
+
+      Data(ByteBuffer.wrap(header.getBytes("UTF-8")))
     }
 
-    body(next)
+    def apply[O](it: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = {
 
+      if (sendOnlyBody) {
+        val r = body(it)
+        sendOnlyBody = false;
+        r
+      } else {
+        val next = it match {
+          case Cont(f) => f(headerBuffer)
+          case r       => r
+        }
+
+        next match {
+          case Cont(_)      => body(next)
+          case e @ Error(t) => e
+          case r =>
+            sendOnlyBody = true
+            r
+        }
+      }
+    }
   }
 }
 
