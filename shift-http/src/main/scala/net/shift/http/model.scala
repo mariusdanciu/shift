@@ -91,7 +91,7 @@ case class HTTPRequest(
     uri: HTTPUri,
     version: HTTPVer,
     headers: Seq[HeaderItem],
-    body: HTTPBody) extends Payload {
+    body: BinProducer) extends Payload {
 
   def header(name: String): Option[HeaderItem] = headers find { _.name == name }
 

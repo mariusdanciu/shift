@@ -143,15 +143,20 @@ class ClientActor() extends Actor with ActorLogging {
         case RawExtract(raw) =>
           val msg = raw + buf
           tryParse(msg) match {
-            case Some(http) =>
-              checkRequestComplete(http.body.size, http.longHeader("Content-Length"), http)
+            case Some(http @ HTTPRequest(m, u, v, hd, body @ HTTPBody(seq))) =>
+              checkRequestComplete(body.size, http.longHeader("Content-Length"), http)
             case None =>
               readState = Some(msg)
+            case _ =>
+              log.error("Cannot read request")
+              readState = None
+              sender ! ClientTerminate(r.key)
+
           }
-        case Some(h @ HTTPRequest(m, u, v, hd, body)) =>
+        case Some(h @ HTTPRequest(m, u, v, hd, body @ HTTPBody(seq))) =>
           val newSize = body.size + size
           val cl = h.longHeader("Content-Length")
-          val msg = HTTPBody(body.parts ++ Seq(buf))
+          val msg = HTTPBody(seq ++ Seq(buf))
           val req = HTTPRequest(m, u, v, hd, msg)
           checkRequestComplete(newSize, cl, req)
       }
