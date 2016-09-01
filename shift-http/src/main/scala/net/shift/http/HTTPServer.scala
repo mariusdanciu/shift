@@ -29,7 +29,7 @@ object Test extends App {
   def serve: HTTPService = {
     case (req, f) =>
       println(req)
-      println(IO.toString(req.body))
+      println(IO.producerToString(req.body))
       f(Responses.text("Some response"))
   }
 

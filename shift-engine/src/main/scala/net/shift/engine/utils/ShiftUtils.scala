@@ -37,7 +37,7 @@ object ShiftUtils {
           val FileSplit(name, ext) = p.last
           val r = if (ext == "css") new CSSResponse(input)
           else if (imageExtensions.contains(ext)) new ImageResponse(input, "image/" + ext)
-          else if (ext == "svg") new ImageResponse(input, "image/" + ext + "+xml")
+          else if (ext == "svg") new ImageResponse(input, "image/svg+xml")
           else if (ext == "js") new JsResponse(input)
           else if (ext == "html") HtmlStaticResponse(input)
           else TextResponse(input)

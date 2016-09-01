@@ -1,25 +1,28 @@
 package net.shift
 package http
 
-import scala.collection.concurrent.TrieMap
-import akka.actor.Props
-import akka.actor.ActorLogging
-import akka.actor.PoisonPill
-import akka.actor.Actor
-import java.nio.channels.SocketChannel
-import java.nio.channels.SelectionKey
-import akka.actor.ActorRef
-import net.shift.io.Iteratee
-import net.shift.common.BinReader
-import net.shift.io.EOF
 import java.nio.ByteBuffer
-import net.shift.io.Done
+import java.nio.channels.SelectionKey
+import java.nio.channels.SocketChannel
+import scala.collection.concurrent.TrieMap
 import scala.util.Failure
-import net.shift.io.Cont
-import net.shift.io.IO
 import scala.util.Success
-import net.shift.io.Data
 import Selections._
+import akka.actor.Actor
+import akka.actor.ActorLogging
+import akka.actor.ActorRef
+import akka.actor.PoisonPill
+import akka.actor.Props
+import net.shift.common.BinReader
+import net.shift.io.Cont
+import net.shift.io.Data
+import net.shift.io.Done
+import net.shift.io.EOF
+import net.shift.io.IO
+import net.shift.io.In
+import net.shift.io.Iteratee
+import java.io.IOException
+import net.shift.io.BinProducer
 
 class ServerActor extends Actor with ActorLogging {
   private val actors = new TrieMap[SelectionKey, ActorRef]
@@ -44,7 +47,7 @@ class ServerActor extends Actor with ActorLogging {
 class ClientActor() extends Actor with ActorLogging {
 
   var readState: Option[Payload] = None
-  var writeState: Option[ByteBuffer] = None
+  var writeState: Option[BinProducer] = None
 
   var keepAlive: Boolean = false
 
@@ -58,12 +61,12 @@ class ClientActor() extends Actor with ActorLogging {
     case w: WriteHttp => writeResponse(w)
   }
 
-  private def drain(client: SocketChannel, buffer: ByteBuffer): ByteBuffer = {
+  private def drain(client: SocketChannel, buffer: ByteBuffer): (Int, ByteBuffer) = {
     var written = client.write(buffer)
     while (written > 0 && buffer.hasRemaining()) {
       written = client.write(buffer)
     }
-    buffer
+    (written, buffer)
   }
 
   private def handleResponseSent(key: SelectionKey) = {
@@ -72,26 +75,45 @@ class ClientActor() extends Actor with ActorLogging {
       sender ! ClientTerminate(key)
     } else {
       selectForRead(key)
-
     }
   }
 
   private def writeResponse(wr: WriteHttp) = {
     writeState match {
-      case Some(resp) =>
+      case Some(prod) =>
         val client = wr.key.channel().asInstanceOf[SocketChannel]
-        val buf = drain(client, resp)
-
-        if (!resp.hasRemaining()) {
-          handleResponseSent(wr.key)
-        } else {
-          selectForWrite(wr.key)
+        send(wr.key, prod) match {
+          case Done(_, EOF) =>
+            handleResponseSent(wr.key)
+          case _ => selectForWrite(wr.key)
         }
+
       case _ =>
     }
 
   }
 
+  private def send(key: SelectionKey, prod: BinProducer): Iteratee[ByteBuffer, Unit] = {
+    lazy val cont: Iteratee[ByteBuffer, Unit] = Cont {
+      case Data(d) =>
+        val client = key.channel().asInstanceOf[SocketChannel]
+        drain(client, d) match {
+          case (0, buf) =>
+            writeState = Some(prod)
+            selectForWrite(key)
+            key.selector().wakeup()
+            Done((), Data(d))
+          case (-1, _) =>
+            sender ! ClientTerminate(key)
+            net.shift.io.Error(new IOException("Cannot write response"))
+          case (_, buf) => cont
+        }
+      case EOF =>
+        selectForRead(key)
+        Done((), EOF)
+    }
+    prod(cont)
+  }
   private def readChunk(r: ReadHttp) = {
 
     def checkRequestComplete(bodySize: Long, contentLength: Option[Long], http: HTTPRequest) = {
@@ -101,17 +123,10 @@ class ClientActor() extends Actor with ActorLogging {
         readState = None
         keepAlive = http.stringHeader("Connection").map { _ == "keep-alive" } getOrElse true
         r.service(http, resp => {
-          IO.toBuffer(resp) map { arr =>
-            val client = r.key.channel().asInstanceOf[SocketChannel]
-            val buf = drain(client, arr)
-
-            if (buf.hasRemaining()) {
-              writeState = Some(buf)
-              selectForWrite(r.key)
-              r.key.selector().wakeup()
-            } else {
+          send(r.key, IO.segmentable(resp.asBinProducer)) match {
+            case Done(_, EOF) =>
               handleResponseSent(r.key)
-            }
+            case _ =>
           }
         })
       }

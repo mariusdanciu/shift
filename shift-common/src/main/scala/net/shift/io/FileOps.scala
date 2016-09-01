@@ -28,6 +28,7 @@ trait FileSystem {
   def writer(p: Path): Iteratee[ByteBuffer, Path]
   def reader(p: Path, bufSize: Int = 32768): Try[BinProducer]
   def lastModified(p: Path): Try[Long]
+  def fileSize(p: Path): Try[Long]
 }
 
 object LocalFileSystem extends FileSystem {
@@ -97,10 +98,13 @@ object LocalFileSystem extends FileSystem {
       p
     }
   }
+  def fileSize(p: Path): Try[Long] = Try {
+    new File(p.toString()).length()
+  }
 
   def reader(p: Path, bufSize: Int = 32768): Try[BinProducer] =
     try {
-      IO fileProducer (p, bufSize)
+      IO.fileProducer(p, bufSize)(this) map { _._2 }
     } catch {
       case e: Exception => Failure(e)
     }

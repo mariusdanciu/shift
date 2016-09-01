@@ -14,6 +14,10 @@ import net.shift.io.LocalFileSystem._
 import scala.util.Success
 import net.shift.io.IO
 import java.nio.ByteBuffer
+import net.shift.io.Cont
+import net.shift.io.Done
+import net.shift.io.LocalFileSystem
+import net.shift.io.LocalFileSystem
 
 trait UnitTest extends FlatSpec with Matchers
 
@@ -23,12 +27,13 @@ class IOTest extends UnitTest {
     in.map(c => Data(ByteBuffer.wrap(Array[Byte](c.toByte)))) ++ List(EOF)
 
   val str = "This is a text."
+
   "IO" should "read/write correctly" in {
     traverse(str)(writer(Path("test.txt")))
 
     val res = for {
       r <- reader(Path("test.txt"))
-      s <- IO toString r
+      s <- IO producerToString r
     } yield {
       println("s = " + s)
       s
@@ -68,6 +73,61 @@ class IOTest extends UnitTest {
     Path("c:a/b/c") match {
       case EmptyPath => println("OK")
       case _         => fail("c:a/b/c should be invalid")
+    }
+
+  }
+
+  "Segmentable" should "work allow consuming buffers partially" in {
+    implicit val fs = LocalFileSystem
+    
+    val k = for { (_, fp) <- fileProducer(Path("./build.sbt"), 10) } yield {
+      val p = segmentable(fp)
+
+      val Done(chunk1, _) = p(Cont {
+        case Data(buf) =>
+          println("Chunk 1 " + buf)
+          val str = "" + buf.get().toChar +
+            buf.get().toChar +
+            buf.get().toChar
+          Done(str, Data(buf))
+      })
+
+      val Done(chunk2, _) = p(Cont {
+        case Data(buf) =>
+          println("Chunk 2 " + buf)
+          val str = "" + (buf.get().toChar) +
+            (buf.get().toChar) +
+            (buf.get().toChar) +
+            (buf.get().toChar) +
+            (buf.get().toChar) +
+            (buf.get().toChar) +
+            (buf.get().toChar)
+          Done(str, Data(buf))
+      })
+
+      val Done(chunk3, _) = p(Cont {
+        case Data(buf) =>
+          println("Chunk 3 " + buf)
+          val str = "" + (buf.get().toChar) +
+            (buf.get().toChar) +
+            (buf.get().toChar) +
+            (buf.get().toChar) +
+            (buf.get().toChar) +
+            (buf.get().toChar) +
+            (buf.get().toChar) +
+            (buf.get().toChar) +
+            (buf.get().toChar) +
+            (buf.get().toChar)
+          Done(str, Data(buf))
+      })
+
+      println(chunk1)
+      println(chunk2)
+      println(chunk3)
+
+      assert(chunk1 === "nam")
+      assert(chunk2 === "e := \"s")
+      assert(chunk1 === "hift-commo")
     }
 
   }

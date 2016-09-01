@@ -23,121 +23,6 @@ object IODefaults {
   implicit val fs: FileSystem = LocalFileSystem
 }
 
-object IOTest extends App {
-
-  val b1 = ByteBuffer.allocate(6)
-  b1.put(1 toByte)
-  b1.put(2 toByte)
-  b1.put(3 toByte)
-  b1.put(4 toByte)
-  b1.put(5 toByte)
-  b1.put(6 toByte)
-
-  val b2 = ByteBuffer.allocate(6)
-  b2.put(7 toByte)
-  b2.put(8 toByte)
-  b2.put(9 toByte)
-  b2.put(10 toByte)
-  b2.put(11 toByte)
-  b2.put(12 toByte)
-
-  b1.flip
-  b2.flip
-
-  import IO._
-  /* val prod = segmentable(fromChunks(List(b1, b2)))
-
-  prod(Cont {
-    case Data(buf) =>
-      println("Chunk 1")
-      println(buf.get())
-      println(buf.get())
-      println(buf.get())
-      Done(buf, Data(buf))
-  })
-
-  prod(Cont {
-    case Data(buf) =>
-      println("Chunk 2")
-      println(buf.get())
-      println(buf.get())
-      Done(buf, Data(buf))
-  })
-
-  prod(Cont {
-    case Data(buf) =>
-      println("Chunk 3")
-      println(buf.get())
-      Done(buf, Data(buf))
-  })
-
-  prod(Cont {
-    case Data(buf) =>
-      println("Chunk 4")
-      println(buf.get())
-      println(buf.get())
-      println(buf.get())
-      println(buf.get())
-      Done(buf, Data(buf))
-  })
-  prod(Cont {
-    case Data(buf) =>
-      println("Chunk 5")
-      println(buf.get())
-      println(buf.get())
-      Done(buf, Data(buf))
-  })
-*/
-  val k = for { fp <- fileProducer(Path("./build.sbt"), 10) } yield {
-    val p = segmentable(fp)
-
-    p(Cont {
-      case Data(buf) =>
-        println("Chunk 1 " + buf)
-        print(buf.get().toChar)
-        print(buf.get().toChar)
-        print(buf.get().toChar)
-        println()
-        Done(buf, Data(buf))
-    })
-
-    p(Cont {
-      case Data(buf) =>
-        println("Chunk 2 " + buf)
-        print(buf.get().toChar)
-        print(buf.get().toChar)
-        print(buf.get().toChar)
-        print(buf.get().toChar)
-        print(buf.get().toChar)
-        print(buf.get().toChar)
-        print(buf.get().toChar)
-        println()
-        Done(buf, Data(buf))
-    })
-    p(Cont {
-      case Data(buf) =>
-        println("Chunk 3 " + buf)
-        print(buf.get().toChar)
-        print(buf.get().toChar)
-        print(buf.get().toChar)
-        print(buf.get().toChar)
-        print(buf.get().toChar)
-        print(buf.get().toChar)
-        print(buf.get().toChar)
-        print(buf.get().toChar)
-        print(buf.get().toChar)
-        print(buf.get().toChar)
-        println()
-        Done(buf, Data(buf))
-    })
-
-    // println(IO.toString(p))
-  }
-
-  println(k)
-
-}
-
 object IO {
 
   def close(c: Closeable) = Try {
@@ -151,15 +36,6 @@ object IO {
 
   def fromArray[O](in: ByteBuffer): BinProducer = fromChunks(List(in))
 
-  @tailrec
-  def feed[O](f: () => In[ByteBuffer], it: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = {
-    val data = f()
-    (data, it) match {
-      case (d, Cont(c)) => feed(f, c(d))
-      case (_, i)       => i
-    }
-  }
-
   def fromChunks[O](in: Seq[ByteBuffer]): BinProducer = {
     val data = (in map { d => Data(d) }) ++ List(EOF)
 
@@ -168,6 +44,7 @@ object IO {
 
       def apply[O](it: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = {
 
+        @tailrec
         def run(it: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = {
           (rest, it) match {
             case (head :: tail, Cont(f)) =>
@@ -179,16 +56,6 @@ object IO {
         }
 
         run(it)
-      }
-    }
-  }
-
-  def append[O](b: BinProducer, in: ByteBuffer): BinProducer = {
-    new BinProducer {
-
-      def apply[O](it: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = {
-        val res = b(it)
-        singleProducer(Data(in))(res)
       }
     }
   }
@@ -253,45 +120,46 @@ object IO {
     }
   }
 
-  def fileProducer(path: Path, bufSize: Int = 32768): Try[BinProducer] = Try {
+  def fileProducer(path: Path, bufSize: Int = 32768)(implicit fs: FileSystem): Try[(Long, BinProducer)] =
+    for {
+      fc <- Try(new FileInputStream(path.toString).getChannel)
+      size <- fs.fileSize(path)
+    } yield {
+      (size, new BinProducer {
 
-    new BinProducer {
+        def apply[O](ait: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = {
 
-      lazy val fc = new FileInputStream(path.toString).getChannel
+          @tailrec
+          def loop(it: Iteratee[ByteBuffer, O], fc: FileChannel): Iteratee[ByteBuffer, O] = {
+            it match {
+              case Cont(f) =>
 
-      def apply[O](ait: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = {
+                val b = ByteBuffer.allocate(bufSize)
+                val read = fc.read(b)
 
-        @tailrec
-        def loop(it: Iteratee[ByteBuffer, O], fc: FileChannel): Iteratee[ByteBuffer, O] = {
-          it match {
-            case Cont(f) =>
+                if (read != -1) {
+                  b.flip
+                  val chunk = ByteBuffer.allocate(read)
+                  chunk.put(b)
+                  chunk.flip
 
-              val b = ByteBuffer.allocate(bufSize)
-              val read = fc.read(b)
-
-              if (read != -1) {
-                b.flip
-                val chunk = ByteBuffer.allocate(read)
-                chunk.put(b)
-                chunk.flip
-
-                loop(f(Data(chunk)), fc)
-              } else {
-                close(fc)
-                it match {
-                  case Cont(f) => f(EOF)
-                  case r       => r
+                  loop(f(Data(chunk)), fc)
+                } else {
+                  close(fc)
+                  it match {
+                    case Cont(f) => f(EOF)
+                    case r       => r
+                  }
                 }
-              }
-            case r => r
+              case r => r
+            }
           }
+
+          failover(loop(ait, fc))
         }
 
-        failover(loop(ait, fc))
-      }
-
+      })
     }
-  }
 
   def inputStreamProducer(in: InputStream, bufSize: Int = 32768) = new BinProducer {
 
@@ -304,7 +172,7 @@ object IO {
 
         it match {
           case Cont(f) =>
-            var r = in.read(buf);
+            var r = in.read(buf)
             val bf = ByteBuffer.wrap(buf, 0, r)
 
             if (r != -1)
@@ -366,7 +234,7 @@ object IO {
     new String(arr, "UTF-8")
   }
 
-  def toBuffer(in: InputStream, bufSize: Int = 32768): Try[ByteBuffer] = {
+  def inputStreamToBuffer(in: InputStream, bufSize: Int = 32768): Try[ByteBuffer] = {
     inputStreamProducer(in, bufSize)(Iteratee.foldLeft(ByteBuffer.allocate(0)) { (acc, e) =>
       concat(acc, e)
     }) match {
@@ -376,7 +244,7 @@ object IO {
     }
   }
 
-  def toString(in: BinProducer): Try[String] = toArray(in) map { new String(_, "utf-8") }
+  def producerToString(in: BinProducer): Try[String] = toArray(in) map { new String(_, "utf-8") }
 
 }
 
