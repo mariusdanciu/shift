@@ -23,6 +23,7 @@ import net.shift.io.In
 import net.shift.io.Iteratee
 import java.io.IOException
 import net.shift.io.BinProducer
+import scala.util.Try
 
 class ServerActor extends Actor with ActorLogging {
   private val actors = new TrieMap[SelectionKey, ActorRef]
@@ -32,11 +33,13 @@ class ServerActor extends Actor with ActorLogging {
       val clientActor = context.actorOf(Props[ClientActor])
       actors.put(key, clientActor)
     case ClientTerminate(key) =>
-      log.info("Client terminated")
-      key.cancel()
-      actors -= key
-      sender ! PoisonPill
-      key.channel().asInstanceOf[SocketChannel].close()
+      actors.get(key) map { act =>
+        key.cancel()
+        actors -= key
+        context.stop(act)
+        key.channel().asInstanceOf[SocketChannel].close()
+        log.info("Client terminated")
+      }
 
     case r: ReadHttp  => actors.get(r.key) map (_ ! r)
     case w: WriteHttp => actors.get(w.key) map (_ ! w)
@@ -92,8 +95,7 @@ class ClientActor() extends Actor with ActorLogging {
     }
 
   }
-
-  private def send(key: SelectionKey, prod: BinProducer): Iteratee[ByteBuffer, Unit] = {
+  private def send(key: SelectionKey, prod: BinProducer): Iteratee[ByteBuffer, Unit] = Try {
     lazy val cont: Iteratee[ByteBuffer, Unit] = Cont {
       case Data(d) =>
         val client = key.channel().asInstanceOf[SocketChannel]
@@ -103,9 +105,6 @@ class ClientActor() extends Actor with ActorLogging {
             selectForWrite(key)
             key.selector().wakeup()
             Done((), Data(d))
-          case (-1, _) =>
-            sender ! ClientTerminate(key)
-            net.shift.io.Error(new IOException("Cannot write response"))
           case (_, buf) => cont
         }
       case EOF =>
@@ -113,7 +112,10 @@ class ClientActor() extends Actor with ActorLogging {
         Done((), EOF)
     }
     prod(cont)
-  }
+  }.recover {
+    case e: Exception => net.shift.io.Error[ByteBuffer, Unit](e)
+  }.get
+
   private def readChunk(r: ReadHttp) = {
 
     def checkRequestComplete(bodySize: Long, contentLength: Option[Long], http: HTTPRequest) = {
@@ -131,39 +133,44 @@ class ClientActor() extends Actor with ActorLogging {
         })
       }
     }
+    Try {
+      val client = r.key.channel().asInstanceOf[SocketChannel]
 
-    val client = r.key.channel().asInstanceOf[SocketChannel]
+      val buf = ByteBuffer.allocate(512)
+      var size = client.read(buf)
 
-    val buf = ByteBuffer.allocate(512)
-    var size = client.read(buf)
+      if (size > 0) {
+        buf.flip()
+        readState match {
+          case RawExtract(raw) =>
+            val msg = raw + buf
+            tryParse(msg) match {
+              case Some(http @ HTTPRequest(m, u, v, hd, body @ HTTPBody(seq))) =>
+                checkRequestComplete(body.size, http.longHeader("Content-Length"), http)
+              case None =>
+                readState = Some(msg)
+              case _ =>
+                log.error("Cannot read request")
+                sender ! ClientTerminate(r.key)
 
-    if (size > 0) {
-      buf.flip()
-      readState match {
-        case RawExtract(raw) =>
-          val msg = raw + buf
-          tryParse(msg) match {
-            case Some(http @ HTTPRequest(m, u, v, hd, body @ HTTPBody(seq))) =>
-              checkRequestComplete(body.size, http.longHeader("Content-Length"), http)
-            case None =>
-              readState = Some(msg)
-            case _ =>
-              log.error("Cannot read request")
-              readState = None
-              sender ! ClientTerminate(r.key)
+            }
+          case Some(h @ HTTPRequest(m, u, v, hd, body @ HTTPBody(seq))) =>
+            val newSize = body.size + size
+            val cl = h.longHeader("Content-Length")
+            val msg = HTTPBody(seq ++ Seq(buf))
+            val req = HTTPRequest(m, u, v, hd, msg)
+            checkRequestComplete(newSize, cl, req)
+        }
 
-          }
-        case Some(h @ HTTPRequest(m, u, v, hd, body @ HTTPBody(seq))) =>
-          val newSize = body.size + size
-          val cl = h.longHeader("Content-Length")
-          val msg = HTTPBody(seq ++ Seq(buf))
-          val req = HTTPRequest(m, u, v, hd, msg)
-          checkRequestComplete(newSize, cl, req)
+      } else if (size < 0) {
+        log.info("End of client stream")
+        sender ! ClientTerminate(r.key)
       }
+    }.recover {
+      case e =>
+        log.error("Cannot read data from client: ", e)
+        sender ! ClientTerminate(r.key)
 
-    } else if (size < 0) {
-      readState = None
-      sender ! ClientTerminate(r.key)
     }
   }
 
