@@ -24,14 +24,25 @@ import net.shift.io.Iteratee
 import java.io.IOException
 import net.shift.io.BinProducer
 import scala.util.Try
+import java.nio.channels.Selector
+import scala.concurrent.ExecutionContext
+import java.util.concurrent.Executors
+import scala.annotation.tailrec
+import scala.concurrent.Future
+import akka.actor.Terminated
 
 class ServerActor extends Actor with ActorLogging {
   private val actors = new TrieMap[SelectionKey, ActorRef]
 
+  override def postStop() {
+    log.info("Cleaning resources.")
+    actors.clear()
+  }
+
   def receive = {
-    case ClientConnect(key) =>
+    case con @ ClientConnect(socket, _) =>
       val clientActor = context.actorOf(Props[ClientActor])
-      actors.put(key, clientActor)
+      clientActor ! con
     case ClientTerminate(key) =>
       actors.get(key) map { act =>
         key.cancel()
@@ -40,10 +51,9 @@ class ServerActor extends Actor with ActorLogging {
         key.channel().asInstanceOf[SocketChannel].close()
         log.info("Client terminated")
       }
-
-    case r: ReadHttp  => actors.get(r.key) map (_ ! r)
-    case w: WriteHttp => actors.get(w.key) map (_ ! w)
-
+    case ClientStarted(key) =>
+      actors.put(key, sender)
+      log.info("Accepted new connection from " + key.channel().asInstanceOf[SocketChannel].getRemoteAddress)
   }
 }
 
@@ -53,15 +63,67 @@ class ClientActor() extends Actor with ActorLogging {
   var writeState: Option[BinProducer] = None
 
   var keepAlive: Boolean = false
+  var running = false
 
   val responseIteratee: Iteratee[ByteBuffer, Unit] = Cont {
     case Data(d) => responseIteratee
     case EOF     => Done((), EOF)
   }
 
+  lazy val selector: Selector = Selector.open
+
+  var server: Option[ActorRef] = None
+
+  implicit val ctx = ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(1))
+
+  override def postStop() {
+    log.info("Stopping client handler ... ")
+    running = false
+    selector.wakeup()
+  }
+
   def receive = {
-    case r: ReadHttp  => readChunk(r)
-    case w: WriteHttp => writeResponse(w)
+    case ClientConnect(socket, service) =>
+      val key = socket.register(selector, SelectionKey.OP_READ)
+      server = Some(sender)
+      sender ! ClientStarted(key)
+      running = true
+      Future { loop(service) } map { _ =>
+        ctx.shutdown()
+        log.info("Stopped client handler")
+      }
+  }
+
+  @tailrec
+  private def loop(service: HTTPService) {
+    if (running) {
+
+      val r = selector.select()
+
+      val keys = selector.selectedKeys().iterator()
+
+      while (keys.hasNext()) {
+        val key = keys.next()
+        if (!running) {
+          key.channel().close()
+          key.cancel()
+        } else if (key.isValid()) {
+          if (key.isReadable()) {
+            readChunk(key, service)
+          } else if (key.isWritable()) {
+            writeResponse(key)
+          }
+        }
+        keys.remove
+      }
+      loop(service)
+    }
+  }
+
+  private def terminate(key: SelectionKey) {
+    running = false
+    selector.wakeup()
+    server map { _ ! ClientTerminate(key) }
   }
 
   private def drain(client: SocketChannel, buffer: ByteBuffer): (Int, ByteBuffer) = {
@@ -75,20 +137,21 @@ class ClientActor() extends Actor with ActorLogging {
   private def handleResponseSent(key: SelectionKey) = {
     writeState = None
     if (!keepAlive) {
-      sender ! ClientTerminate(key)
+      terminate(key)
     } else {
+      unSelectForWrite(key)
       selectForRead(key)
     }
   }
 
-  private def writeResponse(wr: WriteHttp) = {
+  private def writeResponse(key: SelectionKey) = {
     writeState match {
       case Some(prod) =>
-        val client = wr.key.channel().asInstanceOf[SocketChannel]
-        send(wr.key, prod) match {
+        val client = key.channel().asInstanceOf[SocketChannel]
+        send(key, prod) match {
           case Done(_, EOF) =>
-            handleResponseSent(wr.key)
-          case _ => selectForWrite(wr.key)
+            handleResponseSent(key)
+          case _ =>
         }
 
       case _ =>
@@ -116,7 +179,7 @@ class ClientActor() extends Actor with ActorLogging {
     case e: Exception => net.shift.io.Error[ByteBuffer, Unit](e)
   }.get
 
-  private def readChunk(r: ReadHttp) = {
+  private def readChunk(key: SelectionKey, service: HTTPService) = {
 
     def checkRequestComplete(bodySize: Long, contentLength: Option[Long], http: HTTPRequest) = {
       if (contentLength.getOrElse(-1L) > bodySize) {
@@ -124,17 +187,17 @@ class ClientActor() extends Actor with ActorLogging {
       } else {
         readState = None
         keepAlive = http.stringHeader("Connection").map { _ == "keep-alive" } getOrElse true
-        r.service(http, resp => {
-          send(r.key, IO.segmentable(resp.asBinProducer)) match {
+        service(http, resp => {
+          send(key, IO.segmentable(resp.asBinProducer)) match {
             case Done(_, EOF) =>
-              handleResponseSent(r.key)
+              handleResponseSent(key)
             case _ =>
           }
         })
       }
     }
     Try {
-      val client = r.key.channel().asInstanceOf[SocketChannel]
+      val client = key.channel().asInstanceOf[SocketChannel]
 
       val buf = ByteBuffer.allocate(512)
       var size = client.read(buf)
@@ -151,7 +214,7 @@ class ClientActor() extends Actor with ActorLogging {
                 readState = Some(msg)
               case _ =>
                 log.error("Cannot read request")
-                sender ! ClientTerminate(r.key)
+                terminate(key)
 
             }
           case Some(h @ HTTPRequest(m, u, v, hd, body @ HTTPBody(seq))) =>
@@ -164,12 +227,12 @@ class ClientActor() extends Actor with ActorLogging {
 
       } else if (size < 0) {
         log.info("End of client stream")
-        sender ! ClientTerminate(r.key)
+        terminate(key)
       }
     }.recover {
       case e =>
         log.error("Cannot read data from client: ", e)
-        sender ! ClientTerminate(r.key)
+        terminate(key)
 
     }
   }

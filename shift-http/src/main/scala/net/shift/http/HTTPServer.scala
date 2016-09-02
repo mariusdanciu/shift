@@ -7,15 +7,12 @@ import java.nio.channels.Selector
 import java.nio.channels.ServerSocketChannel
 import java.nio.channels.SocketChannel
 import java.util.concurrent.Executors
-
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 import scala.util.Try
-
 import org.apache.log4j.BasicConfigurator
-
 import Selections._
 import akka.actor.ActorLogging
 import akka.actor.ActorRef
@@ -24,6 +21,7 @@ import akka.actor.Props
 import net.shift.common.Log
 import net.shift.io._
 import net.shift.io.IO
+import akka.actor.PoisonPill
 
 object Test extends App {
   def serve: HTTPService = {
@@ -39,8 +37,8 @@ object Test extends App {
 
   import scala.concurrent.ExecutionContext.Implicits.global
   Future {
-    //Thread.sleep(10000)
-    //srv.stop
+    Thread.sleep(10000)
+    srv.stop
   }
 
   srv.start(serve)
@@ -48,11 +46,11 @@ object Test extends App {
 
 object HTTPServer {
 
-  def apply() = new HTTPServer(ServerSpecs("Shift-HTTPServer", "0.0.0.0", 8080))
+  def apply() = new HTTPServer(ServerSpecs())
 
-  def apply(name: String) = new HTTPServer(ServerSpecs(name, "0.0.0.0", 8080))
+  def apply(serverName: String) = new HTTPServer(ServerSpecs(name = serverName))
 
-  def apply(port: Int) = new HTTPServer(ServerSpecs("Shift-HTTPServer", "0.0.0.0", port))
+  def apply(serverPort: Int) = new HTTPServer(ServerSpecs(port = serverPort))
 }
 
 case class HTTPServer(specs: ServerSpecs) extends Log {
@@ -91,16 +89,8 @@ case class HTTPServer(specs: ServerSpecs) extends Log {
                 val client = serverChannel.accept()
                 if (client != null) {
                   client.configureBlocking(false)
-                  log.info("Accepted new connection from " + client.getRemoteAddress)
-
-                  val clientKey = client.register(selector, SelectionKey.OP_READ)
-                  serverActor ! ClientConnect(clientKey)
+                  serverActor ! ClientConnect(client, service)
                 }
-              } else if (key.isReadable()) {
-                serverActor ! ReadHttp(key, service)
-              } else if (key.isWritable()) {
-                unSelectForWrite(key)
-                serverActor ! WriteHttp(key)
               }
             }
             keys.remove()
@@ -128,6 +118,7 @@ case class HTTPServer(specs: ServerSpecs) extends Log {
       case _ =>
         log.info("Shutting down server")
         serverChannel.close()
+        system.stop(serverActor)
         system.shutdown()
         ctx.shutdown()
     }
@@ -139,13 +130,6 @@ case class HTTPServer(specs: ServerSpecs) extends Log {
   }
 
 }
-
-trait ServerMessage
-
-case class ReadHttp(key: SelectionKey, service: HTTPService) extends ServerMessage
-case class WriteHttp(key: SelectionKey) extends ServerMessage
-case class ClientTerminate(key: SelectionKey) extends ServerMessage
-case class ClientConnect(key: SelectionKey) extends ServerMessage
 
 object RawExtract {
   def unapply(t: Option[Payload]): Option[Raw] = t match {
@@ -160,6 +144,7 @@ case class Raw(buffers: List[ByteBuffer]) extends Payload {
   def ++(b: Seq[ByteBuffer]) = Raw(buffers ++ b)
 }
 
-case class ServerSpecs(name: String,
-                       address: String,
-                       port: Int)
+case class ServerSpecs(name: String = "Shift-HTTPServer",
+                       address: String = "0.0.0.0",
+                       maxParallelConnections: Int = -1,
+                       port: Int = 8080)
