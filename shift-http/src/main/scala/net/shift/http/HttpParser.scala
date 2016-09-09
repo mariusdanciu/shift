@@ -33,9 +33,10 @@ class HttpParser extends ShiftParsers {
   }
 
   def params: Parser[List[HTTPParam]] = chr('?') ~>
-    repsep((notReserved() <~ chr('=')) ~ repsep(notReserved(), chr(',')), chr(';')) ^^ {
+    repsep(notReserved() ~ opt(chr('=') ~> repsep(notReserved(), chr(','))), chr(';')) ^^ {
       _ map {
-        case name ~ value => HTTPParam(name, value)
+        case name ~ Some(value) => HTTPParam(name, value)
+        case name ~ _           => HTTPParam(name, Nil)
       }
     }
 

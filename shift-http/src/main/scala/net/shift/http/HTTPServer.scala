@@ -22,6 +22,11 @@ import net.shift.common.Log
 import net.shift.io._
 import net.shift.io.IO
 import akka.actor.PoisonPill
+import scala.collection.concurrent.TrieMap
+import net.shift.common.BinReader
+import scala.util.Failure
+import scala.util.Success
+import java.io.IOException
 
 object Test extends App {
   def serve: HTTPService = {
@@ -37,8 +42,8 @@ object Test extends App {
 
   import scala.concurrent.ExecutionContext.Implicits.global
   Future {
-    Thread.sleep(10000)
-    srv.stop
+    //Thread.sleep(10000)
+    //srv.stop
   }
 
   srv.start(serve)
@@ -53,22 +58,22 @@ object HTTPServer {
   def apply(serverPort: Int) = new HTTPServer(ServerSpecs(port = serverPort))
 }
 
-case class HTTPServer(specs: ServerSpecs) extends Log {
+case class HTTPServer(specs: ServerSpecs) extends Log with KeyOps {
 
   protected[http] val system = ActorSystem("HTTPServer")
 
-  private lazy val serverActor = system.actorOf(Props[ServerActor])
+  //private lazy val serverActor = system.actorOf(Props[ServerActor])
 
   private val selector = Selector.open
 
-  implicit val ctx = ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(1))
+  private[http] val clients = new TrieMap[SelectionKey, ClientHandler]
 
   def loggerName = specs.name
 
   @volatile
   private var running = false;
 
-  def start(service: HTTPService): Future[Unit] = {
+  def start(service: HTTPService)(implicit ctx: ExecutionContext): Future[Unit] = {
 
     @tailrec
     def loop(serverChannel: ServerSocketChannel) {
@@ -80,20 +85,29 @@ case class HTTPServer(specs: ServerSpecs) extends Log {
 
         while (keys.hasNext()) {
           val key = keys.next()
+          keys.remove()
+
           if (!running) {
-            key.channel().close()
-            key.cancel()
+            closeClient(key)
           } else {
             if (key.isValid()) {
               if (key.isAcceptable()) {
+                println("ACCEPT")
                 val client = serverChannel.accept()
                 if (client != null) {
                   client.configureBlocking(false)
-                  serverActor ! ClientConnect(client, service)
+                  val clientKey = client.register(selector, SelectionKey.OP_READ)
+                  val clientName = client.getRemoteAddress.toString + "-" + key
+                  clients.put(clientKey, new ClientHandler(clientKey, clientName))
                 }
+              } else if (key.isReadable()) {
+                clients get (key) map { _.readChunk(service) }
+              } else if (key.isWritable()) {
+                println("WRITE")
+                unSelectForWrite(key)
+                clients get (key) map { _.writeResponse() }
               }
             }
-            keys.remove()
           }
         }
         loop(serverChannel)
@@ -118,9 +132,8 @@ case class HTTPServer(specs: ServerSpecs) extends Log {
       case _ =>
         log.info("Shutting down server")
         serverChannel.close()
-        system.stop(serverActor)
+        //system.stop(serverActor)
         system.shutdown()
-        ctx.shutdown()
     }
   }
 
@@ -148,3 +161,12 @@ case class ServerSpecs(name: String = "Shift-HTTPServer",
                        address: String = "0.0.0.0",
                        maxParallelConnections: Int = -1,
                        port: Int = 8080)
+
+trait KeyOps {
+  def closeClient(key: SelectionKey) {
+    key.channel().close()
+    key.cancel()
+  }
+
+}
+
