@@ -22,20 +22,9 @@ case class TextHeader(name: String, value: String) extends HeaderItem {
   def headerLine = s"$name: $value"
 }
 
-object Cookie {
-  def fromString(str: String): Seq[Cookie] = {
-    ((Nil: List[Cookie]) /: str.split(";"))(
-      (acc, e) => e.split("=").toList match {
-        case value :: Nil       => acc ++ List(Cookie("", value))
-        case name :: value :: _ => acc ++ List(Cookie(name.trim, value.trim))
-        case _                  => acc
-      })
-  }
-}
 case class Cookie(cookieName: String, cookieValue: String) extends HeaderItem {
   def name = "Cookie"
   def headerLine: String = s"$name: $cookieName=cookieValue"
-
 }
 
 object SetCookie {

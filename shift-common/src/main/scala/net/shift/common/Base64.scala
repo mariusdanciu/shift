@@ -69,6 +69,7 @@ object Base64 {
       ((v >> 16).toByte, ((v & 0xff00) >> 8).toByte, ((v & 0xff)).toByte)
     }
     var l: List[Byte] = Nil
+    println(s.length)
     for { b <- 0 until s.length() by 4 } {
       l ++= (dencodeAtom(s.charAt(b), s.charAt(b + 1), s.charAt(b + 2), s.charAt(b + 3)) match {
         case (b0, 0, 0)   => List(b0)

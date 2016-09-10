@@ -21,25 +21,26 @@ object Engine extends DefaultLog {
       app.servingRule(request) match {
         case Success((_, Success(f))) =>
           f(response)
-        case Success((_, Failure(ShiftFailure(msg)))) =>
-          error("Fail processing the request " + msg)
+        case Success((_, Failure(t @ ShiftFailure(msg)))) =>
+          error("Fail processing the request ", t)
           response(serverError.withTextBody(msg))
         case Success((_, Failure(t))) =>
           error("Fail processing the request ", t)
           response(serverError)
-        case Failure(SecurityFailure(msg, 401)) =>
-          warn(s"Authentication failure $msg")
+        case Failure(t @ SecurityFailure(msg, 401)) =>
+          warn(s"Authentication failure $msg", t)
           response(basicAuthRequired(msg, conf.string("auth.realm", "shift")))
-        case Failure(SecurityFailure(msg, status)) =>
-          warn(s"Authentication failure $msg")
+        case Failure(t @ SecurityFailure(msg, status)) =>
+          warn(s"Authentication failure $msg", t)
           response(textResponse(msg).withCode(status))
-        case Failure(ShiftFailure(msg)) =>
-          error("Fail processing the request " + msg)
+        case Failure(t @ ShiftFailure(msg)) =>
+          error("Fail processing the request ", t)
           response(serverError.withTextBody(msg))
         case Failure(t) =>
-          error("Fail processing the request " + t)
+          error("Fail processing the request ", t)
           response(serverError)
-        case r => error(r.toString())
+        case r =>
+          error(r.toString())
       }
     } catch {
       case e: Exception => e.printStackTrace
