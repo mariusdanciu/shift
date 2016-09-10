@@ -29,11 +29,9 @@ import scala.util.Success
 import java.io.IOException
 
 object Test extends App {
-  def serve: HTTPService = {
-    case (req, f) =>
-      println(req)
-      println(IO.producerToString(req.body))
-      f(Responses.text("Some response"))
+  def serve: HTTPService = req => resp => {
+    println(req)
+    resp(Responses.textResponse("Some response"))
   }
 
   BasicConfigurator.configure
@@ -58,7 +56,7 @@ object HTTPServer {
   def apply(serverPort: Int) = new HTTPServer(ServerSpecs(port = serverPort))
 }
 
-case class HTTPServer(specs: ServerSpecs) extends Log with KeyOps {
+case class HTTPServer(specs: ServerSpecs) extends Log {
 
   protected[http] val system = ActorSystem("HTTPServer")
 
@@ -92,18 +90,19 @@ case class HTTPServer(specs: ServerSpecs) extends Log with KeyOps {
           } else {
             if (key.isValid()) {
               if (key.isAcceptable()) {
-                println("ACCEPT")
                 val client = serverChannel.accept()
                 if (client != null) {
                   client.configureBlocking(false)
                   val clientKey = client.register(selector, SelectionKey.OP_READ)
                   val clientName = client.getRemoteAddress.toString + "-" + key
-                  clients.put(clientKey, new ClientHandler(clientKey, clientName))
+                  clients.put(clientKey, new ClientHandler(clientKey, clientName, k => {
+                    closeClient(k)
+                    clients remove k
+                  }))
                 }
               } else if (key.isReadable()) {
                 clients get (key) map { _.readChunk(service) }
               } else if (key.isWritable()) {
-                println("WRITE")
                 unSelectForWrite(key)
                 clients get (key) map { _.writeResponse() }
               }
@@ -137,6 +136,11 @@ case class HTTPServer(specs: ServerSpecs) extends Log with KeyOps {
     }
   }
 
+  private def closeClient(key: SelectionKey) {
+    key.channel().close()
+    key.cancel()
+  }
+
   def stop() = {
     running = false;
     selector.wakeup()
@@ -162,11 +166,4 @@ case class ServerSpecs(name: String = "Shift-HTTPServer",
                        maxParallelConnections: Int = -1,
                        port: Int = 8080)
 
-trait KeyOps {
-  def closeClient(key: SelectionKey) {
-    key.channel().close()
-    key.cancel()
-  }
-
-}
 

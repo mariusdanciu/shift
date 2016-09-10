@@ -66,4 +66,12 @@ case class Language(name: String, country: Option[String] = None, variant: Optio
       case (None, None)       => s"${name}"
     }
   }
+
+  def toHttpString = {
+    country match {
+      case Some(c) => s"${name}_${c}"
+      case None    => s"${name}"
+    }
+  }
+
 }

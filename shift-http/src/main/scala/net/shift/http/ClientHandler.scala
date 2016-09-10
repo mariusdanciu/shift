@@ -18,13 +18,17 @@ import net.shift.io.Iteratee
 import net.shift.io._
 import net.shift.io.IO._
 
-class ClientHandler(key: SelectionKey, name: String) extends Log with KeyOps {
+class ClientHandler(key: SelectionKey, name: String, onClose: SelectionKey => Unit) extends Log {
 
   var readState: Option[Payload] = None
   var writeState: Option[BinProducer] = None
   var keepAlive: Boolean = true
 
   def loggerName = name
+
+  def terminate {
+    onClose(key)
+  }
 
   def readChunk(service: HTTPService)(implicit ctx: ExecutionContext) = {
 
@@ -48,7 +52,7 @@ class ClientHandler(key: SelectionKey, name: String) extends Log with KeyOps {
         readState = None
 
         Future {
-          service(http, resp => {
+          service(http)(resp => {
             send(IO.segmentable(resp.asBinProducer))
           })
         }
@@ -73,7 +77,7 @@ class ClientHandler(key: SelectionKey, name: String) extends Log with KeyOps {
                 readState = Some(msg)
               case _ =>
                 log.error("Cannot read request")
-                closeClient(key)
+                terminate
             }
           case Some(h @ HTTPRequest(m, u, v, hd, body @ HTTPBody(seq))) =>
             val newSize = body.size + size
@@ -85,13 +89,12 @@ class ClientHandler(key: SelectionKey, name: String) extends Log with KeyOps {
 
       } else if (size < 0) {
         log.info("End of client stream")
-        closeClient(key)
+        terminate
       }
     }.recover {
       case e =>
         log.error("Cannot read data from client: ", e)
-        closeClient(key)
-
+        terminate
     }
   }
 
@@ -106,7 +109,7 @@ class ClientHandler(key: SelectionKey, name: String) extends Log with KeyOps {
   private def handleResponseSent() = {
     writeState = None
     if (!keepAlive) {
-      closeClient(key)
+      terminate
     } else {
       unSelectForWrite(key)
     }
@@ -145,16 +148,16 @@ class ClientHandler(key: SelectionKey, name: String) extends Log with KeyOps {
           handleResponseSent()
         case Error(t) =>
           log.error("Cannot sent response ", t)
-          closeClient(key)
+          terminate
         case it =>
           log.error("Unexpected iteratee " + it)
-          closeClient(key)
+          terminate
       }
 
     }.recover {
       case e: Exception =>
         log.error("Internal error ", e)
-        closeClient(key)
+        terminate
     }
   }
 

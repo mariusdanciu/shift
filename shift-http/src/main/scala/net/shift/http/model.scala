@@ -1,14 +1,16 @@
 package net.shift.http
 
 import java.nio.ByteBuffer
-
 import scala.util.Try
-
 import net.shift.io._
+import net.shift.loc.Language
 
 trait Payload
 
 case class HTTPParam(name: String, value: List[String])
+object HTTPVer {
+  val Ver_1_1 = HTTPVer(1 toByte, 1 toByte)
+}
 case class HTTPVer(major: Byte, minor: Byte)
 
 sealed trait HeaderItem {
@@ -25,7 +27,7 @@ object Cookie {
     ((Nil: List[Cookie]) /: str.split(";"))(
       (acc, e) => e.split("=").toList match {
         case value :: Nil       => acc ++ List(Cookie("", value))
-        case name :: value :: _ => acc ++ List(Cookie(name, value))
+        case name :: value :: _ => acc ++ List(Cookie(name.trim, value.trim))
         case _                  => acc
       })
   }
@@ -84,7 +86,13 @@ case class HTTPBody(parts: Seq[ByteBuffer]) extends BinProducer {
   }
 }
 
-case class HTTPUri(host: Option[String], port: Option[Int], path: String, params: List[HTTPParam])
+object HTTPUri {
+  def apply(path: String) = new HTTPUri(None, None, path, Nil)
+}
+case class HTTPUri(host: Option[String], port: Option[Int], path: String, params: List[HTTPParam]) {
+  def param(name: String) = params find { _.name == name }
+  def paramValue(name: String) = param(name) map { _.value }
+}
 
 case class HTTPRequest(
     method: String,
@@ -92,6 +100,39 @@ case class HTTPRequest(
     version: HTTPVer,
     headers: Seq[HeaderItem],
     body: BinProducer) extends Payload {
+
+  lazy val languages: Seq[Language] = {
+    def langFromString(str: String) = str.split("-").toList match {
+      case lang :: country :: _ => Language(lang, Some(country))
+      case lang :: Nil          => Language(lang)
+      case _                    => Language("en")
+    }
+
+    stringHeader("Accept-Language") match {
+      case Some(value) =>
+        val lngs = for { item <- value.split(",") } yield {
+          item.split(";").toList match {
+            case lng :: q :: Nil =>
+              val qarr = q.split("=")
+
+              val quality = if (qarr.length == 2) {
+                qarr(1).trim.toDouble
+              } else {
+                0.0
+              }
+
+              (langFromString(lng.trim), quality)
+            case lng :: Nil => (langFromString(lng.trim), 1.0)
+            case _          => (Language("en"), 0.1)
+          }
+        }
+        lngs.sortWith { case ((l1, q1), (l2, q2)) => q1 >= q2 } map { _._1 }
+
+      case _ => List(Language("en"))
+    }
+  }
+
+  lazy val language: Language = languages head
 
   def header(name: String): Option[HeaderItem] = headers find { _.name == name }
 
@@ -138,7 +179,13 @@ case class HTTPResponse(code: Int,
     var sendOnlyBody: Boolean = false;
 
     def headerBuffer = {
-      val headersStr = headers map {
+
+      val extra = if (body == HTTPBody.empty) {
+        List(TextHeader("Content-Length", "0"))
+      } else
+        Nil
+
+      val headersStr = (headers ++ extra) map {
         case h => s"${h.headerLine}\r\n"
       } mkString
 

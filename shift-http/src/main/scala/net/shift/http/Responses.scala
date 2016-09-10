@@ -7,6 +7,7 @@ import net.shift.io.FileSystem
 import net.shift.io.IO
 import scala.util.Try
 import net.shift.common.FileSplit
+import net.shift.io.BinProducer
 
 object Responses {
 
@@ -42,35 +43,16 @@ object Responses {
     }
   }
 
-  def text(msg: String) = {
-    val bd = HTTPBody(msg)
-    HTTPResponse(code = 200,
-      headers = List(TextHeader("Content-Type", "text/plain"),
-        TextHeader("Content-Length", bd.size.toString)),
-      body = bd)
-  }
+  def producerResponse(bdy: BinProducer, size: Long) = HTTPResponse(code = 200,
+    headers = List(TextHeader("Content-Length", size.toString)),
+    body = bdy)
 
-  def html(msg: String) = {
-    val bd = HTTPBody(msg)
+  def textResponse(text: String) = {
+    val bd = HTTPBody(text)
     HTTPResponse(code = 200,
-      headers = List(TextHeader("Content-Type", "text/html"),
-        TextHeader("Content-Length", bd.size.toString)),
-      body = bd)
-  }
-
-  def css(msg: String) = {
-    val bd = HTTPBody(msg)
-    HTTPResponse(code = 200,
-      headers = List(TextHeader("Content-Type", "text/css"),
-        TextHeader("Content-Length", bd.size.toString)),
-      body = bd)
-  }
-
-  def javaScript(msg: String) = {
-    val bd = HTTPBody(msg)
-    HTTPResponse(code = 200,
-      headers = List(TextHeader("Content-Type", "text/javascript"),
-        TextHeader("Content-Length", bd.size.toString)),
+      headers = List(
+        Headers.contentType(ContentType.TextPlain),
+        Headers.contentLength(bd.size)),
       body = bd)
   }
 
@@ -81,6 +63,7 @@ object Responses {
 
   def redirect(location: String) =
     HTTPResponse(code = 302, headers = List(TextHeader("Location", location)), body = HTTPBody.empty)
+    
   def notModified = HTTPResponse(code = 304, body = HTTPBody.empty)
 
   def badRequest = HTTPResponse(code = 400, body = HTTPBody.empty)

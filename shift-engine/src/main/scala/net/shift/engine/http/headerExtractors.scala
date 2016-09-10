@@ -1,8 +1,10 @@
 package net.shift.engine.http
 
+import net.shift.http.TextHeader
+
 object HeaderKeyValue {
-  def unapply(h: Header): Option[(String, String)] = {
-    Some((h.key, h.valueWithNoParams))
+  def unapply(h: TextHeader): Option[(String, String)] = {
+    Some((h.name, h.value))
   }
 }
 
@@ -14,7 +16,7 @@ object MultipartBoundry {
     else None
   }
 
-  def unapply(h: Header): Option[String] = {
+  def unapply(h: TextHeader): Option[String] = {
     (h.value.startsWith("multipart/form-data"), extractBoundry(h.value)) match {
       case (true, Some(value)) => Some(value)
       case _                   => None
@@ -23,8 +25,8 @@ object MultipartBoundry {
 }
 
 object ContentDisposition {
-  def unapply(h: Header): Option[(String, Map[String, String])] = {
-    if (h.key == "Content-Disposition") {
+  def unapply(h: TextHeader): Option[(String, Map[String, String])] = {
+    if (h.name == "Content-Disposition") {
       val splits = h.value.split(";")
       val v = splits.head
       val params = splits.tail.map { v =>

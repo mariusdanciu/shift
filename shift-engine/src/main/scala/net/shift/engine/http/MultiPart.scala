@@ -2,7 +2,6 @@ package net.shift
 package engine.http
 
 import scala.concurrent.ExecutionContext.Implicits.global
-
 import scala.annotation.tailrec
 import scala.collection.mutable.ListBuffer
 import scala.util.Try
@@ -19,16 +18,17 @@ import IO._
 import net.shift.common.Config
 import net.shift.common.Path
 import scala.concurrent.Future
+import net.shift.http.TextHeader
 
 sealed trait MultiPart
 
 case class MultiPartBody(parts: List[MultiPart]) extends MultiPart
 
-case class BodyPart(headers: Map[String, Header], body: MultiPart) extends MultiPart
+case class BodyPart(headers: Map[String, TextHeader], body: MultiPart) extends MultiPart
 
-case class BinaryPart(headers: Map[String, Header], content: Array[Byte]) extends MultiPart
+case class BinaryPart(headers: Map[String, TextHeader], content: Array[Byte]) extends MultiPart
 
-case class TextPart(headers: Map[String, Header], content: String) extends MultiPart
+case class TextPart(headers: Map[String, TextHeader], content: String) extends MultiPart
 
 object MultipartParser {
   def apply(boundry: String) = new MultipartParser(boundry.getBytes("UTF-8"))
@@ -93,7 +93,7 @@ class MultipartParser(boundary: Array[Byte]) extends Parsers with Log {
   def multiParser: Parser[MultiPartBody] = bound ~> rep((headers ~ (crlf ~> partParser)) ^^ {
     case k ~ v =>
       k.get("Content-Type") match {
-        case Some(Header(_, value)) if (value.startsWith("text")) =>
+        case Some(TextHeader(_, value)) if (value.startsWith("text")) =>
           val s = new String(v, "UTF-8")
           TextPart(k, s)
         case Some(_) =>
@@ -112,10 +112,10 @@ class MultipartParser(boundary: Array[Byte]) extends Parsers with Log {
     case k ~ None    => (k, k)
   }
 
-  def headers = (rep(header) <~ crlf) ^^ { h => h.map(e => (e.key, e)).toMap }
+  def headers = (rep(header) <~ crlf) ^^ { h => h.map(e => (e.name, e)).toMap }
 
   def header = (crlf ~> ((key <~ ws(":")) ~ value)) ~ rep(ws(";") ~> param) ^^ {
-    case k ~ v ~ p => Header(new String(k, "UTF-8"),
+    case k ~ v ~ p => TextHeader(new String(k, "UTF-8"),
       new String(v, "UTF-8") + ";" + p.map { case (k, v) => new String(k, "UTF-8") + "=" + new String(v, "UTF-8") }.toList.mkString(";"))
   }
 

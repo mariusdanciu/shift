@@ -1,9 +1,20 @@
 package net.shift.http
 
-import net.shift.security.HMac
-import net.shift.common.Config
-import net.shift.security.User
+import java.nio.ByteBuffer
 import net.shift.common.Base64
+import net.shift.common.Config
+import net.shift.io.IO
+import net.shift.security.HMac
+import net.shift.security.User
+import net.shift.common.Path
+import net.shift.loc.Language
+
+case class RichRequest(r: HTTPRequest) {
+
+  def withPath(p: Path) = r.copy(uri = r.uri.copy(path = p.toString))
+  def withLanguage(l: Language) = r.copy(headers = r.headers.filter(l => l.name != "Accept-Language") ++
+    List(TextHeader("Accept-Language", l.toHttpString)))
+}
 
 case class RichResponse(r: HTTPResponse) {
 
@@ -13,7 +24,7 @@ case class RichResponse(r: HTTPResponse) {
 
   def withCookies(c: SetCookie*) = r.copy(headers = r.headers ++ c)
 
-  def securityCookies(user: User)(implicit conf: Config): HTTPResponse = {
+  def withSecurityCookies(user: User)(implicit conf: Config): HTTPResponse = {
     val org = user.org.map(_.name) getOrElse ""
     val identity = s"${user.name}:$org:${user.permissions.map(_.name).mkString(",")}"
     val computedSecret = Base64.encode(HMac.encodeSHA256(identity, conf.string("auth.hmac.salt", "SHIFT-HMAC-SALT")))
@@ -28,5 +39,33 @@ case class RichResponse(r: HTTPResponse) {
       SetCookie("identity", "", None, Some("/"), Some(0), None, false, true),
       SetCookie("secret", "", None, Some("/"), Some(0), None, false, true))
   }
+
+  private def withBody(c: String, mime: String) = {
+    val arr = ByteBuffer.wrap(c.getBytes("UTF-8"))
+
+    r.copy(headers = r.headers ++ List(
+      Headers.contentType(mime),
+      Headers.contentLength(arr.limit)),
+      body = IO.bufferProducer(arr))
+  }
+
+  def withTextBody(b: String) = withBody(b, ContentType.TextPlain)
+  def withJsonBody(b: String) = withBody(b, ContentType.TextJson)
+  def withJavascripBody(b: String) = withBody(b, ContentType.TextJavascript)
+  def withCssBody(b: String) = withBody(b, ContentType.TextCss)
+  def withHtmlBody(b: String) = withBody(b, ContentType.TextHtml)
+
+  def withMime(mime: String) = {
+    r.copy(headers = r.headers.filter {
+      case TextHeader("Content-Type", _) => false
+      case _                             => true
+    } ++ List(Headers.contentType(mime)))
+  }
+
+  def withHeaders(h: TextHeader*) = {
+    r.copy(headers = r.headers ++ h)
+  }
+
+  def withCode(cd: Int) = r.copy(code = cd)
 
 }

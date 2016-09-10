@@ -7,24 +7,6 @@ import net.shift.common.ShiftParsers
 import net.shift.io.IO
 import java.nio.ByteBuffer
 
-object HttpParser extends App {
-
-  val http = "GET /product?id=123123 HTTP/1.1\r\nContent-Length: 13\r\nContent-Type: text/html\r\n\r\n" + """<html>
-<head>
-  <title>An Example Page</title>
-</head>
-<body>
-  Hello World, this is a very simple HTML document.
-</body>
-</html>"""
-
-  new HttpParser().parse(http) match {
-    case Success(h @ HTTPRequest(_, _, _, _, body)) =>
-      println(h)
-    case f => println(f)
-  }
-}
-
 class HttpParser extends ShiftParsers {
 
   def uri = ws ~> (opt((str("http://") ~> notReserved()) ~ opt(chr(':') ~> int)) ~ opt(notReserved('/')) ~ (ws ~> opt(params))) ^^ {
