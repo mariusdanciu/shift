@@ -13,10 +13,9 @@ object ShiftBuild extends Build {
   val distShiftCommon = TaskKey[File]("distShiftCommon", "")
   val distShiftEngine = TaskKey[File]("distShiftEngine", "")
   val distShiftTemplate = TaskKey[File]("distShiftTemplate", "")
-  val distShiftSpray = TaskKey[File]("distShiftSpray", "")
   val distShiftHtml = TaskKey[File]("distShiftHtml", "")
   val distShiftHttp = TaskKey[File]("distShiftHttp", "")
-  val distShiftDemo = TaskKey[File]("distShiftDemo", "")
+
   val dist = TaskKey[Unit]("dist", "")
   val distSrc = TaskKey[Unit]("distSrc", "")
   val inc = TaskKey[Unit]("inc", "")
@@ -32,9 +31,8 @@ object ShiftBuild extends Build {
     IO.copyDirectory(new File("shift-common") / "src", distSrcDir / "shit-common" / "src")
     IO.copyDirectory(new File("shift-engine") / "src", distSrcDir / "shit-engine" / "src")
     IO.copyDirectory(new File("shift-html") / "src", distSrcDir / "shit-html" / "src")
-	IO.copyDirectory(new File("shift-spray") / "src", distSrcDir / "shit-spray" / "src")
     IO.copyDirectory(new File("shift-template") / "src", distSrcDir / "shit-template" / "src")
-    IO.copyDirectory(new File("examples/demo") / "src", distSrcDir / "examples" / "demo" / "src")
+    IO.copyDirectory(new File("shift-http") / "src", distSrcDir / "shit-http" / "src")
  
     IO.copyFile(new File("./LICENSE.txt"), distSrcDir / "LICENSE.txt");
 
@@ -58,21 +56,18 @@ object ShiftBuild extends Build {
 
   val distSetting = dist <<= (target, managedClasspath in Runtime, scalaVersion, version, 
                               distShiftCommon in shift_common, 
-							  distShiftEngine in shift_engine, 
+                              distShiftEngine in shift_engine, 
                               distShiftTemplate in shift_template, 
-							  distShiftSpray in shift_spray,
-							  distShiftHtml in shift_html, 
-							  distShiftDemo in shift_demo, 
-							  distSrc) map { (target, cp, sv, v, common, engine, template, spray, html, demo, src) => {
+			      distShiftHtml in shift_html, 
+			      distShiftHttp in shift_http, 
+			      distSrc) map { (target, cp, sv, v, common, engine, template, html, http, src) => {
       println("dist > shift")
 
       IO.copyFile(common, libDir / common.name);
       IO.copyFile(engine, libDir / engine.name);
       IO.copyFile(template, libDir / template.name);
-	  IO.copyFile(spray, libDir / spray.name);
       IO.copyFile(html, libDir / html.name);
-      IO.copyFile(demo, libDir / demo.name);
-
+      IO.copyFile(http, libDir / http.name);
       IO.copyFile(new File("./LICENSE.txt"), distDir / "LICENSE.txt");
 
       TarGzBuilder.makeTarGZ("target/shift_" + sv + "_" + v + "_.tar.gz", "./dist")
@@ -111,17 +106,6 @@ object ShiftBuild extends Build {
     }
   }
 
-  val distShiftSpraySetting = distShiftSpray <<= (target, managedClasspath in Runtime, publishLocal, packageBin in Compile) map {
-    (target, cp, _, pack) => {
-        println("dist > shiftspray")
-
-        for {jar <- cp} {
-          IO.copyFile(jar.data, libDir / jar.data.name);
-        }
-	pack
-    }
-  }
-
   val distShiftHtmlSetting = distShiftHtml <<= (target, managedClasspath in Runtime, publishLocal, packageBin in Compile) map {
     (target, cp, _, pack) => {
         println("dist > shifthtml")
@@ -142,20 +126,12 @@ object ShiftBuild extends Build {
     }
   }
 
-  val distShiftDemoSetting = distShiftDemo <<= (target, managedClasspath in Runtime, publishLocal, packageBin in Compile) map {
-    (target, cp, _, pack) => {
-        println("dist > shiftdemo")
-	pack
-    }
-  }
-
-
   lazy val root = Project(id = "shift",
                           base = file("."),
                           settings = Defaults.defaultSettings ++ Seq(incSetting, distSrcSetting, distSetting, distShiftCommonSetting, 
-                                     distShiftEngineSetting, distShiftTemplateSetting, distShiftSpraySetting,
-                                     distShiftHtmlSetting, distShiftHttpSetting, distShiftDemoSetting)) aggregate(shift_common, shift_engine, shift_spray,
-				     shift_template, shift_html, shift_http, shift_demo)
+                                     distShiftEngineSetting, distShiftTemplateSetting, 
+                                     distShiftHtmlSetting, distShiftHttpSetting)) aggregate(shift_common, shift_engine, 
+				     shift_template, shift_html, shift_http)
 
   lazy val shift_common = Project(id = "shift-common",
 				  base = file("shift-common"),
@@ -163,15 +139,11 @@ object ShiftBuild extends Build {
 
   lazy val shift_engine = Project(id = "shift-engine",
 				  base = file("shift-engine"),
-                                  settings = Defaults.defaultSettings ++ Seq(distShiftEngineSetting)) dependsOn (shift_common, shift_template)
+                                  settings = Defaults.defaultSettings ++ Seq(distShiftEngineSetting)) dependsOn (shift_common, shift_http, shift_template)
 
   lazy val shift_template = Project(id = "shift-template",
 				    base = file("shift-template"),
                                     settings = Defaults.defaultSettings ++ Seq(distShiftTemplateSetting)) dependsOn (shift_common)
-
-  lazy val shift_spray = Project(id = "shift-spray",
-				 base = file("shift-spray"),
-                                settings = Defaults.defaultSettings ++ Seq(distShiftSpraySetting)) dependsOn (shift_engine)
 
   lazy val shift_html = Project(id = "shift-html",
 	                        base = file("shift-html"),
@@ -180,11 +152,6 @@ object ShiftBuild extends Build {
   lazy val shift_http = Project(id = "shift-http",
 	                        base = file("shift-http"),
                                 settings = Defaults.defaultSettings ++ Seq(distShiftHttpSetting)) dependsOn (shift_common)
-
-
-  lazy val shift_demo = Project(id = "demo",
-				base = file("examples/demo"),
-                                settings = Defaults.defaultSettings ++ Seq(distShiftDemoSetting)) dependsOn (shift_spray)
 
 
 }
