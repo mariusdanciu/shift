@@ -60,8 +60,6 @@ case class HTTPServer(specs: ServerSpecs) extends Log {
 
   protected[http] val system = ActorSystem("HTTPServer")
 
-  //private lazy val serverActor = system.actorOf(Props[ServerActor])
-
   private val selector = Selector.open
 
   private[http] val clients = new TrieMap[SelectionKey, ClientHandler]

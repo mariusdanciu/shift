@@ -5,7 +5,7 @@ import java.nio.channels.SelectionKey
 object Selections {
 
   def selectForRead(key: SelectionKey): SelectionKey = {
-    key.interestOps(key.interestOps() & SelectionKey.OP_READ)
+    key.interestOps(key.interestOps() | SelectionKey.OP_READ)
   }
 
   def unSelectForRead(key: SelectionKey): SelectionKey = {
@@ -13,7 +13,7 @@ object Selections {
   }
 
   def selectForWrite(key: SelectionKey): SelectionKey = {
-    key.interestOps(key.interestOps() & SelectionKey.OP_WRITE)
+    key.interestOps(key.interestOps() | SelectionKey.OP_WRITE)
   }
 
   def unSelectForWrite(key: SelectionKey): SelectionKey = {

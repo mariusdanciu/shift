@@ -24,6 +24,8 @@ class ClientHandler(key: SelectionKey, name: String, onClose: SelectionKey => Un
   var writeState: Option[BinProducer] = None
   var keepAlive: Boolean = true
 
+  var uri: HTTPUri = null
+
   def loggerName = name
 
   def terminate {
@@ -53,6 +55,8 @@ class ClientHandler(key: SelectionKey, name: String, onClose: SelectionKey => Un
 
         Future {
           service(http)(resp => {
+            uri = http.uri
+            log.debug(uri + " - " + resp.headers)
             send(IO.segmentable(resp.asBinProducer))
           })
         }
@@ -103,6 +107,7 @@ class ClientHandler(key: SelectionKey, name: String, onClose: SelectionKey => Un
     while (written > 0 && buffer.hasRemaining()) {
       written = client.write(buffer)
     }
+    log.debug(uri + " - wrote " + written)
     (written, buffer)
   }
 
@@ -116,9 +121,10 @@ class ClientHandler(key: SelectionKey, name: String, onClose: SelectionKey => Un
   }
 
   def writeResponse() = {
+    log.debug(uri + " writeResponse")
     writeState match {
       case Some(prod) =>
-        val client = key.channel().asInstanceOf[SocketChannel]
+        log.debug(uri + " send " + prod)
         send(prod)
       case _ =>
         log.warn("No data available for write")
@@ -133,8 +139,7 @@ class ClientHandler(key: SelectionKey, name: String, onClose: SelectionKey => Un
           drain(client, d) match {
             case (0, buf) =>
               writeState = Some(prod)
-              selectForWrite(key)
-              Done((), Data(d))
+              Done((), Data(buf))
             case (-1, buf) => net.shift.io.Error[ByteBuffer, Unit](new IOException("Client connection closed."))
             case (_, buf)  => cont
           }
@@ -143,10 +148,18 @@ class ClientHandler(key: SelectionKey, name: String, onClose: SelectionKey => Un
           Done((), EOF)
       }
 
-      prod(cont) match {
+      val res = prod(cont)
+      log.debug(uri + " res " + res)
+
+      res match {
+        case Done(_, Data(_)) =>
+          log.debug(uri + " Continue sending response.")
+          selectForWrite(key)
+          key.selector().wakeup()
         case Done(_, EOF) =>
           handleResponseSent()
         case Error(t) =>
+          t.printStackTrace
           log.error("Cannot sent response ", t)
           terminate
         case it =>
