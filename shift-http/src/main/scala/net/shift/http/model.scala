@@ -91,33 +91,9 @@ case class HTTPRequest(
     body: BinProducer) extends Payload {
 
   lazy val languages: Seq[Language] = {
-    def langFromString(str: String) = str.split("-").toList match {
-      case lang :: country :: _ => Language(lang, Some(country))
-      case lang :: Nil          => Language(lang)
-      case _                    => Language("en")
-    }
-
-    stringHeader("Accept-Language") match {
-      case Some(value) =>
-        val lngs = for { item <- value.split(",") } yield {
-          item.split(";").toList match {
-            case lng :: q :: Nil =>
-              val qarr = q.split("=")
-
-              val quality = if (qarr.length == 2) {
-                qarr(1).trim.toDouble
-              } else {
-                0.0
-              }
-
-              (langFromString(lng.trim), quality)
-            case lng :: Nil => (langFromString(lng.trim), 1.0)
-            case _          => (Language("en"), 0.1)
-          }
-        }
-        lngs.sortWith { case ((l1, q1), (l2, q2)) => q1 >= q2 } map { _._1 }
-
-      case _ => List(Language("en"))
+    header("Accept-Language") match {
+      case Some(AcceptLanguage(langs)) => langs
+      case _                           => List(Language("en"))
     }
   }
 
