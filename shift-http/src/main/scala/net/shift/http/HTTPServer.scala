@@ -157,6 +157,8 @@ object RawExtract {
 case class Raw(buffers: List[ByteBuffer]) extends Payload {
   def +(b: ByteBuffer) = Raw(buffers ++ List(b))
   def ++(b: Seq[ByteBuffer]) = Raw(buffers ++ b)
+  
+  def buffersState : String = buffers map {b => s"${b.position} : ${b.limit}"} mkString "\n"
 }
 
 case class ServerSpecs(name: String = "Shift-HTTPServer",

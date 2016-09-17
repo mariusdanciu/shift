@@ -61,7 +61,7 @@ class MultipartParser(boundary: Array[Byte]) extends Parsers with Log {
 
   def crlf = Array[Byte](13, 10)
 
-  def parse(in: BinProducer)(implicit conf: Config): Try[MultiPartBody] = toArray(in) flatMap { parse(_) }
+  def parse(in: BinProducer)(implicit conf: Config): Try[MultiPartBody] = producerToArray(in) flatMap { parse(_) }
 
   private def storeMultipart(in: Array[Byte])(implicit conf: Config) {
     if (conf.bool("trace.uploads", false)) {
@@ -145,7 +145,7 @@ class MultipartParser(boundary: Array[Byte]) extends Parsers with Log {
 
 object BinReader {
   def apply(in: BinProducer) = {
-    toArray(in) map { arr =>
+    producerToArray(in) map { arr =>
       {
         new BinReader(arr, 0)
       }

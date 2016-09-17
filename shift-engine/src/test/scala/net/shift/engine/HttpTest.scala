@@ -63,7 +63,7 @@ class HttpTest extends FlatSpec with Matchers {
 
     val v = for {
       prod <- LocalFileSystem.reader(Path("c:/work/upload-1442129190413.bin"))
-      array <- IO.toArray(prod)
+      array <- IO.producerToArray(prod)
     } yield {
       val parser = new MultipartParser("---------------------------3357733724543".getBytes("UTF-8"))
       parser.multiParser(BinReader(array)) map { v =>

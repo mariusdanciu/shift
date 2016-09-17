@@ -104,7 +104,7 @@ object XmlUtils {
     }
   }
 
-  def load(resource: BinProducer): Try[NodeSeq] = toArray(resource).map { arr => XML.load(new java.io.ByteArrayInputStream(arr)) }
+  def load(resource: BinProducer): Try[NodeSeq] = producerToArray(resource).map { arr => XML.load(new java.io.ByteArrayInputStream(arr)) }
 
   def load(path: Path): Try[NodeSeq] = Try(XML.load(new BufferedInputStream(new FileInputStream(path toString))))
 

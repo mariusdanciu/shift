@@ -40,8 +40,7 @@ object Html5 {
     r <- path(uri)
     u <- user
   } yield {
-    val logout = !r.uri.param("logout").isEmpty
-    Html5.pageFromFile(PageState(r, r.language, if (logout) None else u), filePath, snipets)
+    Html5.pageFromFile(PageState(r, r.language, u), filePath, snipets)
   }
 
   def page[T](path: Path,

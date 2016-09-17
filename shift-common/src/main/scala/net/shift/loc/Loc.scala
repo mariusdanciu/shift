@@ -20,7 +20,7 @@ object Loc {
 
   private def stringify(p: Path, l: Language)(implicit fs: FileSystem) = for {
     prod <- fs reader p
-    arr <- toArray(prod)
+    arr <- producerToArray(prod)
   } yield { new String(arr, "utf-8") }
 
   private def load(name: String, l: Language)(implicit fs: FileSystem) {

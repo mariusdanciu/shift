@@ -192,7 +192,7 @@ object IO {
     }
   }
 
-  def toBuffer(in: BinProducer): Try[ByteBuffer] = {
+  def producerToBuffer(in: BinProducer): Try[ByteBuffer] = {
     in(Iteratee.foldLeft(ByteBuffer.allocate(0)) { (acc, e) =>
       concat(acc, e)
     }) match {
@@ -202,7 +202,7 @@ object IO {
     }
   }
 
-  def chunks(in: BinProducer): Try[Seq[ByteBuffer]] = {
+  def producerToChunks(in: BinProducer): Try[Seq[ByteBuffer]] = {
     in(Iteratee.foldLeft(Nil: Seq[ByteBuffer]) { (acc, e) =>
       acc ++ List(e)
     }) match {
@@ -212,8 +212,8 @@ object IO {
     }
   }
 
-  def toArray(in: BinProducer): Try[Array[Byte]] = {
-    toBuffer(in) map { v =>
+  def producerToArray(in: BinProducer): Try[Array[Byte]] = {
+    producerToBuffer(in) map { v =>
       val arr = new Array[Byte](v.capacity)
       v.get(arr)
       arr
@@ -244,7 +244,9 @@ object IO {
     }
   }
 
-  def producerToString(in: BinProducer): Try[String] = toArray(in) map { new String(_, "utf-8") }
+  def producerToString(in: BinProducer): Try[String] = producerToArray(in) map { new String(_, "utf-8") }
+
+  def producerToCharCodes(in: BinProducer): Try[String] = producerToArray(in) map { a => a.map { c => "%02d".format(c.toInt) }.mkString }
 
 }
 

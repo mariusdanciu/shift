@@ -16,7 +16,6 @@ import net.shift.common.State
 import net.shift.engine.ex2Fail
 import net.shift.io.BinProducer
 import net.shift.io.FileSystem
-import net.shift.io.IO.toArray
 import net.shift.loc.Language
 import net.shift.security.BasicCredentials
 import net.shift.security.Credentials
@@ -117,6 +116,14 @@ object HttpPredicates {
   def path(path: String): State[HTTPRequest, HTTPRequest] = state {
     r =>
       if (r.uri.path == path)
+        Success((r, r))
+      else
+        ShiftFailure.toTry
+  }
+
+  def exceptPath(path: String): State[HTTPRequest, HTTPRequest] = state {
+    r =>
+      if (r.uri.path != path)
         Success((r, r))
       else
         ShiftFailure.toTry

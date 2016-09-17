@@ -53,11 +53,13 @@ class HttpParser extends ShiftParsers {
   def parse(reader: BinReader): Try[HTTPRequest] = {
     http(reader) match {
       case Success(r, _) => scala.util.Success(r)
-      case Failure(f, _) => scala.util.Failure(new Exception(f))
-      case Error(f, _)   => scala.util.Failure(new Exception(f))
+      case Failure(f, p) =>
+        scala.util.Failure(new Exception(f))
+      case Error(f, p) =>
+        scala.util.Failure(new Exception(f))
     }
   }
 
-  def parse(html: String): Try[HTTPRequest] = parse(BinReader(List(ByteBuffer.wrap(html.getBytes("UTF-8")))))
+  def parse(http: String): Try[HTTPRequest] = parse(BinReader(List(ByteBuffer.wrap(http.getBytes("UTF-8")))))
 }
 

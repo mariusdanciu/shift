@@ -94,7 +94,7 @@ trait ShiftParsers extends Parsers {
 
 object BinReader {
   import IO._
-  def apply(in: BinProducer) = chunks(in) map { arr => new BinReader(arr, 0) }
+  def apply(in: BinProducer) = producerToChunks(in) map { arr => new BinReader(arr, 0) }
 }
 
 case class BinReader(in: Seq[ByteBuffer], position: Int = 0) extends Reader[Byte] {
@@ -103,9 +103,11 @@ case class BinReader(in: Seq[ByteBuffer], position: Int = 0) extends Reader[Byte
 
   lazy val first = {
     if (!in.isEmpty && in.head.hasRemaining()) {
+      in.head.position(position)
       in.head.get
     } else {
-      throw new IOException("Not enough data")
+      println(s"${in.size} : ${in.head.limit} : ${in.head.position()} : ${in.head.hasRemaining()}")
+      throw new IOException(s"Not enough data for pos: $position")
     }
   }
 

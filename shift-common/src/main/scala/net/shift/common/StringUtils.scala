@@ -70,7 +70,7 @@ object StringUtils {
     case e: Exception => d
   }
 
-  def load(resource: BinProducer): Try[String] = IO.toArray(resource).map { arr => new String(arr, "UTF-8") }
+  def load(resource: BinProducer): Try[String] = IO.producerToArray(resource).map { arr => new String(arr, "UTF-8") }
 
   def load(path: Path): Try[String] = Try(Source.fromFile(path.toString()).getLines().mkString)
 

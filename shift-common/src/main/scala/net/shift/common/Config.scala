@@ -13,7 +13,7 @@ object Config {
   def load(profile: String = "")(implicit fs: FileSystem): Try[Config] = {
     for {
       in <- fs.reader(Path(s"config/config$profile.properties"))
-      arr <- toArray(in)
+      arr <- producerToArray(in)
     } yield {
       val p = new Properties();
       p.load(new ByteArrayInputStream(arr))

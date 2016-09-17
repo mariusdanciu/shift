@@ -56,7 +56,7 @@ class ClientHandler(key: SelectionKey, name: String, onClose: SelectionKey => Un
         Future {
           service(http)(resp => {
             uri = http.uri
-            log.debug(uri + " - response: " + resp.headers)
+            log.debug(uri + " - response: " + resp)
             send(IO.segmentable(resp.asBinProducer))
           })
         }
@@ -68,12 +68,13 @@ class ClientHandler(key: SelectionKey, name: String, onClose: SelectionKey => Un
 
       val buf = ByteBuffer.allocate(1024)
       var size = client.read(buf)
-
+      log.debug(s"Read $size bytes")
       if (size > 0) {
         buf.flip()
         readState match {
           case RawExtract(raw) =>
             val msg = raw + buf
+            log.debug(s"Input buffers ${msg.buffersState}")
             tryParse(msg) match {
               case Some(http @ HTTPRequest(m, u, v, hd, body @ HTTPBody(seq))) =>
                 checkRequestComplete(body.size, http.longHeader("Content-Length"), http)
@@ -94,6 +95,8 @@ class ClientHandler(key: SelectionKey, name: String, onClose: SelectionKey => Un
       } else if (size < 0) {
         log.info("End of client stream")
         terminate
+      } else if (size == 0) {
+        log.info("No data to read")
       }
     }.recover {
       case e =>
