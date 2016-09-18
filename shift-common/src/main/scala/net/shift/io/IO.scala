@@ -234,6 +234,14 @@ object IO {
     new String(arr, "UTF-8")
   }
 
+  def buffersToString(b: Seq[ByteBuffer]): String = {
+    b.map { b =>
+      val arr = new Array[Byte](b.limit)
+      b get arr
+      new String(arr, "UTF-8")
+    } mkString
+  }
+
   def inputStreamToBuffer(in: InputStream, bufSize: Int = 32768): Try[ByteBuffer] = {
     inputStreamProducer(in, bufSize)(Iteratee.foldLeft(ByteBuffer.allocate(0)) { (acc, e) =>
       concat(acc, e)
@@ -246,7 +254,7 @@ object IO {
 
   def producerToString(in: BinProducer): Try[String] = producerToArray(in) map { new String(_, "utf-8") }
 
-  def producerToCharCodes(in: BinProducer): Try[String] = producerToArray(in) map { a => a.map { c => "%02d".format(c.toInt) }.mkString }
+  def producerToCharCodes(in: BinProducer): Try[String] = producerToArray(in) map { a => a.map { c => "%02d ".format(c.toInt) }.mkString }
 
 }
 

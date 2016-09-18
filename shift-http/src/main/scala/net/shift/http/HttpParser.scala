@@ -6,36 +6,36 @@ import net.shift.common.BinReader
 import net.shift.common.ShiftParsers
 import net.shift.io.IO
 import java.nio.ByteBuffer
+import java.net.URLDecoder
 
 class HttpParser extends ShiftParsers {
 
-  def uri = ws ~> (opt((str("http://") ~> notReserved()) ~ opt(chr(':') ~> int)) ~ opt(notReserved('/')) ~ (ws ~> opt(params))) ^^ {
+  def uri = ws ~> (opt((str("http://") ~> notReserved()) ~ opt(chr(':') ~> int)) ~ opt(notReserved('/')) ~ (ws ~> opt(chr('?') ~> params))) ^^ {
     case Some(host ~ port) ~ path ~ params => HTTPUri(Some(host), port, path getOrElse "/", params getOrElse Nil)
     case None ~ path ~ params              => HTTPUri(None, None, path getOrElse "/", params getOrElse Nil)
   }
 
-  def params: Parser[List[HTTPParam]] = chr('?') ~>
-    repsep(notReserved() ~ opt(chr('=') ~> repsep(notReserved(), chr(','))), chr('&')) ^^ {
-      _ map {
-        case name ~ Some(value) => HTTPParam(name, value)
-        case name ~ _           => HTTPParam(name, Nil)
-      }
+  def params: Parser[List[HTTPParam]] = repsep(notReserved() ~ opt(chr('=') ~> repsep(notReserved(), chr(','))), chr('&')) ^^ {
+    _ map {
+      case name ~ Some(value) => HTTPParam(URLDecoder.decode(name, "UTF-8"), value map { URLDecoder.decode(_, "UTF-8") })
+      case name ~ _           => HTTPParam(URLDecoder.decode(name, "UTF-8"), Nil)
     }
+  }
 
-  def httpLine = capitals ~ uri ~ (str("HTTP/") ~> digit) ~ (chr('.') ~> digit) ^^ {
+  def httpLine = capitals ~ uri ~ (str("HTTP/") ~> digit) ~ (chr('.') ~> digit) <~ crlf ^^ {
     case method ~ uri ~ major ~ minor =>
       (method,
         uri,
         HTTPVer(major, minor))
   }
 
-  def cookie: Parser[List[HeaderItem]] = (str("Cookie") <~ chr(':') <~ ws) ~> repsep((ws ~> notReserved() <~ ws <~ chr('=') <~ ws) ~ notReserved('='), chr(';')) ^^ {
+  def cookie: Parser[List[Cookie]] = (str("Cookie") <~ chr(':') <~ ws) ~> repsep((ws ~> notReserved() <~ ws <~ chr('=') <~ ws) ~ notReserved('='), chr(';')) <~ crlf ^^ {
     _ map {
       case k ~ v => Cookie(k, v)
     }
   }
 
-  def header: Parser[List[HeaderItem]] = ((notReserved() <~ chr(':') <~ ws) ~ until(crlf, false)) ^^ {
+  def header: Parser[List[TextHeader]] = ((notReserved() <~ chr(':') <~ ws) ~ until(crlf, false)) ^^ {
     case name ~ value =>
       List(TextHeader(name.trim, IO.bufferToString(value)))
   }
@@ -46,8 +46,9 @@ class HttpParser extends ShiftParsers {
     HTTPBody(List(a))
   }
 
-  def http = httpLine ~ (crlf ~> httpHeaders) ~ (crlf ~> opt(httpBody)) ^^ {
-    case (method, uri, ver) ~ headers ~ body => HTTPRequest(method, uri, ver, headers, body getOrElse HTTPBody.empty)
+  def http = httpLine ~ httpHeaders ~ (crlf ~> opt(httpBody)) ^^ {
+    case (method, uri, ver) ~ headers ~ body =>
+      HTTPRequest(method, uri, ver, headers, body getOrElse HTTPBody.empty)
   }
 
   def parse(reader: BinReader): Try[HTTPRequest] = {
@@ -58,6 +59,14 @@ class HttpParser extends ShiftParsers {
       case Error(f, p) =>
         scala.util.Failure(new Exception(f))
     }
+  }
+
+  def parseParams(p: String) = params(BinReader(List(ByteBuffer.wrap(p.getBytes("UTF-8"))))) match {
+    case Success(r, _) => scala.util.Success(r)
+    case Failure(f, p) =>
+      scala.util.Failure(new Exception(f))
+    case Error(f, p) =>
+      scala.util.Failure(new Exception(f))
   }
 
   def parse(http: String): Try[HTTPRequest] = parse(BinReader(List(ByteBuffer.wrap(http.getBytes("UTF-8")))))
