@@ -97,13 +97,13 @@ object BinReader {
   def apply(in: BinProducer) = producerToChunks(in) map { arr => new BinReader(arr, 0) }
 }
 
-case class BinReader(in: Seq[ByteBuffer], position: Int = 0) extends Reader[Byte] {
+case class BinReader(in: Seq[ByteBuffer], position: Int = 0, bufferOffset: Int = 0) extends Reader[Byte] {
 
   lazy val size = in.map { _.limit }.sum
 
   lazy val first = {
     if (!in.isEmpty && in.head.hasRemaining()) {
-      in.head.position(position)
+      in.head.position(bufferOffset)
       in.head.get
     } else {
       println(s"${in.size} : ${in.head.limit} : ${in.head.position()} : ${in.head.hasRemaining()}")
@@ -114,9 +114,9 @@ case class BinReader(in: Seq[ByteBuffer], position: Int = 0) extends Reader[Byte
   def rest = {
     if (!in.isEmpty) {
       if (in.head.hasRemaining()) {
-        BinReader(in, position + 1)
+        BinReader(in, position + 1, bufferOffset + 1)
       } else {
-        BinReader(in.tail, position + 1)
+        BinReader(in.tail, position + 1, 0)
       }
     } else {
       throw new IOException("Not enough data")

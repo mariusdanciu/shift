@@ -4,19 +4,18 @@ import java.io.IOException
 import java.nio.ByteBuffer
 import java.nio.channels.SelectionKey
 import java.nio.channels.SocketChannel
-
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
-
 import Selections._
 import net.shift.common.BinReader
 import net.shift.common.Log
 import net.shift.io.Iteratee
 import net.shift.io._
 import net.shift.io.IO._
+import java.nio.channels.ClosedChannelException
 
 class ClientHandler(key: SelectionKey, name: String, onClose: SelectionKey => Unit) extends Log {
 
@@ -169,6 +168,9 @@ class ClientHandler(key: SelectionKey, name: String, onClose: SelectionKey => Un
       }
 
     }.recover {
+      case e: ClosedChannelException =>
+        log.warn("Client closed the connection while writing.")
+        terminate
       case e: Exception =>
         log.error("Internal error ", e)
         terminate
