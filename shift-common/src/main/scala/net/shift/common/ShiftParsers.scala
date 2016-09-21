@@ -18,6 +18,16 @@ trait ShiftParsers extends Parsers {
 
   val reserved = Set(';', '/', '?', ':', '@', '&', '=', '+', '$', ',', '\r', '\n', ' ')
 
+  def parserByPrevResults[T, V](p: Parser[T], next: T => Parser[V]) = new Parser[V] {
+    def apply(in: Input): ParseResult[V] = {
+      p(in) match {
+        case Success(t, res) => next(t)(res)
+        case Failure(f, res) => Failure(f, res)
+        case Error(f, res)   => Error(f, res)
+      }
+    }
+  }
+
   def capitals: Parser[String] = rep1(acceptIf(b =>
     b >= 'A' && b <= 'Z')(err => "Not a capital character " + err)) ^^ { _ map { _ toChar } mkString }
 
@@ -26,6 +36,8 @@ trait ShiftParsers extends Parsers {
   def int: Parser[Int] = rep1(digit) ^^ { _.mkString.toInt }
 
   def noCRLFSpace: Parser[Byte] = (accept(' ') | accept('\t')) ^^ { _ head }
+
+  def byte: Parser[Byte] = acceptIf(_ => true)(err => "Byte error " + err) ^^ { b => b.toByte }
 
   def crlf: Parser[Unit] = accept('\r') ~> accept('\n') ^^ { b => () }
 
