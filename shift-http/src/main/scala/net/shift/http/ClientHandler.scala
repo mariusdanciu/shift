@@ -17,7 +17,9 @@ import net.shift.io._
 import net.shift.io.IO._
 import java.nio.channels.ClosedChannelException
 
-class ClientHandler(key: SelectionKey, name: String, onClose: SelectionKey => Unit) extends Log {
+class ClientHandler(key: SelectionKey, name: String, onClose: SelectionKey => Unit) {
+
+  val log = HTTPLog
 
   var readState: Option[Payload] = None
   var writeState: Option[BinProducer] = None
@@ -53,6 +55,7 @@ class ClientHandler(key: SelectionKey, name: String, onClose: SelectionKey => Un
         readState = None
 
         Future {
+          log.info("Processing " + http)
           service(http)(resp => {
             uri = http.uri
             log.debug(uri + " - response: " + resp)
@@ -80,7 +83,6 @@ class ClientHandler(key: SelectionKey, name: String, onClose: SelectionKey => Un
               case None =>
                 readState = Some(msg)
               case _ =>
-                log.error("Cannot read request")
                 terminate
             }
           case Some(h @ HTTPRequest(m, u, v, hd, body @ HTTPBody(seq))) =>
@@ -99,7 +101,7 @@ class ClientHandler(key: SelectionKey, name: String, onClose: SelectionKey => Un
       }
     }.recover {
       case e =>
-        log.error("Cannot read data from client: ", e)
+        log.error("Cannot read data from client: " + e.getMessage)
         terminate
     }
   }

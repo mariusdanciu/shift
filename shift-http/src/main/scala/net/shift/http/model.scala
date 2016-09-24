@@ -139,6 +139,13 @@ case class HTTPResponse(code: Int,
                         headers: List[HeaderItem] = Nil,
                         body: BinProducer) extends Payload {
 
+  lazy val cookies = headers flatMap {
+    case c: SetCookie => List(c)
+    case _            => Nil
+  }
+
+  def cookie(name: String) = cookies find (_.cookieName == name)
+
   def asBinProducer: BinProducer = new BinProducer {
 
     var sendOnlyBody: Boolean = false;

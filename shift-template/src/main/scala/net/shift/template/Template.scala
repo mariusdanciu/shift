@@ -147,7 +147,7 @@ class TemplateParser extends Parsers {
 
   private def identifier = rep1(acceptIf(b => (b >= 'a' && b <= 'z') ||
     (b >= 'A' && b <= 'Z') ||
-    (b >= '0' && b <= '9') || b == '_' || b == '-' || b == '/' || b == '.')(err => "Not a value character " + err)) ^^ { r => r }
+    (b >= '0' && b <= '9') || b == '_' || b == '.')(err => "Not a value character " + err)) ^^ { r => r }
 
   private def noCRLFSpace = accept(' ') | accept('\t')
 
@@ -162,11 +162,13 @@ class TemplateParser extends Parsers {
   }
 
   private def loc: Parser[LocRef] = {
-    (str("<!--") ~> str("loc") ~> str(":") ~> identifier <~ str("-->")) ^^ { l => LocRef(l.mkString) }
+    (str("<!--") ~> str("loc") ~> str(":") ~> identifier <~ str("-->")) ^^ { l =>
+      LocRef(l.mkString)
+    }
   }
 
-  def inline: Parser[InlineRef] = {
-    (str("<!--") ~> str("inline") ~> str(":") ~> value ~ opt(params) <~ str("-->")) ^^ {
+  private def inline: Parser[InlineRef] = {
+    (str("<!--") ~> str("inline") ~> str(":") ~> identifier ~ opt(params) <~ str("-->")) ^^ {
       case l ~ params => InlineRef(l.mkString, params getOrElse Nil)
     }
   }

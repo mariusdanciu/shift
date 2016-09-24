@@ -9,6 +9,13 @@ trait Log {
 
   val log = Logger.getLogger(loggerName)
 
+  def isOff = log.isEnabledFor(Level.OFF)
+  def isAll = log.isEnabledFor(Level.ALL)
+  def isDebug = log.isEnabledFor(Level.DEBUG)
+  def isInfo = log.isEnabledFor(Level.INFO)
+  def isWarn = log.isEnabledFor(Level.WARN)
+  def isError = log.isEnabledFor(Level.ERROR)
+
   def debug(s: => String, e: Throwable = null) {
     if (log.isEnabledFor(Level.DEBUG)) {
       if (e != null)

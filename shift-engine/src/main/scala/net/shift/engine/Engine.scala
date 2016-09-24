@@ -20,7 +20,11 @@ object Engine extends DefaultLog {
     try {
       app.servingRule(request) match {
         case Success((_, Success(f))) =>
-          f(response)
+
+          f(r => {
+            info("Sending response " + r)
+            response(r)
+          })
         case Success((_, Failure(t @ ShiftFailure(msg)))) =>
           error("Fail processing the request ", t)
           response(serverError.withTextBody(msg))

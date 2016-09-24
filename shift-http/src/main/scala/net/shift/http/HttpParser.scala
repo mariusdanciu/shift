@@ -7,10 +7,18 @@ import net.shift.common.ShiftParsers
 import net.shift.io.IO
 import java.nio.ByteBuffer
 import java.net.URLDecoder
+import net.shift.common.Log
+import org.apache.log4j.Logger
+
+object HTTPLog extends Log {
+  def loggerName = "http_server"
+}
 
 class HttpParser extends ShiftParsers {
 
-  def uri = ws ~> (opt((str("http://") ~> notReserved()) ~ opt(chr(':') ~> int)) ~ opt(notReserved('/')) ~ (ws ~> opt(chr('?') ~> params))) ^^ {
+  val log = HTTPLog
+
+  def uri = ws ~> (opt((str("http://") ~> notReserved()) ~ opt(chr(':') ~> int)) ~ opt(path) ~ (ws ~> opt(chr('?') ~> params))) ^^ {
     case Some(host ~ port) ~ path ~ params => HTTPUri(Some(host), port, path getOrElse "/", params getOrElse Nil)
     case None ~ path ~ params              => HTTPUri(None, None, path getOrElse "/", params getOrElse Nil)
   }
@@ -52,11 +60,18 @@ class HttpParser extends ShiftParsers {
   }
 
   def parse(reader: BinReader): Try[HTTPRequest] = {
+    if (log.isInfo) {
+      log.info(IO.buffersToString(reader.in))
+      reader.in map { _ flip }
+    }
+
     http(reader) match {
       case Success(r, _) => scala.util.Success(r)
       case Failure(f, p) =>
+        log.info("Failed at position: " + p.pos.column)
         scala.util.Failure(new Exception(f))
       case Error(f, p) =>
+        log.info("Error at position: " + p.pos.column)
         scala.util.Failure(new Exception(f))
     }
   }

@@ -130,7 +130,8 @@ object HttpPredicates {
   }
 
   def path: State[HTTPRequest, Path] = state {
-    r => Success((r, Path(r.uri.path)))
+    r =>
+      Success((r, Path(r.uri.path)))
   }
 
   def hasAllParams(params: List[String]): State[HTTPRequest, List[String]] = state {
