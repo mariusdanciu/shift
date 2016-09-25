@@ -124,31 +124,38 @@ object IO {
 
   def inputStreamProducer(in: InputStream, bufSize: Int = 32768) = new BinProducer {
 
+    var current: Option[ByteBuffer] = None
+
     def apply[O](ait: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = {
 
       @tailrec
-      def walk[O](it: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = {
-
-        val buf = Array.ofDim[Byte](bufSize)
-
+      def loop(it: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = {
         it match {
           case Cont(f) =>
-            var r = in.read(buf)
-            val bf = ByteBuffer.wrap(buf, 0, r)
 
-            if (r != -1)
-              walk(f(Data(bf)))
-            else {
-              close(in)
-              walk(f(EOF))
+            val (read, data) = current match {
+              case Some(buf) if (buf.hasRemaining) =>
+                (buf.remaining(), buf)
+              case _ =>
+                val arr = Array.ofDim[Byte](bufSize)
+                val read = in.read(arr)
+                val b = ByteBuffer.wrap(arr)
+                current = Some(b)
+
+                (read, b)
             }
-          case e => e
+
+            if (read != -1) {
+              loop(f(Data(data)))
+            } else {
+              close(in)
+              f(EOF)
+            }
+          case r => r
         }
       }
 
-      failover {
-        walk(ait)
-      }
+      failover { loop(ait) }
 
     }
   }
