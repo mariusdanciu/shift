@@ -6,17 +6,17 @@ import java.io.FileInputStream
 import java.io.InputStream
 import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
+
 import scala.annotation.tailrec
 import scala.util.Failure
 import scala.util.Success
+import scala.Some
 import scala.util.Try
 import scala.util.control.Exception.catching
 import scala.xml.NodeSeq
+
 import net.shift.common.Path
 import net.shift.common.XmlUtils.mkString
-import java.nio.file.Files
-import java.nio.file.Paths
-import java.nio.file.StandardOpenOption
 
 object IODefaults {
 
@@ -34,40 +34,32 @@ object IO {
       f
     }
 
-  def fromArray[O](in: ByteBuffer): BinProducer = fromChunks(List(in))
+  def fromArray[O](in: ByteBuffer): BinProducer = singleProducer(in)
 
   def fromChunks[O](in: Seq[ByteBuffer]): BinProducer = {
-    val data = (in map { d => Data(d) }) ++ List(EOF)
-
-    new BinProducer {
-      var rest = data
-
-      def apply[O](it: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = {
-
-        @tailrec
-        def run(it: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = {
-          (rest, it) match {
-            case (head :: tail, Cont(f)) =>
-              val ni = f(head)
-              rest = tail
-              run(ni)
-            case (_, r) => r
-          }
-        }
-
-        run(it)
-      }
-    }
+    val prods = in reduceLeft { concat }
+    singleProducer(prods)
   }
 
-  def singleProducer[O](in: In[ByteBuffer]) = new BinProducer {
+  def singleProducer[O](in: ByteBuffer) = new BinProducer {
 
-    def apply[O](it: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = it match {
-      case Cont(f) => f(in) match {
-        case Cont(g) => g(EOF)
-        case r       => r
+    var current: Option[ByteBuffer] = None
+
+    def apply[O](it: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = {
+      @tailrec
+      def handle(it: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = {
+
+        (it, current) match {
+          case (Cont(f), Some(buf)) if (buf.hasRemaining())  => handle(f(Data(buf)))
+          case (Cont(f), Some(buf)) if (!buf.hasRemaining()) => f(EOF)
+          case (Cont(f), None) =>
+            current = Some(in)
+            handle(f(Data(in)))
+          case (r, _) => r
+        }
       }
-      case r => r
+
+      handle(it)
     }
   }
 
@@ -79,46 +71,13 @@ object IO {
     }
   }
 
-  def stringProducer(s: String): BinProducer = singleProducer(Data(ByteBuffer.wrap(s.getBytes("UTF-8"))))
+  def stringProducer(s: String): BinProducer = singleProducer(ByteBuffer.wrap(s.getBytes("UTF-8")))
 
-  def arrayProducer(arr: Array[Byte]): BinProducer = singleProducer(Data(ByteBuffer.wrap(arr)))
+  def arrayProducer(arr: Array[Byte]): BinProducer = singleProducer(ByteBuffer.wrap(arr))
 
-  def bufferProducer(buffer: ByteBuffer): BinProducer = singleProducer(Data(buffer))
+  def bufferProducer(buffer: ByteBuffer): BinProducer = singleProducer(buffer)
 
   def htmlProducer(s: NodeSeq): Try[BinProducer] = Try(stringProducer("<!DOCTYPE html>\n" + mkString(s)))
-
-  def segmentable(other: BinProducer): BinProducer = {
-    new BinProducer {
-
-      var next: Option[In[ByteBuffer]] = None
-
-      def apply[O](it: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = {
-
-        @tailrec
-        def handle(it: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = {
-
-          it match {
-            case c @ Cont(f) =>
-              next match {
-                case Some(d @ Data(buf)) if (buf.hasRemaining) =>
-                  handle(f(d))
-                case _ =>
-                  handle(other(it))
-              }
-            case d @ Done(out, data @ Data(rest)) if (rest.hasRemaining()) =>
-              next = Some(data)
-              d
-            case e =>
-              next = None
-              e
-          }
-        }
-
-        handle(it)
-
-      }
-    }
-  }
 
   def fileProducer(path: Path, bufSize: Int = 32768)(implicit fs: FileSystem): Try[(Long, BinProducer)] =
     for {
@@ -127,6 +86,8 @@ object IO {
     } yield {
       (size, new BinProducer {
 
+        var current: Option[ByteBuffer] = None
+
         def apply[O](ait: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = {
 
           @tailrec
@@ -134,22 +95,22 @@ object IO {
             it match {
               case Cont(f) =>
 
-                val b = ByteBuffer.allocate(bufSize)
-                val read = fc.read(b)
+                val (read, data) = current match {
+                  case Some(buf) if (buf.hasRemaining) =>
+                    (buf.remaining(), buf)
+                  case _ =>
+                    val b = ByteBuffer.allocate(bufSize)
+                    current = Some(b)
+                    val read = fc.read(b)
+                    b.flip
+                    (read, b)
+                }
 
                 if (read != -1) {
-                  b.flip
-                  val chunk = ByteBuffer.allocate(read)
-                  chunk.put(b)
-                  chunk.flip
-
-                  loop(f(Data(chunk)), fc)
+                  loop(f(Data(data)), fc)
                 } else {
                   close(fc)
-                  it match {
-                    case Cont(f) => f(EOF)
-                    case r       => r
-                  }
+                  f(EOF)
                 }
               case r => r
             }

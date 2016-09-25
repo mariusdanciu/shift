@@ -59,7 +59,7 @@ class ClientHandler(key: SelectionKey, name: String, onClose: SelectionKey => Un
           service(http)(resp => {
             uri = http.uri
             log.debug(uri + " - response: " + resp)
-            send(IO.segmentable(resp.asBinProducer))
+            send(resp.asBinProducer)
           })
         }
       }

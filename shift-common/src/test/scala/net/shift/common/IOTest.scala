@@ -1,28 +1,29 @@
 package net.shift
 package common
 
-import org.scalatest.Inside
-import org.scalatest.Inspectors
-import org.scalatest.OptionValues
-import org.scalatest.Matchers
-import org.scalatest.FlatSpec
-import io.IO._
-import net.shift.io.IterateeProducer._
-import net.shift.io.EOF
-import net.shift.io.Data
-import net.shift.io.LocalFileSystem._
-import scala.util.Success
-import net.shift.io.IO
 import java.nio.ByteBuffer
+import scala.util.Success
+import org.scalatest.FlatSpec
+import org.scalatest.Matchers
+import io.IO._
 import net.shift.io.Cont
+import net.shift.io.Data
 import net.shift.io.Done
+import net.shift.io.EOF
+import net.shift.io.IO
+import net.shift.io.IterateeProducer._
+import net.shift.io.LocalFileSystem._
 import net.shift.io.LocalFileSystem
 import net.shift.io.LocalFileSystem
+import java.nio.channels.SocketChannel
+import java.io.IOException
+import net.shift.io.Iteratee
 
 trait UnitTest extends FlatSpec with Matchers
 
 class IOTest extends UnitTest {
 
+  implicit val fs = LocalFileSystem
   implicit def string2Iterable(in: String) =
     in.map(c => Data(ByteBuffer.wrap(Array[Byte](c.toByte)))) ++ List(EOF)
 
@@ -77,58 +78,40 @@ class IOTest extends UnitTest {
 
   }
 
-  "Segmentable" should "work allow consuming buffers partially" in {
-    implicit val fs = LocalFileSystem
-    
-    val k = for { (_, fp) <- fileProducer(Path("./build.sbt"), 10) } yield {
-      val p = segmentable(fp)
+  "IO" should "read/write large files" in {
+    val file = IO.fileProducer(Path("./src/test/resources/vopsea.png"), 32768)
 
-      val Done(chunk1, _) = p(Cont {
-        case Data(buf) =>
-          println("Chunk 1 " + buf)
-          val str = "" + buf.get().toChar +
-            buf.get().toChar +
-            buf.get().toChar
-          Done(str, Data(buf))
-      })
+    var totalSize = 0
 
-      val Done(chunk2, _) = p(Cont {
-        case Data(buf) =>
-          println("Chunk 2 " + buf)
-          val str = "" + (buf.get().toChar) +
-            (buf.get().toChar) +
-            (buf.get().toChar) +
-            (buf.get().toChar) +
-            (buf.get().toChar) +
-            (buf.get().toChar) +
-            (buf.get().toChar)
-          Done(str, Data(buf))
-      })
-
-      val Done(chunk3, _) = p(Cont {
-        case Data(buf) =>
-          println("Chunk 3 " + buf)
-          val str = "" + (buf.get().toChar) +
-            (buf.get().toChar) +
-            (buf.get().toChar) +
-            (buf.get().toChar) +
-            (buf.get().toChar) +
-            (buf.get().toChar) +
-            (buf.get().toChar) +
-            (buf.get().toChar) +
-            (buf.get().toChar) +
-            (buf.get().toChar)
-          Done(str, Data(buf))
-      })
-
-      println(chunk1)
-      println(chunk2)
-      println(chunk3)
-
-      assert(chunk1 === "nam")
-      assert(chunk2 === "e := \"s")
-      assert(chunk1 === "hift-commo")
+    def write(b: ByteBuffer): Int = {
+      val size = if (b.remaining() < 1024) b.remaining() else 1024
+      val arr = Array.fill[Byte](size)(0)
+      val oldP = b.position()
+      val res = b.get(arr)
+      val newP = b.position()
+      println("remain " + b.remaining())
+      println("wrote " + b + " - " + (newP - oldP))
+      totalSize += (newP - oldP)
+      res.position
     }
+
+    def cont: Iteratee[ByteBuffer, Unit] = Cont {
+      case Data(d) =>
+
+        val wrote = write(d)
+
+        wrote match {
+          case 0 =>
+            Done((), Data(d))
+          case -1 => net.shift.io.Error[ByteBuffer, Unit](new IOException("Client connection closed."))
+          case _  => cont
+        }
+      case EOF =>
+        Done((), EOF)
+    }
+
+    println(file map { f => f._2(cont) })
+    assert(totalSize == 276405)
 
   }
 
