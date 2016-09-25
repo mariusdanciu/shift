@@ -46,8 +46,10 @@ object IO {
       def handle(it: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = {
 
         (it, current) match {
-          case (Cont(f), Nil)                                 => f(EOF)
-          case (Cont(f), buf :: tail) if (buf.hasRemaining()) => handle(f(Data(buf)))
+          case (Cont(f), Nil) =>
+            f(EOF)
+          case (Cont(f), buf :: tail) if (buf.hasRemaining()) =>
+            handle(f(Data(buf)))
           case (Cont(f), buf :: tail) if (!buf.hasRemaining()) =>
             current = tail
             handle(it)

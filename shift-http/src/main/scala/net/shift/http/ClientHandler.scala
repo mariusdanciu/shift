@@ -36,14 +36,13 @@ class ClientHandler(key: SelectionKey, name: String, onClose: SelectionKey => Un
   def readChunk(service: HTTPService)(implicit ctx: ExecutionContext) = {
 
     def tryParse(msg: Raw): Option[HTTPRequest] = {
-      BinReader(IO.chunksProducer(msg.buffers)).toOption.flatMap { reader =>
-        new HttpParser().parse(reader) match {
-          case Success(h @ HTTPRequest(_, _, _, headers, body)) =>
-            Some(h)
-          case Failure(f) =>
-            log.debug("Cannot parse HTTP request ", f)
-            None
-        }
+      val reader = BinReader(msg.buffers)
+      new HttpParser().parse(reader) match {
+        case Success(h @ HTTPRequest(_, _, _, headers, body)) =>
+          Some(h)
+        case Failure(f) =>
+          log.debug("Cannot parse HTTP request ", f)
+          None
       }
     }
 
