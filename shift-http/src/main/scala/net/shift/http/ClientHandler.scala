@@ -36,7 +36,7 @@ class ClientHandler(key: SelectionKey, name: String, onClose: SelectionKey => Un
   def readChunk(service: HTTPService)(implicit ctx: ExecutionContext) = {
 
     def tryParse(msg: Raw): Option[HTTPRequest] = {
-      BinReader(IO.fromChunks(msg.buffers)).toOption.flatMap { reader =>
+      BinReader(IO.chunksProducer(msg.buffers)).toOption.flatMap { reader =>
         new HttpParser().parse(reader) match {
           case Success(h @ HTTPRequest(_, _, _, headers, body)) =>
             Some(h)

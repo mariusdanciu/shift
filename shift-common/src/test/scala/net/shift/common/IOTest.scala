@@ -18,6 +18,7 @@ import net.shift.io.LocalFileSystem
 import java.nio.channels.SocketChannel
 import java.io.IOException
 import net.shift.io.Iteratee
+import java.io.FileInputStream
 
 trait UnitTest extends FlatSpec with Matchers
 
@@ -78,27 +79,16 @@ class IOTest extends UnitTest {
 
   }
 
-  "IO" should "read/write large files" in {
+  "fileProducer" should "read large files" in {
     val file = IO.fileProducer(Path("./src/test/resources/vopsea.png"), 32768)
 
     var totalSize = 0
-
-    def write(b: ByteBuffer): Int = {
-      val size = if (b.remaining() < 1024) b.remaining() else 1024
-      val arr = Array.fill[Byte](size)(0)
-      val oldP = b.position()
-      val res = b.get(arr)
-      val newP = b.position()
-      println("remain " + b.remaining())
-      println("wrote " + b + " - " + (newP - oldP))
-      totalSize += (newP - oldP)
-      res.position
-    }
 
     def cont: Iteratee[ByteBuffer, Unit] = Cont {
       case Data(d) =>
 
         val wrote = write(d)
+        totalSize += wrote
 
         wrote match {
           case 0 =>
@@ -113,6 +103,54 @@ class IOTest extends UnitTest {
     println(file map { f => f._2(cont) })
     assert(totalSize == 276405)
 
+  }
+
+  "inputStreamProducer" should "work" in {
+    val file = IO.inputStreamProducer(new FileInputStream("./src/test/resources/vopsea.png"), 32768)
+
+    var totalSize = 0
+
+    def cont: Iteratee[ByteBuffer, Unit] = Cont {
+      case Data(d) =>
+
+        val wrote = write(d)
+        totalSize += wrote
+
+        wrote match {
+          case 0 =>
+            Done((), Data(d))
+          case -1 => net.shift.io.Error[ByteBuffer, Unit](new IOException("Client connection closed."))
+          case _  => cont
+        }
+      case EOF =>
+        Done((), EOF)
+    }
+
+    println(file(cont))
+    assert(totalSize == 276405)
+
+  }
+
+  "chunksProducer" should "work" in {
+    
+    val ch1 = ByteBuffer.wrap("Prima parte.".getBytes("UTF-8"))
+    val ch2 = ByteBuffer.wrap("A doua parte.".getBytes("UTF-8"))
+    
+    val res = IO.producerToString(IO.chunksProducer(List(ch1, ch2)))
+    
+    assert(res === Success("Prima parte.A doua parte."))
+
+  }
+
+  private def write(b: ByteBuffer): Int = {
+    val size = if (b.remaining() < 1024) b.remaining() else 1024
+    val arr = Array.ofDim[Byte](size)
+    val oldP = b.position()
+    val res = b.get(arr)
+    val newP = b.position()
+    println("remain " + b.remaining())
+    println("wrote " + b + " - " + (newP - oldP))
+    (newP - oldP)
   }
 
 }

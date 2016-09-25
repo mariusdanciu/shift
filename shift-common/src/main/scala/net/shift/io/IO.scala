@@ -6,7 +6,6 @@ import java.io.FileInputStream
 import java.io.InputStream
 import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
-
 import scala.annotation.tailrec
 import scala.util.Failure
 import scala.util.Success
@@ -14,9 +13,11 @@ import scala.Some
 import scala.util.Try
 import scala.util.control.Exception.catching
 import scala.xml.NodeSeq
-
 import net.shift.common.Path
 import net.shift.common.XmlUtils.mkString
+import java.nio.channels.Channels
+import java.nio.channels.ReadableByteChannel
+import java.nio.channels.Channel
 
 object IODefaults {
 
@@ -36,32 +37,30 @@ object IO {
 
   def fromArray[O](in: ByteBuffer): BinProducer = singleProducer(in)
 
-  def fromChunks[O](in: Seq[ByteBuffer]): BinProducer = {
-    val prods = in reduceLeft { concat }
-    singleProducer(prods)
-  }
+  def chunksProducer[O](in: Seq[ByteBuffer]): BinProducer = new BinProducer {
 
-  def singleProducer[O](in: ByteBuffer) = new BinProducer {
-
-    var current: Option[ByteBuffer] = None
+    var current: List[ByteBuffer] = in toList
 
     def apply[O](it: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = {
       @tailrec
       def handle(it: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = {
 
         (it, current) match {
-          case (Cont(f), Some(buf)) if (buf.hasRemaining())  => handle(f(Data(buf)))
-          case (Cont(f), Some(buf)) if (!buf.hasRemaining()) => f(EOF)
-          case (Cont(f), None) =>
-            current = Some(in)
-            handle(f(Data(in)))
+          case (Cont(f), Nil)                                 => f(EOF)
+          case (Cont(f), buf :: tail) if (buf.hasRemaining()) => handle(f(Data(buf)))
+          case (Cont(f), buf :: tail) if (!buf.hasRemaining()) =>
+            current = tail
+            handle(it)
           case (r, _) => r
         }
       }
 
       handle(it)
     }
+
   }
+
+  def singleProducer[O](in: ByteBuffer) = chunksProducer(List(in))
 
   def emptyProducer = new BinProducer {
 
@@ -84,45 +83,12 @@ object IO {
       fc <- Try(new FileInputStream(path.toString).getChannel)
       size <- fs.fileSize(path)
     } yield {
-      (size, new BinProducer {
-
-        var current: Option[ByteBuffer] = None
-
-        def apply[O](ait: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = {
-
-          @tailrec
-          def loop(it: Iteratee[ByteBuffer, O], fc: FileChannel): Iteratee[ByteBuffer, O] = {
-            it match {
-              case Cont(f) =>
-
-                val (read, data) = current match {
-                  case Some(buf) if (buf.hasRemaining) =>
-                    (buf.remaining(), buf)
-                  case _ =>
-                    val b = ByteBuffer.allocate(bufSize)
-                    current = Some(b)
-                    val read = fc.read(b)
-                    b.flip
-                    (read, b)
-                }
-
-                if (read != -1) {
-                  loop(f(Data(data)), fc)
-                } else {
-                  close(fc)
-                  f(EOF)
-                }
-              case r => r
-            }
-          }
-
-          failover(loop(ait, fc))
-        }
-
-      })
+      (size, channelProducer(fc, bufSize))
     }
 
-  def inputStreamProducer(in: InputStream, bufSize: Int = 32768) = new BinProducer {
+  def inputStreamProducer(is: InputStream, bufSize: Int = 32768) = channelProducer(Channels.newChannel(is), bufSize)
+
+  def channelProducer(in: ReadableByteChannel, bufSize: Int = 32768) = new BinProducer {
 
     var current: Option[ByteBuffer] = None
 
@@ -137,11 +103,10 @@ object IO {
               case Some(buf) if (buf.hasRemaining) =>
                 (buf.remaining(), buf)
               case _ =>
-                val arr = Array.ofDim[Byte](bufSize)
-                val read = in.read(arr)
-                val b = ByteBuffer.wrap(arr)
+                val b = ByteBuffer.allocate(bufSize)
                 current = Some(b)
-
+                val read = in.read(b)
+                b.flip
                 (read, b)
             }
 
