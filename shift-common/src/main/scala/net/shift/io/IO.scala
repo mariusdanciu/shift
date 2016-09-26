@@ -48,11 +48,14 @@ object IO {
         (it, current) match {
           case (Cont(f), Nil) =>
             f(EOF)
-          case (Cont(f), buf :: tail) if (buf.hasRemaining()) =>
-            handle(f(Data(buf)))
-          case (Cont(f), buf :: tail) if (!buf.hasRemaining()) =>
-            current = tail
-            handle(it)
+          case (Cont(f), buf :: tail) =>
+            f(Data(buf)) match {
+              case c @ Cont(_) =>
+                current = tail
+                handle(c)
+              case r => r
+            }
+
           case (r, _) => r
         }
       }
@@ -102,7 +105,7 @@ object IO {
           case Cont(f) =>
 
             val (read, data) = current match {
-              case Some(buf) if (buf.hasRemaining) =>
+              case Some(buf) =>
                 (buf.remaining(), buf)
               case _ =>
                 val b = ByteBuffer.allocate(bufSize)
@@ -113,7 +116,13 @@ object IO {
             }
 
             if (read != -1) {
-              loop(f(Data(data)))
+              f(Data(data)) match {
+                case c @ Cont(_) =>
+                  current = None
+                  loop(c)
+                case e => e
+              }
+
             } else {
               close(in)
               f(EOF)
@@ -273,4 +282,5 @@ object IterateeProducer {
   }
 
 }
+
 

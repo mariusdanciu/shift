@@ -139,11 +139,11 @@ class ClientHandler(key: SelectionKey, name: String, onClose: SelectionKey => Un
         case Data(d) =>
           val client = key.channel().asInstanceOf[SocketChannel]
           drain(client, d) match {
-            case (0, buf) =>
+            case (_, buf) if (buf.hasRemaining) =>
               writeState = Some(prod)
               Done((), Data(buf))
-            case (-1, buf) => net.shift.io.Error[ByteBuffer, Unit](new IOException("Client connection closed."))
-            case (_, buf)  => cont
+            case (_, buf) if (!buf.hasRemaining) => cont
+            case (-1, buf)                       => net.shift.io.Error[ByteBuffer, Unit](new IOException("Client connection closed."))
           }
         case EOF =>
           handleResponseSent()

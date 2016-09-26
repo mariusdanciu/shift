@@ -27,33 +27,13 @@ import net.shift.common.BinReader
 import scala.util.Failure
 import scala.util.Success
 import java.io.IOException
-
-object Test extends App {
-  def serve: HTTPService = req => resp => {
-    println(req)
-    resp(Responses.textResponse("Some response"))
-  }
-
-  BasicConfigurator.configure
-
-  val srv = HTTPServer()
-
-  import scala.concurrent.ExecutionContext.Implicits.global
-  Future {
-    //Thread.sleep(10000)
-    //srv.stop
-  }
-
-  srv.start(serve)
-}
+import net.shift.common.Config
+import java.util.concurrent.ExecutorService
+import akka.dispatch.ExecutorServiceFactory
+import akka.dispatch.ExecutorServiceFactory
 
 object HTTPServer {
-
   def apply() = new HTTPServer(ServerSpecs())
-
-  def apply(serverName: String) = new HTTPServer(ServerSpecs(name = serverName))
-
-  def apply(serverPort: Int) = new HTTPServer(ServerSpecs(port = serverPort))
 }
 
 case class HTTPServer(specs: ServerSpecs) extends Log {
@@ -69,7 +49,9 @@ case class HTTPServer(specs: ServerSpecs) extends Log {
   @volatile
   private var running = false;
 
-  def start(service: HTTPService)(implicit ctx: ExecutionContext): Future[Unit] = {
+  def start(service: HTTPService): Future[Unit] = {
+
+    implicit val ctx = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(specs.numThreads))
 
     @tailrec
     def loop(serverChannel: ServerSocketChannel) {
@@ -157,13 +139,24 @@ object RawExtract {
 case class Raw(buffers: List[ByteBuffer]) extends Payload {
   def +(b: ByteBuffer) = Raw(buffers ++ List(b))
   def ++(b: Seq[ByteBuffer]) = Raw(buffers ++ b)
-  
-  def buffersState : String = buffers map {b => s"${b.position} : ${b.limit}"} mkString "\n"
+
+  def buffersState: String = buffers map { b => s"${b.position} : ${b.limit}" } mkString "\n"
 }
 
-case class ServerSpecs(name: String = "Shift-HTTPServer",
-                       address: String = "0.0.0.0",
-                       maxParallelConnections: Int = -1,
-                       port: Int = 8080)
+object ServerSpecs {
+  def apply() = fromConfig(new Config())
+
+  def fromConfig(conf: Config): ServerSpecs = {
+    ServerSpecs(
+      name = conf.string("http.serverName", "Shift-HTTPServer"),
+      address = conf.string("http.bindAddress", "0.0.0.0"),
+      port = conf.int("http.port", 8080),
+      numThreads = conf.int("http.numThreads", Runtime.getRuntime.availableProcessors()))
+  }
+}
+case class ServerSpecs(name: String,
+                       address: String,
+                       port: Int,
+                       numThreads: Int)
 
 

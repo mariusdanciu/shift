@@ -84,23 +84,15 @@ class IOTest extends UnitTest {
 
     var totalSize = 0
 
-    def cont: Iteratee[ByteBuffer, Unit] = Cont {
-      case Data(d) =>
-
-        val wrote = write(d)
-        totalSize += wrote
-
-        wrote match {
-          case 0 =>
-            Done((), Data(d))
-          case -1 => net.shift.io.Error[ByteBuffer, Unit](new IOException("Client connection closed."))
-          case _  => cont
+    file map { f =>
+      var done = false
+      while (!done) {
+        f._2(cont(totalSize += _)) match {
+          case Done(_, EOF) => done = true
+          case _            =>
         }
-      case EOF =>
-        Done((), EOF)
+      }
     }
-
-    println(file map { f => f._2(cont) })
     assert(totalSize == 276405)
 
   }
@@ -110,36 +102,45 @@ class IOTest extends UnitTest {
 
     var totalSize = 0
 
-    def cont: Iteratee[ByteBuffer, Unit] = Cont {
-      case Data(d) =>
+    println(file(cont(totalSize += _)))
 
-        val wrote = write(d)
-        totalSize += wrote
-
-        wrote match {
-          case 0 =>
-            Done((), Data(d))
-          case -1 => net.shift.io.Error[ByteBuffer, Unit](new IOException("Client connection closed."))
-          case _  => cont
-        }
-      case EOF =>
-        Done((), EOF)
+    var done = false
+    while (!done) {
+      file(cont(totalSize += _)) match {
+        case Done(_, EOF) => done = true
+        case _            =>
+      }
     }
-
-    println(file(cont))
     assert(totalSize == 276405)
 
   }
 
   "chunksProducer" should "work" in {
-    
+
     val ch1 = ByteBuffer.wrap("Prima parte.".getBytes("UTF-8"))
     val ch2 = ByteBuffer.wrap("A doua parte.".getBytes("UTF-8"))
-    
+
     val res = IO.producerToString(IO.chunksProducer(List(ch1, ch2)))
-    
+
     assert(res === Success("Prima parte.A doua parte."))
 
+  }
+
+  def cont(g: Int => Unit): Iteratee[ByteBuffer, Unit] = Cont {
+    case Data(d) =>
+
+      val wrote = write(d)
+      g(wrote)
+
+      wrote match {
+        case _ if (d.hasRemaining()) =>
+          Done((), Data(d))
+        case _ if (!d.hasRemaining()) =>
+          cont(g)
+        case -1 => net.shift.io.Error[ByteBuffer, Unit](new IOException("Client connection closed."))
+      }
+    case EOF =>
+      Done((), EOF)
   }
 
   private def write(b: ByteBuffer): Int = {
