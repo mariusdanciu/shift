@@ -18,13 +18,15 @@ import net.shift.common.XmlUtils.mkString
 import java.nio.channels.Channels
 import java.nio.channels.ReadableByteChannel
 import java.nio.channels.Channel
+import net.shift.common.Log
 
 object IODefaults {
 
   implicit val fs: FileSystem = LocalFileSystem
 }
 
-object IO {
+object IO extends Log {
+  def loggerName = this.getClass.getName
 
   def close(c: Closeable) = Try {
     c.close
@@ -106,11 +108,13 @@ object IO {
 
             val (read, data) = current match {
               case Some(buf) =>
+                log.debug("Read cached data: " + buf + " id " + System.identityHashCode(buf))
                 (buf.remaining(), buf)
               case _ =>
                 val b = ByteBuffer.allocate(bufSize)
                 current = Some(b)
                 val read = in.read(b)
+                log.debug("Read new data of size: " + read)
                 b.flip
                 (read, b)
             }

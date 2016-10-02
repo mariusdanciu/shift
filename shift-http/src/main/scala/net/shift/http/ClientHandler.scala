@@ -107,10 +107,11 @@ class ClientHandler(key: SelectionKey, name: String, onClose: SelectionKey => Un
 
   private def drain(client: SocketChannel, buffer: ByteBuffer): (Int, ByteBuffer) = {
     var written = client.write(buffer)
+    log.debug(uri + " - response: wrote " + written)
     while (written > 0 && buffer.hasRemaining()) {
       written = client.write(buffer)
+      log.debug(uri + " - response: wrote " + written)
     }
-    log.debug(uri + " - response: wrote " + written)
     (written, buffer)
   }
 
@@ -137,9 +138,11 @@ class ClientHandler(key: SelectionKey, name: String, onClose: SelectionKey => Un
     Try {
       lazy val cont: Iteratee[ByteBuffer, Unit] = Cont {
         case Data(d) =>
+          log.debug(uri + " Sending buffer " + System.identityHashCode(d))
           val client = key.channel().asInstanceOf[SocketChannel]
           drain(client, d) match {
-            case (_, buf) if (buf.hasRemaining) =>
+            case (0, buf) =>
+              log.debug(uri + " Socket full " + System.identityHashCode(d))
               writeState = Some(prod)
               Done((), Data(buf))
             case (_, buf) if (!buf.hasRemaining) => cont

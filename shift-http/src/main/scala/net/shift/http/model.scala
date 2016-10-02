@@ -147,10 +147,7 @@ case class HTTPResponse(code: Int,
   def cookie(name: String) = cookies find (_.cookieName == name)
 
   def asBinProducer: BinProducer = new BinProducer {
-
-    var sendOnlyBody: Boolean = false;
-
-    def headerBuffer = {
+    lazy val headerBuffer = {
 
       val extra = if (body == HTTPBody.empty) {
         List(TextHeader("Content-Length", "0"))
@@ -163,29 +160,24 @@ case class HTTPResponse(code: Int,
 
       val header = s"HTTP/1.1 $code $reason\r\n$headersStr\r\n"
 
-      Data(ByteBuffer.wrap(header.getBytes("UTF-8")))
+      IO.bufferProducer(ByteBuffer.wrap(header.getBytes("UTF-8")))
     }
+
+    var current: BinProducer = headerBuffer
 
     def apply[O](it: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = {
 
-      if (sendOnlyBody) {
-        val r = body(it)
-        sendOnlyBody = false;
-        r
-      } else {
-        val next = it match {
-          case Cont(f) => f(headerBuffer)
-          case r       => r
-        }
-
-        next match {
-          case Cont(_)      => body(next)
-          case e @ Error(t) => e
-          case r =>
-            sendOnlyBody = true
-            r
-        }
+      it match {
+        case i if (current == headerBuffer) =>
+          current(i) match {
+            case Done(_, EOF) =>
+              current = body
+              current(it)
+            case r => r
+          }
+        case r => current(r)
       }
+
     }
   }
 }
