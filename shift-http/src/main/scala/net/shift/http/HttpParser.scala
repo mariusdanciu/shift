@@ -19,8 +19,8 @@ class HttpParser extends ShiftParsers {
   val log = HTTPLog
 
   def uri = ws ~> (opt((str("http://") ~> notReserved()) ~ opt(chr(':') ~> int)) ~ opt(path) ~ (ws ~> opt(chr('?') ~> params))) ^^ {
-    case Some(host ~ port) ~ path ~ params => HTTPUri(Some(host), port, path getOrElse "/", params getOrElse Nil)
-    case None ~ path ~ params              => HTTPUri(None, None, path getOrElse "/", params getOrElse Nil)
+    case Some(host ~ port) ~ path ~ params => HTTPUri(Some(host), port, URLDecoder.decode(path getOrElse "/", "UTF-8"), params getOrElse Nil)
+    case None ~ path ~ params              => HTTPUri(None, None, URLDecoder.decode(path getOrElse "/", "UTF-8"), params getOrElse Nil)
   }
 
   def params: Parser[List[HTTPParam]] = repsep(notReserved() ~ opt(chr('=') ~> repsep(notReserved(), chr(','))), chr('&')) ^^ {
