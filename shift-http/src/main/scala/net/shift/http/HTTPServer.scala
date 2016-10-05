@@ -140,6 +140,8 @@ case class Raw(buffers: List[ByteBuffer]) extends Payload {
   def +(b: ByteBuffer) = Raw(buffers ++ List(b))
   def ++(b: Seq[ByteBuffer]) = Raw(buffers ++ b)
 
+  def size = buffers map { _.limit } sum
+
   def buffersState: String = buffers map { b => s"${b.position} : ${b.limit}" } mkString "\n"
 }
 
