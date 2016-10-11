@@ -4,7 +4,7 @@ import java.nio.ByteBuffer
 import scala.concurrent.ExecutionContext
 import net.shift.io.BinProducer
 
-trait Protocol[REQ] {
+trait Protocol {
 
   def keepConnection: Boolean
 

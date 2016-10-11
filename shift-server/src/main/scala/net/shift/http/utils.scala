@@ -4,6 +4,7 @@ import net.shift.loc.Language
 import net.shift.common.BinReader
 import java.nio.ByteBuffer
 import scala.util.Try
+import net.shift.io.IO
 
 object AcceptLanguage {
 
@@ -36,6 +37,10 @@ object AcceptLanguage {
 }
 
 object HTTPUtils {
+
+  def formURLEncodedToParams(req: HTTPRequest): Try[List[HTTPParam]] = {
+    IO.producerToString(req.body) flatMap { b => new HttpParser().parseParams(b) }
+  }
 
   def formURLEncodedToParams(str: String): Try[List[HTTPParam]] = {
     new HttpParser().parseParams(str)

@@ -1,29 +1,25 @@
-package net.shift.http
+package net.shift.server
 
 import java.io.IOException
 import java.nio.ByteBuffer
 import java.nio.channels.SelectionKey
 import java.nio.channels.SocketChannel
 import scala.concurrent.ExecutionContext
-import scala.concurrent.Future
-import scala.util.Failure
-import scala.util.Success
 import scala.util.Try
 import Selections._
-import net.shift.common.BinReader
-import net.shift.common.Log
 import net.shift.io.Iteratee
 import net.shift.io._
 import net.shift.io.IO._
 import java.nio.channels.ClosedChannelException
+import net.shift.protocol.Protocol
+import net.shift.http.HTTPLog
+import net.shift.http.HTTPUri
 
-class ClientHandler(key: SelectionKey, name: String, onClose: SelectionKey => Unit) {
+private[server] class ClientHandler(key: SelectionKey, name: String, onClose: SelectionKey => Unit, protocol: Protocol) {
 
   val log = HTTPLog
 
-  var readState: Option[Payload] = None
   var writeState: Option[BinProducer] = None
-  var keepAlive: Boolean = true
 
   var uri: HTTPUri = HTTPUri("???")
 
@@ -33,36 +29,7 @@ class ClientHandler(key: SelectionKey, name: String, onClose: SelectionKey => Un
     onClose(key)
   }
 
-  def readChunk(service: HTTPService)(implicit ctx: ExecutionContext) = {
-
-    def tryParse(msg: Raw): Option[HTTPRequest] = {
-      val reader = BinReader(msg.buffers)
-      new HttpParser().parse(reader) match {
-        case Success(h @ HTTPRequest(_, _, _, headers, body)) =>
-          Some(h)
-        case Failure(f) =>
-          log.debug("Cannot parse HTTP request ", f)
-          None
-      }
-    }
-
-    def checkRequestComplete(bodySize: Long, contentLength: Option[Long], http: HTTPRequest) = {
-      if (contentLength.getOrElse(-1L) > bodySize) {
-        readState = Some(http)
-      } else {
-        keepAlive = http.stringHeader("Connection").map { _ == "keep-alive" } getOrElse true
-        readState = None
-
-        Future {
-          log.info("Processing " + http)
-          service(http)(resp => {
-            uri = http.uri
-            log.debug(uri + " - response: " + resp)
-            send(resp.asBinProducer)
-          })
-        }
-      }
-    }
+  def readChunk(implicit ctx: ExecutionContext) = {
 
     Try {
       val client = key.channel().asInstanceOf[SocketChannel]
@@ -70,28 +37,10 @@ class ClientHandler(key: SelectionKey, name: String, onClose: SelectionKey => Un
       val buf = ByteBuffer.allocate(1024)
       var size = client.read(buf)
       log.debug(s"Read $size bytes")
+
       if (size > 0) {
         buf.flip()
-        readState match {
-          case RawExtract(raw) =>
-            val msg = raw + buf
-            log.debug(s"Input buffers ${msg.buffersState}")
-            tryParse(msg) match {
-              case Some(http @ HTTPRequest(m, u, v, hd, body @ HTTPBody(seq))) =>
-                checkRequestComplete(body.size, http.longHeader("Content-Length"), http)
-              case None =>
-                readState = Some(msg)
-              case _ =>
-                terminate
-            }
-          case Some(h @ HTTPRequest(m, u, v, hd, body @ HTTPBody(seq))) =>
-            val newSize = body.size + size
-            val cl = h.longHeader("Content-Length")
-            val msg = HTTPBody(seq ++ Seq(buf))
-            val req = HTTPRequest(m, u, v, hd, msg)
-            checkRequestComplete(newSize, cl, req)
-        }
-
+        protocol(buf) { send }
       } else if (size < 0) {
         log.info("End of client stream")
         terminate
@@ -117,7 +66,7 @@ class ClientHandler(key: SelectionKey, name: String, onClose: SelectionKey => Un
 
   private def handleResponseSent() = {
     writeState = None
-    if (!keepAlive) {
+    if (!protocol.keepConnection) {
       terminate
     } else {
       unSelectForWrite(key)

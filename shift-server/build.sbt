@@ -1,4 +1,4 @@
-name := "shift-http"
+name := "shift-server"
 
 organization := "shift"
 

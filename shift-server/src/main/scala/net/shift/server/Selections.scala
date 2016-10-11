@@ -1,4 +1,4 @@
-package net.shift.http
+package net.shift.server
 
 import java.nio.channels.SelectionKey
 

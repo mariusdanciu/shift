@@ -14,7 +14,7 @@ object ShiftBuild extends Build {
   val distShiftEngine = TaskKey[File]("distShiftEngine", "")
   val distShiftTemplate = TaskKey[File]("distShiftTemplate", "")
   val distShiftHtml = TaskKey[File]("distShiftHtml", "")
-  val distShiftHttp = TaskKey[File]("distShiftHttp", "")
+  val distShiftServer = TaskKey[File]("distShiftServer", "")
 
   val dist = TaskKey[Unit]("dist", "")
   val distSrc = TaskKey[Unit]("distSrc", "")
@@ -32,7 +32,7 @@ object ShiftBuild extends Build {
     IO.copyDirectory(new File("shift-engine") / "src", distSrcDir / "shit-engine" / "src")
     IO.copyDirectory(new File("shift-html") / "src", distSrcDir / "shit-html" / "src")
     IO.copyDirectory(new File("shift-template") / "src", distSrcDir / "shit-template" / "src")
-    IO.copyDirectory(new File("shift-http") / "src", distSrcDir / "shit-http" / "src")
+    IO.copyDirectory(new File("shift-server") / "src", distSrcDir / "shit-server" / "src")
  
     IO.copyFile(new File("./LICENSE.txt"), distSrcDir / "LICENSE.txt");
 
@@ -59,15 +59,15 @@ object ShiftBuild extends Build {
                               distShiftEngine in shift_engine, 
                               distShiftTemplate in shift_template, 
 			      distShiftHtml in shift_html, 
-			      distShiftHttp in shift_http, 
-			      distSrc) map { (target, cp, sv, v, common, engine, template, html, http, src) => {
+			      distShiftServer in shift_server, 
+			      distSrc) map { (target, cp, sv, v, common, engine, template, html, server, src) => {
       println("dist > shift")
 
       IO.copyFile(common, libDir / common.name);
       IO.copyFile(engine, libDir / engine.name);
       IO.copyFile(template, libDir / template.name);
       IO.copyFile(html, libDir / html.name);
-      IO.copyFile(http, libDir / http.name);
+      IO.copyFile(server, libDir / server.name);
       IO.copyFile(new File("./LICENSE.txt"), distDir / "LICENSE.txt");
 
       TarGzBuilder.makeTarGZ("target/shift_" + sv + "_" + v + "_.tar.gz", "./dist")
@@ -116,9 +116,9 @@ object ShiftBuild extends Build {
     }
   }
 
-  val distShiftHttpSetting = distShiftHttp <<= (target, managedClasspath in Runtime, publishLocal, packageBin in Compile) map {
+  val distShiftServerSetting = distShiftServer <<= (target, managedClasspath in Runtime, publishLocal, packageBin in Compile) map {
     (target, cp, _, pack) => {
-        println("dist > shifthttp")
+        println("dist > shiftserver")
         for {jar <- cp} {
           IO.copyFile(jar.data, libDir / jar.data.name);
         }
@@ -130,8 +130,8 @@ object ShiftBuild extends Build {
                           base = file("."),
                           settings = Defaults.defaultSettings ++ Seq(incSetting, distSrcSetting, distSetting, distShiftCommonSetting, 
                                      distShiftEngineSetting, distShiftTemplateSetting, 
-                                     distShiftHtmlSetting, distShiftHttpSetting)) aggregate(shift_common, shift_engine, 
-				     shift_template, shift_html, shift_http)
+                                     distShiftHtmlSetting, distShiftServerSetting)) aggregate(shift_common, shift_engine, 
+				     shift_template, shift_html, shift_server)
 
   lazy val shift_common = Project(id = "shift-common",
 				  base = file("shift-common"),
@@ -139,7 +139,7 @@ object ShiftBuild extends Build {
 
   lazy val shift_engine = Project(id = "shift-engine",
 				  base = file("shift-engine"),
-                                  settings = Defaults.defaultSettings ++ Seq(distShiftEngineSetting)) dependsOn (shift_common, shift_http, shift_template)
+                                  settings = Defaults.defaultSettings ++ Seq(distShiftEngineSetting)) dependsOn (shift_common, shift_server, shift_template)
 
   lazy val shift_template = Project(id = "shift-template",
 				    base = file("shift-template"),
@@ -149,9 +149,9 @@ object ShiftBuild extends Build {
 	                        base = file("shift-html"),
                                 settings = Defaults.defaultSettings ++ Seq(distShiftHtmlSetting)) dependsOn (shift_common)
 
-  lazy val shift_http = Project(id = "shift-http",
-	                        base = file("shift-http"),
-                                settings = Defaults.defaultSettings ++ Seq(distShiftHttpSetting)) dependsOn (shift_common)
+  lazy val shift_server = Project(id = "shift-server",
+	                        base = file("shift-server"),
+                                settings = Defaults.defaultSettings ++ Seq(distShiftServerSetting)) dependsOn (shift_common)
 
 
 }
