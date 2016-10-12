@@ -8,16 +8,16 @@ import net.shift.http._
 
 object ShiftApplication {
 
-  implicit def rule(r: Attempt) = State.gets[HTTPRequest, Attempt](req => r)
+  implicit def rule(r: Attempt) = State.gets[Request, Attempt](req => r)
 
   def service(in: AsyncResponse => Unit): Attempt = Success(in)
 
 }
 
 trait ShiftApplication {
-  def servingRule: State[HTTPRequest, Attempt]
+  def servingRule: State[Request, Attempt]
 
-  def shiftService(req: HTTPRequest)(resp: AsyncResponse)(implicit conf: Config): Unit = {
+  def shiftService(req: Request)(resp: AsyncResponse)(implicit conf: Config): Unit = {
     Engine.run(this)(req, resp)
   }
 }

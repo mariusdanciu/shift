@@ -34,50 +34,50 @@ object Responses {
 
   }
 
-  def fileResponse(path: Path, mime: String)(implicit fs: FileSystem): Try[HTTPResponse] = {
+  def fileResponse(path: Path, mime: String)(implicit fs: FileSystem): Try[Response] = {
     for { (size, prod) <- IO.fileProducer(path) } yield {
-      HTTPResponse(code = 200,
+      Response(code = 200,
         headers = List(TextHeader("Content-Type", mime),
           TextHeader("Content-Length", size.toString)),
         body = prod)
     }
   }
 
-  def producerResponse(bdy: BinProducer, size: Long) = HTTPResponse(code = 200,
+  def producerResponse(bdy: BinProducer, size: Long) = Response(code = 200,
     headers = List(TextHeader("Content-Length", size.toString)),
     body = bdy)
 
   def textResponse(text: String) = {
-    val bd = HTTPBody(text)
-    HTTPResponse(code = 200,
+    val bd = Body(text)
+    Response(code = 200,
       headers = List(
         Headers.contentType(ContentType.TextPlain),
         Headers.contentLength(bd.size)),
       body = bd)
   }
 
-  def ok = HTTPResponse(code = 200, body = HTTPBody.empty)
+  def ok = Response(code = 200, body = Body.empty)
 
-  def created = HTTPResponse(code = 201, body = HTTPBody.empty)
-  def accepted = HTTPResponse(code = 201, body = HTTPBody.empty)
+  def created = Response(code = 201, body = Body.empty)
+  def accepted = Response(code = 201, body = Body.empty)
 
   def redirect(location: String) =
-    HTTPResponse(code = 302, headers = List(TextHeader("Location", location)), body = HTTPBody.empty)
+    Response(code = 302, headers = List(TextHeader("Location", location)), body = Body.empty)
     
-  def notModified = HTTPResponse(code = 304, body = HTTPBody.empty)
+  def notModified = Response(code = 304, body = Body.empty)
 
-  def badRequest = HTTPResponse(code = 400, body = HTTPBody.empty)
+  def badRequest = Response(code = 400, body = Body.empty)
 
   def basicAuthRequired(msg: String, realm: String) =
-    HTTPResponse(code = 401, headers = List(TextHeader("WWW-Authenticate", s"""Basic realm="$realm"""")), body = HTTPBody(msg))
+    Response(code = 401, headers = List(TextHeader("WWW-Authenticate", s"""Basic realm="$realm"""")), body = Body(msg))
 
-  def paymentRequired = HTTPResponse(code = 402, body = HTTPBody.empty)
-  def forbidden = HTTPResponse(code = 403, body = HTTPBody.empty)
-  def notFound = HTTPResponse(code = 404, body = HTTPBody.empty)
-  def confilct = HTTPResponse(code = 409, body = HTTPBody.empty)
+  def paymentRequired = Response(code = 402, body = Body.empty)
+  def forbidden = Response(code = 403, body = Body.empty)
+  def notFound = Response(code = 404, body = Body.empty)
+  def confilct = Response(code = 409, body = Body.empty)
 
-  def serverError = HTTPResponse(code = 500, body = HTTPBody.empty)
-  def notImplemented = HTTPResponse(code = 501, body = HTTPBody.empty)
-  def serviceUnavailable = HTTPResponse(code = 503, body = HTTPBody.empty)
+  def serverError = Response(code = 500, body = Body.empty)
+  def notImplemented = Response(code = 501, body = Body.empty)
+  def serviceUnavailable = Response(code = 503, body = Body.empty)
 
 }

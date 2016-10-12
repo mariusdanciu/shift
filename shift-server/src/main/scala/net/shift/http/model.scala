@@ -7,11 +7,12 @@ import net.shift.loc.Language
 
 trait Payload
 
-case class HTTPParam(name: String, value: List[String])
-object HTTPVer {
-  val Ver_1_1 = HTTPVer(1 toByte, 1 toByte)
+case class Param(name: String, value: List[String])
+
+object Ver {
+  val Ver_1_1 = Ver(1 toByte, 1 toByte)
 }
-case class HTTPVer(major: Byte, minor: Byte)
+case class Ver(major: Byte, minor: Byte)
 
 sealed trait HeaderItem {
   def name: String
@@ -59,11 +60,11 @@ case class SetCookie(cookieName: String,
     version.map(d => s";Version=$d").getOrElse("")
 }
 
-object HTTPBody {
-  def apply(body: String) = new HTTPBody(List(ByteBuffer.wrap(body.getBytes("UTF-8"))))
-  def empty = HTTPBody(Nil)
+object Body {
+  def apply(body: String) = new Body(List(ByteBuffer.wrap(body.getBytes("UTF-8"))))
+  def empty = Body(Nil)
 }
-case class HTTPBody(parts: Seq[ByteBuffer]) extends BinProducer {
+case class Body(parts: Seq[ByteBuffer]) extends BinProducer {
   def size = parts.map { _.limit }.sum
 
   def apply[O](it: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = {
@@ -75,18 +76,18 @@ case class HTTPBody(parts: Seq[ByteBuffer]) extends BinProducer {
   }
 }
 
-object HTTPUri {
-  def apply(path: String) = new HTTPUri(None, None, path, Nil)
+object Uri {
+  def apply(path: String) = new Uri(None, None, path, Nil)
 }
-case class HTTPUri(host: Option[String], port: Option[Int], path: String, params: List[HTTPParam]) {
+case class Uri(host: Option[String], port: Option[Int], path: String, params: List[Param]) {
   def param(name: String) = params find { _.name == name }
   def paramValue(name: String) = param(name) map { _.value }
 }
 
-case class HTTPRequest(
+case class Request(
     method: String,
-    uri: HTTPUri,
-    version: HTTPVer,
+    uri: Uri,
+    version: Ver,
     headers: Seq[HeaderItem],
     body: BinProducer) extends Payload {
 
@@ -134,10 +135,10 @@ case class HTTPRequest(
   def cookie(name: String) = cookies find (_.cookieName == name)
 }
 
-case class HTTPResponse(code: Int,
-                        reason: String = "OK",
-                        headers: List[HeaderItem] = Nil,
-                        body: BinProducer) extends Payload {
+case class Response(code: Int,
+                    reason: String = "OK",
+                    headers: List[HeaderItem] = Nil,
+                    body: BinProducer) extends Payload {
 
   lazy val cookies = headers flatMap {
     case c: SetCookie => List(c)
@@ -149,7 +150,7 @@ case class HTTPResponse(code: Int,
   def asBinProducer: BinProducer = new BinProducer {
     lazy val headerBuffer = {
 
-      val extra = if (body == HTTPBody.empty) {
+      val extra = if (body == Body.empty) {
         List(TextHeader("Content-Length", "0"))
       } else
         Nil

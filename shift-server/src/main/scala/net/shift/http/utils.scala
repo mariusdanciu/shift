@@ -38,11 +38,11 @@ object AcceptLanguage {
 
 object HTTPUtils {
 
-  def formURLEncodedToParams(req: HTTPRequest): Try[List[HTTPParam]] = {
+  def formURLEncodedToParams(req: Request): Try[List[Param]] = {
     IO.producerToString(req.body) flatMap { b => new HttpParser().parseParams(b) }
   }
 
-  def formURLEncodedToParams(str: String): Try[List[HTTPParam]] = {
+  def formURLEncodedToParams(str: String): Try[List[Param]] = {
     new HttpParser().parseParams(str)
   }
 

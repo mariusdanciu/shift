@@ -21,19 +21,19 @@ import java.io.StringReader
 import net.shift.common.State._
 import net.shift.security.Credentials
 import HttpPredicates._
-import net.shift.http.HTTPRequest
+import net.shift.http.Request
 import net.shift.http.Responses
 import net.shift.http.ContentType
 
 object Html5 {
 
-  def servePage[T](uri: String, filePath: Path, snipets: DynamicContent[HTTPRequest])(implicit fs: FileSystem, tq: TemplateFinder) = for {
+  def servePage[T](uri: String, filePath: Path, snipets: DynamicContent[Request])(implicit fs: FileSystem, tq: TemplateFinder) = for {
     r <- path(uri)
   } yield {
     Html5.pageFromFile(PageState(r, r.language, None), filePath, snipets)
   }
 
-  def servePageForUser[T](uri: String, filePath: Path, snipets: DynamicContent[HTTPRequest])(
+  def servePageForUser[T](uri: String, filePath: Path, snipets: DynamicContent[Request])(
     implicit fs: FileSystem, tq: TemplateFinder,
     login: Credentials => Try[User],
     conf: Config) = for {

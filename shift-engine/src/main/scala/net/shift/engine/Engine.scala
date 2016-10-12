@@ -9,13 +9,13 @@ import net.shift.common.DefaultLog
 import net.shift.common.Log
 import net.shift.security.SecurityFailure
 import net.shift.common.ShiftFailure
-import net.shift.http.HTTPRequest
+import net.shift.http.Request
 import net.shift.http._
 import net.shift.http.Responses._
 
 object Engine extends DefaultLog {
 
-  def run(app: ShiftApplication)(request: HTTPRequest, response: AsyncResponse)(implicit conf: Config) {
+  def run(app: ShiftApplication)(request: Request, response: AsyncResponse)(implicit conf: Config) {
 
     try {
       app.servingRule(request) match {

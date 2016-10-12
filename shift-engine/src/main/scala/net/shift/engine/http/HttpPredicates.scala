@@ -25,10 +25,10 @@ import net.shift.security.User
 import net.shift.security.Users
 import net.shift.security.Permission
 import scala.util.Try
-import net.shift.http.HTTPRequest
+import net.shift.http.Request
 import net.shift.http.TextHeader
 import net.shift.http.Responses
-import net.shift.http.HTTPResponse
+import net.shift.http.Response
 import net.shift.common.FileSplit
 import net.shift.http.ExtentionToMime
 import net.shift.http.Cookie
@@ -38,42 +38,42 @@ import engine.ShiftApplication._
 object HttpPredicates {
   val Pattern = new Regex("""\w+:\w*:w*""")
 
-  def get: State[HTTPRequest, HTTPRequest] = state {
+  def get: State[Request, Request] = state {
     r => if (r.method == "GET") Success((r, r)) else ShiftFailure.toTry
   }
 
-  def post: State[HTTPRequest, HTTPRequest] = state {
+  def post: State[Request, Request] = state {
     r => if (r.method == "POST") Success((r, r)) else ShiftFailure.toTry
   }
 
-  def put: State[HTTPRequest, HTTPRequest] = state {
+  def put: State[Request, Request] = state {
     r => if (r.method == "PUT") Success((r, r)) else ShiftFailure.toTry
   }
 
-  def delete: State[HTTPRequest, HTTPRequest] = state {
+  def delete: State[Request, Request] = state {
     r => if (r.method == "DELETE") Success((r, r)) else ShiftFailure.toTry
   }
 
-  def options: State[HTTPRequest, HTTPRequest] = state {
+  def options: State[Request, Request] = state {
     r => if (r.method == "OPTIONS") Success((r, r)) else ShiftFailure.toTry
   }
 
-  def trace: State[HTTPRequest, HTTPRequest] = state {
+  def trace: State[Request, Request] = state {
     r => if (r.method == "TRACE") Success((r, r)) else ShiftFailure.toTry
   }
 
-  def connect: State[HTTPRequest, HTTPRequest] = state {
+  def connect: State[Request, Request] = state {
     r => if (r.method == "CONNECT") Success((r, r)) else ShiftFailure.toTry
   }
 
-  def permissions(failMsg: => String, p: Permission*)(implicit login: Credentials => Try[User], conf: Config): State[HTTPRequest, User] =
+  def permissions(failMsg: => String, p: Permission*)(implicit login: Credentials => Try[User], conf: Config): State[Request, User] =
     for {
       u <- userRequired(failMsg) if (u.hasAllPermissions(p: _*))
     } yield {
       u
     }
 
-  def userRequired(failMsg: => String)(implicit login: Credentials => Try[User], conf: Config): State[HTTPRequest, User] = state {
+  def userRequired(failMsg: => String)(implicit login: Credentials => Try[User], conf: Config): State[Request, User] = state {
     r =>
       {
         computeUser(r) match {
@@ -83,11 +83,11 @@ object HttpPredicates {
       }
   }
 
-  def user(implicit login: Credentials => Try[User], conf: Config): State[HTTPRequest, Option[User]] = state {
+  def user(implicit login: Credentials => Try[User], conf: Config): State[Request, Option[User]] = state {
     r => Success((r, computeUser(r).toOption))
   }
 
-  def authenticate(failMsg: => String, code: Int = 401)(implicit login: Credentials => Try[User], conf: Config): State[HTTPRequest, User] = state {
+  def authenticate(failMsg: => String, code: Int = 401)(implicit login: Credentials => Try[User], conf: Config): State[Request, User] = state {
     r =>
       {
         computeUser(r) match {
@@ -97,15 +97,15 @@ object HttpPredicates {
       }
   }
 
-  def ajax: State[HTTPRequest, HTTPRequest] = state {
+  def ajax: State[Request, Request] = state {
     r =>
       r.header("X-Requested-With") match {
-        case Some(TextHeader(_, "XMLHttpRequest")) => Success((r, r))
+        case Some(TextHeader(_, "XMLRequest")) => Success((r, r))
         case _                                     => ShiftFailure.toTry
       }
   }
 
-  def multipartForm(implicit conf: Config): State[HTTPRequest, MultiPartBody] = state {
+  def multipartForm(implicit conf: Config): State[Request, MultiPartBody] = state {
     r =>
       r.header("Content-Type") match {
         case Some(MultipartBoundry(boundry)) => MultipartParser(boundry).parse(r.body).map(e => (r, e))
@@ -113,7 +113,7 @@ object HttpPredicates {
       }
   }
 
-  def path(path: String): State[HTTPRequest, HTTPRequest] = state {
+  def path(path: String): State[Request, Request] = state {
     r =>
       if (r.uri.path == path)
         Success((r, r))
@@ -121,7 +121,7 @@ object HttpPredicates {
         ShiftFailure.toTry
   }
 
-  def exceptPath(path: String): State[HTTPRequest, HTTPRequest] = state {
+  def exceptPath(path: String): State[Request, Request] = state {
     r =>
       if (r.uri.path != path)
         Success((r, r))
@@ -129,16 +129,16 @@ object HttpPredicates {
         ShiftFailure.toTry
   }
 
-  def path: State[HTTPRequest, Path] = state {
+  def path: State[Request, Path] = state {
     r =>
       Success((r, Path(r.uri.path)))
   }
 
-  def hasAllParams(params: List[String]): State[HTTPRequest, List[String]] = state {
+  def hasAllParams(params: List[String]): State[Request, List[String]] = state {
     r => if (params.filter(p => r.uri.params.contains(p)).size != params.size) ShiftFailure.toTry else Success((r, params))
   }
 
-  def containsAnyOfParams(params: List[String]): State[HTTPRequest, List[String]] = state {
+  def containsAnyOfParams(params: List[String]): State[Request, List[String]] = state {
     r =>
       params.filter(p => r.uri.params.contains(p)) match {
         case Nil => ShiftFailure.toTry
@@ -146,7 +146,7 @@ object HttpPredicates {
       }
   }
 
-  def param(name: String): State[HTTPRequest, String] = state {
+  def param(name: String): State[Request, String] = state {
     r =>
       r.uri.paramValue(name) match {
         case Some(v :: _) => Success((r, v))
@@ -154,7 +154,7 @@ object HttpPredicates {
       }
   }
 
-  def paramValues(name: String): State[HTTPRequest, List[String]] = state {
+  def paramValues(name: String): State[Request, List[String]] = state {
     r =>
       r.uri.paramValue(name) match {
         case Some(v) => Success((r, v))
@@ -162,11 +162,11 @@ object HttpPredicates {
       }
   }
 
-  def hasAllHeaders(headers: List[String]): State[HTTPRequest, List[String]] = state {
+  def hasAllHeaders(headers: List[String]): State[Request, List[String]] = state {
     r => if (headers.filter(p => r.headers.contains(p)).size != headers.size) ShiftFailure.toTry else Success((r, headers))
   }
 
-  def containsAnyOfHeaders(headers: List[String]): State[HTTPRequest, List[String]] = state {
+  def containsAnyOfHeaders(headers: List[String]): State[Request, List[String]] = state {
     r =>
       headers.filter(p => r.headers.contains(p)) match {
         case Nil => ShiftFailure.toTry
@@ -174,7 +174,7 @@ object HttpPredicates {
       }
   }
 
-  def headerValue(name: String): State[HTTPRequest, String] = state {
+  def headerValue(name: String): State[Request, String] = state {
     r =>
       r.header(name) match {
         case Some(v: TextHeader) => Success((r, v.value))
@@ -182,11 +182,11 @@ object HttpPredicates {
       }
   }
 
-  def startsWith(path: Path): State[HTTPRequest, Path] = state {
+  def startsWith(path: Path): State[Request, Path] = state {
     r => if (Path(r.uri.path).startsWith(path)) Success((r, path)) else ShiftFailure.toTry
   }
 
-  def tailPath: State[HTTPRequest, Path] = state {
+  def tailPath: State[Request, Path] = state {
     r =>
       Path(r.uri.path) match {
         case Path(_, Nil) => ShiftFailure.toTry
@@ -196,7 +196,7 @@ object HttpPredicates {
       }
   }
 
-  def xmlContent: State[HTTPRequest, String] = state {
+  def xmlContent: State[Request, String] = state {
     r =>
       r.stringHeader("Content-Type").filter(c => c.startsWith("application/xml") || c.startsWith("text/xml")).map(c => (r, c)) match {
         case Some(s) => Success(s)
@@ -204,7 +204,7 @@ object HttpPredicates {
       }
   }
 
-  def jsonContent: State[HTTPRequest, String] = state {
+  def jsonContent: State[Request, String] = state {
     r =>
       r.stringHeader("Content-Type").filter(c => c.startsWith("application/json") || c.startsWith("text/json")).map(c => (r, c)) match {
         case Some(s) => Success(s)
@@ -212,17 +212,17 @@ object HttpPredicates {
       }
   }
 
-  def req: State[HTTPRequest, HTTPRequest] = init[HTTPRequest]
+  def req: State[Request, Request] = init[Request]
 
-  def req(r: HTTPRequest => HTTPRequest): State[HTTPRequest, HTTPRequest] = initf[HTTPRequest](r)
+  def req(r: Request => Request): State[Request, Request] = initf[Request](r)
 
-  def withLanguage(l: Language): State[HTTPRequest, HTTPRequest] = initf[HTTPRequest](_ withLanguage l)
+  def withLanguage(l: Language): State[Request, Request] = initf[Request](_ withLanguage l)
 
-  def language: State[HTTPRequest, Language] = state {
+  def language: State[Request, Language] = state {
     r => Success((r, r.language))
   }
 
-  def fileOf(path: Path)(implicit fs: FileSystem): State[HTTPRequest, BinProducer] = state {
+  def fileOf(path: Path)(implicit fs: FileSystem): State[Request, BinProducer] = state {
     r =>
       {
         fs.exists(path).flatMap { b =>
@@ -235,11 +235,11 @@ object HttpPredicates {
       }
   }
 
-  def fileAsResponse(path: Path, mime: String)(implicit fs: FileSystem): State[HTTPRequest, HTTPResponse] = state {
+  def fileAsResponse(path: Path, mime: String)(implicit fs: FileSystem): State[Request, Response] = state {
     r => Responses.fileResponse(path, mime) map { (r, _) }
   }
 
-  def lastModified(path: Path)(implicit fs: FileSystem): State[HTTPRequest, Long] = state {
+  def lastModified(path: Path)(implicit fs: FileSystem): State[Request, Long] = state {
     r =>
       {
         fs.exists(path).flatMap { b =>
@@ -252,7 +252,7 @@ object HttpPredicates {
       }
   }
 
-  def fileSize(path: Path)(implicit fs: FileSystem): State[HTTPRequest, Long] = state {
+  def fileSize(path: Path)(implicit fs: FileSystem): State[Request, Long] = state {
     r =>
       {
         fs.exists(path).flatMap { b =>
@@ -290,7 +290,7 @@ object HttpPredicates {
     }
   }
 
-  def computeUser(r: HTTPRequest)(implicit login: Credentials => Try[User], conf: Config): Try[User] = {
+  def computeUser(r: Request)(implicit login: Credentials => Try[User], conf: Config): Try[User] = {
     (r.header("Authorization"), r.cookie("identity"), r.cookie("secret")) match {
       case (Some(Authorization(creds @ BasicCredentials(user, password))), None, None) =>
         login(creds)

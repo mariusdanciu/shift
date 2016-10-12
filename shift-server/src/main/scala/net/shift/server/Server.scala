@@ -27,7 +27,7 @@ case class Server(specs: ServerSpecs) extends Log {
 
   private val selector = Selector.open
 
-  private val clients = new TrieMap[SelectionKey, ClientHandler]
+  private val clients = new TrieMap[SelectionKey, (Option[ResponseContinuationState], ClientHandler)]
 
   def loggerName = specs.name
 
@@ -60,16 +60,32 @@ case class Server(specs: ServerSpecs) extends Log {
                   client.configureBlocking(false)
                   val clientKey = client.register(selector, SelectionKey.OP_READ)
                   val clientName = client.getRemoteAddress.toString + "-" + key
-                  clients.put(clientKey, new ClientHandler(clientKey, clientName, k => {
+                  clients.put(clientKey, (None, new ClientHandler(clientKey, clientName, k => {
                     closeClient(k)
-                    clients remove k
-                  }, protocol))
+
+                  }, protocol)))
                 }
               } else if (key.isReadable()) {
-                clients get (key) map { _.readChunk }
+
+                for {
+                  (_, c) <- clients get (key)
+                } yield {
+                  c.readChunk {
+                    resp =>
+                      clients.put(key, (resp, c))
+                      log.debug("clients state " + clients)
+                  }
+                }
+
               } else if (key.isWritable()) {
                 unSelectForWrite(key)
-                clients get (key) map { _.writeResponse() }
+                for {
+                  (cont, c) <- clients get (key)
+                  st <- c.writeResponse(cont)
+                } yield {
+                  clients.put(key, (cont, c))
+                  log.debug("clients state " + clients)
+                }
               }
             }
           }
@@ -102,6 +118,7 @@ case class Server(specs: ServerSpecs) extends Log {
   private def closeClient(key: SelectionKey) {
     key.channel().close()
     key.cancel()
+    clients remove key
   }
 
   def stop() = {
@@ -133,10 +150,10 @@ object ServerSpecs {
 
   def fromConfig(conf: Config): ServerSpecs = {
     ServerSpecs(
-      name = conf.string("http.serverName", "Shift-HTTPServer"),
-      address = conf.string("http.bindAddress", "0.0.0.0"),
-      port = conf.int("http.port", 8080),
-      numThreads = conf.int("http.numThreads", Runtime.getRuntime.availableProcessors()))
+      name = conf.string("server.name", "Shift-HTTPServer"),
+      address = conf.string("server.address", "0.0.0.0"),
+      port = conf.int("server.port", 8080),
+      numThreads = conf.int("server.numThreads", Runtime.getRuntime.availableProcessors()))
   }
 }
 

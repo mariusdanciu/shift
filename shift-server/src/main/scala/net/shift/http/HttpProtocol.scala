@@ -2,13 +2,9 @@ package net.shift.http
 
 import net.shift.http._
 import net.shift.common.BinReader
-import net.shift.http.HTTPBody
-import net.shift.http.Payload
 import scala.concurrent.ExecutionContext
 import net.shift.protocol.Protocol
 import net.shift.io.BinProducer
-import net.shift.http.HTTPLog
-import net.shift.http.HTTPRequest
 import java.nio.ByteBuffer
 import scala.util.Success
 import scala.concurrent.Future
@@ -19,13 +15,13 @@ object HttpProtocol {
 }
 
 class HttpProtocol(service: HTTPService) extends Protocol {
-  val log = HTTPLog
+  val log = HttpLog
   var keepAlive = true
   var readState: Option[Payload] = None
 
   def keepConnection = keepAlive
 
-  def apply(in: ByteBuffer)(write: BinProducer => Unit)(implicit ctx: ExecutionContext) {
+  def apply(in: ByteBuffer)(write: (BinProducer, String) => Unit)(implicit ctx: ExecutionContext) {
 
     readState match {
       case RawExtract(raw) =>
@@ -39,21 +35,21 @@ class HttpProtocol(service: HTTPService) extends Protocol {
             readState = Some(msg)
         }
 
-      case Some(h @ HTTPRequest(m, u, v, hd, body @ HTTPBody(seq))) =>
+      case Some(h @ Request(m, u, v, hd, body @ Body(seq))) =>
         val newSize = body.size + in.limit()
-        val msg = HTTPBody(seq ++ Seq(in))
+        val msg = Body(seq ++ Seq(in))
         val req = h.copy(body = msg)
         tryRun(newSize, req, write)
     }
   }
 
-  private def tryRun(size: Long, req: HTTPRequest, write: BinProducer => Unit)(implicit ctx: ExecutionContext) {
+  private def tryRun(size: Long, req: Request, write: (BinProducer, String) => Unit)(implicit ctx: ExecutionContext) {
     if (requestComplete(size, req)) {
       readState = None
       Future {
         log.info("Processing " + req)
         service(req)(resp => {
-          write(resp.asBinProducer)
+          write(resp.asBinProducer, req.uri.toString)
         })
       }
     } else {
@@ -61,7 +57,7 @@ class HttpProtocol(service: HTTPService) extends Protocol {
     }
   }
 
-  private def requestComplete(bodySize: Long, http: HTTPRequest): Boolean = {
+  private def requestComplete(bodySize: Long, http: Request): Boolean = {
     val contentLength = http.longHeader("Content-Length").getOrElse(-1L)
     contentLength <= bodySize
   }

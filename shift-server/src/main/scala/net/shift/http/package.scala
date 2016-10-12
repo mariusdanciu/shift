@@ -2,10 +2,10 @@ package net.shift
 
 package object http {
 
-  type AsyncResponse = HTTPResponse => Unit
+  type AsyncResponse = Response => Unit
 
-  type HTTPService = HTTPRequest => AsyncResponse => Unit
+  type HTTPService = Request => AsyncResponse => Unit
 
-  implicit def enrichResp(r: HTTPResponse): RichResponse = new RichResponse(r)
-  implicit def enrichReq(r: HTTPRequest): RichRequest = new RichRequest(r)
+  implicit def enrichResp(r: Response): RichResponse = new RichResponse(r)
+  implicit def enrichReq(r: Request): RichRequest = new RichRequest(r)
 }

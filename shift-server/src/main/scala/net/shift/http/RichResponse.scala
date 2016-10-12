@@ -9,14 +9,14 @@ import net.shift.security.User
 import net.shift.common.Path
 import net.shift.loc.Language
 
-case class RichRequest(r: HTTPRequest) {
+case class RichRequest(r: Request) {
 
   def withPath(p: Path) = r.copy(uri = r.uri.copy(path = p.toString))
   def withLanguage(l: Language) = r.copy(headers = r.headers.filter(l => l.name != "Accept-Language") ++
     List(TextHeader("Accept-Language", l.toHttpString)))
 }
 
-case class RichResponse(r: HTTPResponse) {
+case class RichResponse(r: Response) {
 
   def cache(expires: Int, etag: String) = r.copy(headers = r.headers ++ List(
     TextHeader("Cache-Control", s"max-age=$expires"),
@@ -24,7 +24,7 @@ case class RichResponse(r: HTTPResponse) {
 
   def withCookies(c: SetCookie*) = r.copy(headers = r.headers ++ c)
 
-  def withSecurityCookies(user: User)(implicit conf: Config): HTTPResponse = {
+  def withSecurityCookies(user: User)(implicit conf: Config): Response = {
     val org = user.org.map(_.name) getOrElse ""
     val identity = s"${user.name}:$org:${user.permissions.map(_.name).mkString(",")}"
     val computedSecret = Base64.encode(HMac.encodeSHA256(identity, conf.string("auth.hmac.salt", "SHIFT-HMAC-SALT")))
@@ -34,7 +34,7 @@ case class RichResponse(r: HTTPResponse) {
       SetCookie("secret", computedSecret, None, Some("/"), Some(conf.long("auth.ttl", 1800)), None, false, true))
   }
 
-  def dropSecurityCookies: HTTPResponse = {
+  def dropSecurityCookies: Response = {
     withCookies(
       SetCookie("identity", "", None, Some("/"), Some(0), None, false, true),
       SetCookie("secret", "", None, Some("/"), Some(0), None, false, true))
