@@ -7,6 +7,8 @@ import net.shift.server.Server
 import org.apache.log4j.BasicConfigurator
 import net.shift.http.Responses
 import net.shift.http.HttpProtocol
+import net.shift.http.Get
+import net.shift.http._
 
 object Main extends App {
 
@@ -25,3 +27,5 @@ object Main extends App {
       resp(Responses.textResponse("Got it"))))
 
 }
+
+

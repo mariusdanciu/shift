@@ -77,6 +77,8 @@ trait Path {
 
   def +(part: String): Path
 
+  def ++(other: Path): Path
+
 }
 
 case class PathObj(schemePart: Option[String], partsList: List[String]) extends Path {

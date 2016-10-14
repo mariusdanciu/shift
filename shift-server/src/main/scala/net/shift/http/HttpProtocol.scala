@@ -9,9 +9,63 @@ import java.nio.ByteBuffer
 import scala.util.Success
 import scala.concurrent.Future
 import net.shift.server.RawExtract
+import net.shift.common.Path
+import scala.util.Try
 
 object HttpProtocol {
   def apply(service: HTTPService) = new HttpProtocol(service)
+
+  def services(list: Service*) = {
+
+  }
+}
+
+trait Service {
+
+}
+
+case class Get(f: PartialFunction[(Path, Request, AsyncResponse), Unit]) extends Service {
+  def run(req: Request, resp: AsyncResponse): Boolean = {
+    val arg = (Path(req.uri.path), req, resp)
+    if (f.isDefinedAt(arg)) {
+      f(arg)
+      true
+    } else {
+      false
+    }
+  }
+}
+
+object AsInt {
+  def unapply(s: String): Option[Int] = Try {
+    s.toInt
+  }.toOption
+}
+
+object Scheme {
+  def unapply(p: Path): Option[List[String]] = {
+    Some(p.parts)
+  }
+}
+
+case class /:(first: String, rest: Path) extends Path {
+  def scheme: Option[String] = None
+  def parts: List[String] = List(first) ++ rest.parts
+  def +(part: String): Path = new /:(first, rest + part)
+  def ++(p: Path): Path = new /:(first, rest ++ p)
+
+  def /:(s: String): /: = new /:(first, rest + s)
+  def /:(concat: Path): /: = new /:(first, rest ++ concat)
+}
+
+case object EP extends Path {
+  def scheme: Option[String] = None
+  def parts: List[String] = Nil
+  def +(part: String): Path = new /:(part, EP)
+  def ++(p: Path): Path = p
+
+  def /:(s: String): Path = new /:(s, EP)
+  def /:(concat: Path): Path = concat
 }
 
 class HttpProtocol(service: HTTPService) extends Protocol {
