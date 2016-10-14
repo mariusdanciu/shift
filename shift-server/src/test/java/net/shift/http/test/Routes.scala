@@ -1,6 +1,8 @@
 package net.shift.http.test
 
 import scala.util.Try
+import scala.util.Failure
+import scala.util.Success
 
 object Routes extends App {
 
@@ -14,14 +16,6 @@ object Routes extends App {
 
   println(res)
 
-  val route1 = "a" / PathNParam(3) / "b" / TailPathParam
-
-  def service1(v: List[String], s: List[String]) = println(v)
-
-  val res1 = route1 { service1 }
-
-  println(res1)
-
 }
 
 object RoutesImplicits {
@@ -30,48 +24,77 @@ object RoutesImplicits {
   implicit def static2Route(s: Static): PathDef0 = PathDef0(List(s))
 }
 
-sealed trait PathElem
-case class Static(name: String) extends PathElem
-case object * extends PathElem
-
-trait PathParam extends PathElem {
+sealed trait PathSpec {
   type Data
+
+  def extract(path: List[String]): Try[(Data, List[String])]
+}
+
+case class Static(name: String) extends PathSpec {
+  type Data = String
+
+  def extract(path: List[String]): Try[(Data, List[String])] = path match {
+    case h :: tail => Success((h, tail))
+    case l         => Failure(new Exception(s"$l did not match"))
+  }
+}
+
+trait PathParam extends PathSpec {
 }
 
 case object IntParam extends PathParam {
   type Data = Int
+
+  def extract(path: List[String]): Try[(Data, List[String])] = path match {
+    case h :: tail => Try { (h.toInt, tail) }
+    case l         => Failure(new Exception(s"$l did not match"))
+  }
 }
 case object StringParam extends PathParam {
   type Data = String
+
+  def extract(path: List[String]): Try[(Data, List[String])] = path match {
+    case h :: tail => Try { (h.toString, tail) }
+    case l         => Failure(new Exception(s"$l did not match"))
+  }
 }
 
 case object TailPathParam extends PathParam {
   type Data = List[String]
+
+  def extract(path: List[String]): Try[(Data, List[String])] = Success((path, Nil))
 }
 
-case class PathNParam(numParts: Int) extends PathElem with PathParam {
+case class PathNParam(numParts: Int) extends PathSpec with PathParam {
   type Data = List[String]
+
+  def extract(path: List[String]): Try[(Data, List[String])] = if (path.size >= numParts) {
+    Success(path.splitAt(numParts))
+  } else {
+    Failure(new Exception(s"$path did not match"))
+  }
 }
 
-case class PathDef0(elems: List[PathElem]) {
+case class PathDef0(elems: List[PathSpec]) {
   def /(static: Static) = PathDef0(elems :+ static)
   def /(p: PathParam) = PathDef1[p.type#Data](elems :+ p)
   def apply[R](f: () => R) = Route0(this, f)
 }
 
-case class PathDef1[A](elems: List[PathElem]) {
+case class PathDef1[A](elems: List[PathSpec]) {
   def /(static: Static) = PathDef1[A](elems :+ static)
   def /(p: PathParam) = PathDef2[A, p.type#Data](elems :+ p)
   def apply[R](f: A => R) = Route1(this, f)
 }
 
-case class PathDef2[A, B](elems: List[PathElem]) {
+case class PathDef2[A, B](elems: List[PathSpec]) {
   def /(static: Static) = PathDef2[A, B](elems :+ static)
   def apply[R](f: (A, B) => R) = Route2(this, f)
 }
 
 sealed trait Route[R] {
   def matching(path: List[String]): Try[R]
+
 }
 
 case class Route0[R](rd: PathDef0, f: () => R) extends Route[R] {
