@@ -47,7 +47,7 @@ private[server] class ClientHandler(key: SelectionKey, name: String, onClose: Se
 
     }.recover {
       case e =>
-        log.error("Cannot read data from client: " + e.getMessage)
+        log.error("Cannot read data from client: ", e)
         terminate
     }
   }

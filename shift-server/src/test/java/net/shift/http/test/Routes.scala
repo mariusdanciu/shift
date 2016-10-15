@@ -40,6 +40,7 @@ case class Static(name: String) extends PathSpec {
 }
 
 trait PathParam extends PathSpec {
+  type Data
 }
 
 case object IntParam extends PathParam {
@@ -105,6 +106,15 @@ case class Route0[R](rd: PathDef0, f: () => R) extends Route[R] {
 
 case class Route1[A, R](rd: PathDef1[A], f: A => R) extends Route[R] {
   def matching(path: List[String]): Try[R] = {
+
+    ((None: Option[A], path) /: rd.elems) {
+      case ((data, path), spec) =>
+        spec.extract(path) match {
+          case Success((a: A, rest)) => (Some(a), rest)
+          case _                  => (data, path)
+        }
+    }
+
     ???
   }
 }

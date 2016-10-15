@@ -62,7 +62,6 @@ case class Server(specs: ServerSpecs) extends Log {
                   val clientName = client.getRemoteAddress.toString + "-" + key
                   clients.put(clientKey, (None, new ClientHandler(clientKey, clientName, k => {
                     closeClient(k)
-
                   }, protocol)))
                 }
               } else if (key.isReadable()) {
@@ -72,6 +71,7 @@ case class Server(specs: ServerSpecs) extends Log {
                 } yield {
                   c.readChunk {
                     resp =>
+                      log.debug(s"Response left to be sent for $key : $resp")
                       clients.put(key, (resp, c))
                       log.debug("clients state " + clients)
                   }
@@ -84,7 +84,7 @@ case class Server(specs: ServerSpecs) extends Log {
                   st <- c.writeResponse(cont)
                 } yield {
                   clients.put(key, (cont, c))
-                  log.debug("clients state " + clients)
+                  log.debug(s"Response sent partially for key $key")
                 }
               }
             }
