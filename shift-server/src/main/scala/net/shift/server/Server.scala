@@ -27,7 +27,7 @@ case class Server(specs: ServerSpecs) extends Log {
 
   private val selector = Selector.open
 
-  private val clients = new TrieMap[SelectionKey, (Option[ResponseContinuationState], ClientHandler)]
+  private val clients = new TrieMap[SelectionKey, ClientHandler]
 
   def loggerName = specs.name
 
@@ -60,32 +60,15 @@ case class Server(specs: ServerSpecs) extends Log {
                   client.configureBlocking(false)
                   val clientKey = client.register(selector, SelectionKey.OP_READ)
                   val clientName = client.getRemoteAddress.toString + "-" + key
-                  clients.put(clientKey, (None, new ClientHandler(clientKey, clientName, k => {
+                  clients.put(clientKey, new ClientHandler(clientKey, clientName, k => {
                     closeClient(k)
-                  }, protocol)))
+                  }, protocol))
                 }
               } else if (key.isReadable()) {
-
-                for {
-                  (_, c) <- clients get (key)
-                } yield {
-                  c.readChunk {
-                    resp =>
-                      log.debug(s"Response left to be sent for $key : $resp")
-                      clients.put(key, (resp, c))
-                      log.debug("clients state " + clients)
-                  }
-                }
-
+                clients get (key) map { _.readChunk }
               } else if (key.isWritable()) {
                 unSelectForWrite(key)
-                for {
-                  (cont, c) <- clients get (key)
-                  st <- c.writeResponse(cont)
-                } yield {
-                  clients.put(key, (cont, c))
-                  log.debug(s"Response sent partially for key $key")
-                }
+                clients get (key) map { _.continueWriting }
               }
             }
           }

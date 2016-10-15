@@ -21,11 +21,13 @@ private[server] class ClientHandler(key: SelectionKey, name: String, onClose: Se
 
   def loggerName = name
 
+  var writeState: Option[ResponseContinuationState] = None
+
   def terminate {
     onClose(key)
   }
 
-  def readChunk(f: Option[ResponseContinuationState] => Unit)(implicit ctx: ExecutionContext) {
+  def readChunk(implicit ctx: ExecutionContext) {
     Try {
       val client = key.channel().asInstanceOf[SocketChannel]
 
@@ -36,7 +38,7 @@ private[server] class ClientHandler(key: SelectionKey, name: String, onClose: Se
       if (size > 0) {
         buf.flip()
         protocol(buf) { (resp, rid) =>
-          f(send(Some(ResponseContinuationState(resp, rid))))
+          send(Some(ResponseContinuationState(resp, rid)))
         }
       } else if (size < 0) {
         log.info("End of client stream")
@@ -62,7 +64,7 @@ private[server] class ClientHandler(key: SelectionKey, name: String, onClose: Se
     (written, buffer)
   }
 
-  private def handleResponseSent() = {
+  private def handleResponseSent() {
     if (!protocol.keepConnection) {
       terminate
     } else {
@@ -70,12 +72,12 @@ private[server] class ClientHandler(key: SelectionKey, name: String, onClose: Se
     }
   }
 
-  def writeResponse(state: Option[ResponseContinuationState]) = {
-    send(state)
+  def continueWriting() {
+    send(writeState)
   }
 
-  private def send(state: Option[ResponseContinuationState]): Option[ResponseContinuationState] = {
-    state flatMap { st =>
+  private def send(state: Option[ResponseContinuationState]) {
+    state foreach { st =>
       Try {
         val rid = st.requestId
 
@@ -101,31 +103,27 @@ private[server] class ClientHandler(key: SelectionKey, name: String, onClose: Se
         res match {
           case Done(state, Data(_)) =>
             log.debug(state.map { _.requestId } + " response: continue sending")
+            writeState = state
             selectForWrite(key)
-            state
+            ()
           case Done(_, EOF) =>
             handleResponseSent()
-            None
           case Error(t) =>
             log.error("Cannot sent response ", t)
             terminate
-            None
           case it =>
             log.error("Unexpected iteratee " + it)
             terminate
-            None
         }
 
       }.recover {
         case e: ClosedChannelException =>
           log.warn("Client closed the connection while writing.")
           terminate
-          None
         case e: Exception =>
           log.error("Internal error ", e)
           terminate
-          None
-      } get
+      }
     }
   }
 
