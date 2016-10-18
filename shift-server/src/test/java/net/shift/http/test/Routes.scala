@@ -8,21 +8,21 @@ object Routes extends App {
 
   import RoutesImplicits._
 
-  val route = "a" / PathNParam(2) / "b" / IntParam / IntParam / DoubleParam
-
-  def service(v: List[String], s: Int, s2: Int, d: Double) = {
+  def service(v: List[String], s: Int, s2: Int, d: Double, p: Int) = {
     println(v)
     println(s)
     println(s2)
     println(d)
+    println(p)
     v
   }
 
-  val res = route { service }
+  val res = ("a" / PathNParam(2) / "b" / IntParam / IntParam / DoubleParam / IntParam) {
+    service
+  }
 
-  val out = res.matching("a" :: "123" :: "s" :: "b" :: "2" :: "5" :: "3.14" :: Nil)
+  val out = res.matching("a" :: "123" :: "s" :: "b" :: "2" :: "5" :: "3.14" :: "10" :: Nil)
 
-  
   println(res.scheme)
   println(out)
 
@@ -128,7 +128,18 @@ case class PathDef4[A, B, C, D](elems: List[PathSpec],
                                 p3: PathParam[C],
                                 p4: PathParam[D]) {
   def /(static: Static) = PathDef4[A, B, C, D](elems :+ static, p1, p2, p3, p4)
+  def /[E](p5: PathParam[E]) = PathDef5[A, B, C, D, E](elems :+ p5, p1, p2, p3, p4, p5)
   def apply[R](f: (A, B, C, D) => R) = Route4(this, f)
+}
+
+case class PathDef5[A, B, C, D, E](elems: List[PathSpec],
+                                   p1: PathParam[A],
+                                   p2: PathParam[B],
+                                   p3: PathParam[C],
+                                   p4: PathParam[D],
+                                   p5: PathParam[E]) {
+  def /(static: Static) = PathDef5[A, B, C, D, E](elems :+ static, p1, p2, p3, p4, p5)
+  def apply[R](f: (A, B, C, D, E) => R) = Route5(this, f)
 }
 
 sealed trait Route[R] {
@@ -227,6 +238,24 @@ case class Route4[A, B, C, D, R](rd: PathDef4[A, B, C, D], f: (A, B, C, D) => R)
       _ <- walk0(rest4, specs4)
     } yield {
       f(a, b, c, d)
+    }
+  }
+
+  def scheme = rd.elems.map { _.scheme }.mkString("/")
+}
+
+case class Route5[A, B, C, D, E, R](rd: PathDef5[A, B, C, D, E], f: (A, B, C, D, E) => R) extends Route[R] {
+  def matching(path: List[String]): Try[R] = {
+
+    for {
+      (a, rest1, specs1) <- walk(path, rd.elems, rd.p1)
+      (b, rest2, specs2) <- walk(rest1, specs1, rd.p2)
+      (c, rest3, specs3) <- walk(rest2, specs2, rd.p3)
+      (d, rest4, specs4) <- walk(rest3, specs3, rd.p4)
+      (e, rest5, specs5) <- walk(rest4, specs4, rd.p5)
+      _ <- walk0(rest5, specs5)
+    } yield {
+      f(a, b, c, d, e)
     }
   }
 

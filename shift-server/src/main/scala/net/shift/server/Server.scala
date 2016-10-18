@@ -60,6 +60,7 @@ case class Server(specs: ServerSpecs) extends Log {
                   client.configureBlocking(false)
                   val clientKey = client.register(selector, SelectionKey.OP_READ)
                   val clientName = client.getRemoteAddress.toString + "-" + key
+                  log.info("Accepted connection " + clientName)
                   clients.put(clientKey, new ClientHandler(clientKey, clientName, k => {
                     closeClient(k)
                   }, protocol))

@@ -62,7 +62,7 @@ class HttpParser extends ShiftParsers {
   def parse(reader: BinReader): Try[Request] = {
     if (log.isInfo) {
       val bufs = reader.in.map { _.duplicate }
-      log.info((for { b <- bufs } yield {
+      log.info("Parsing data " + (for { b <- bufs } yield {
         b.toString()
       }).mkString("\n"))
       log.info(IO.buffersToString(bufs))

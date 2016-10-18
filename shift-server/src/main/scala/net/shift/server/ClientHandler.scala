@@ -27,18 +27,27 @@ private[server] class ClientHandler(key: SelectionKey, name: String, onClose: Se
     onClose(key)
   }
 
-  private def readBuf(client: SocketChannel): ByteBuffer = {
+  private def readBuf(client: SocketChannel, f: ByteBuffer => Unit) {
     val buf = ByteBuffer.allocate(readBufSize)
     var size = client.read(buf)
     log.debug(s"Read $size bytes")
 
-    if (size == 0) {
-      ByteBuffer.allocate(0)
-    } else if (size <= readBufSize && size > 0) {
-      val b = ByteBuffer.allocate(buf.remaining())
-      b.put(buf)
+    if (size < 0) {
+      log.info("End of client stream")
+      terminate
+    } else if (size == 0) {
+      log.info("No data to read")
     } else {
-      buf
+      val buffer = if (size <= readBufSize && size > 0) {
+        buf.flip()
+        val b = ByteBuffer.allocate(buf.remaining())
+        b.put(buf)
+        b.flip
+        b
+      } else {
+        buf
+      }
+      f(buffer)
     }
   }
 
@@ -46,20 +55,11 @@ private[server] class ClientHandler(key: SelectionKey, name: String, onClose: Se
     Try {
       val client = key.channel().asInstanceOf[SocketChannel]
 
-      val buf = readBuf(client)
-      val size = buf.remaining()
-
-      if (size > 0) {
-        buf.flip()
+      readBuf(client, buf => {
         protocol(buf) { (resp, rid) =>
           send(Some(ResponseContinuationState(resp, rid)))
         }
-      } else if (size < 0) {
-        log.info("End of client stream")
-        terminate
-      } else {
-        log.info("No data to read")
-      }
+      })
 
     }.recover {
       case e =>
