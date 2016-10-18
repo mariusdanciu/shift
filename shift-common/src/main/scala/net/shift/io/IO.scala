@@ -162,7 +162,7 @@ object IO extends Log {
 
   def producerToArray(in: BinProducer): Try[Array[Byte]] = {
     producerToBuffer(in) map { v =>
-      val arr = new Array[Byte](v.limit)
+      val arr = new Array[Byte](v.remaining)
       if (arr.length > 0) {
         v.get(arr)
       }
@@ -179,7 +179,7 @@ object IO extends Log {
   }
 
   def bufferToString(b: ByteBuffer): String = {
-    val arr = new Array[Byte](b.limit)
+    val arr = new Array[Byte](b.remaining)
     if (arr.length > 0) {
       b get arr
       new String(arr, "UTF-8")
@@ -190,7 +190,7 @@ object IO extends Log {
 
   def buffersToString(b: Seq[ByteBuffer]): String = {
     b.map { b =>
-      val arr = new Array[Byte](b.limit)
+      val arr = new Array[Byte](b.remaining)
       if (arr.length > 0) {
         b get arr
         new String(arr, "UTF-8")

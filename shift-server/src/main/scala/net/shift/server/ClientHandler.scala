@@ -15,7 +15,7 @@ import net.shift.protocol.Protocol
 import net.shift.http.HttpLog
 import net.shift.http.Uri
 
-private[server] class ClientHandler(key: SelectionKey, name: String, onClose: SelectionKey => Unit, protocol: Protocol) {
+private[server] class ClientHandler(key: SelectionKey, name: String, onClose: SelectionKey => Unit, protocol: Protocol, readBufSize: Int = 1024) {
 
   val log = HttpLog
 
@@ -27,13 +27,27 @@ private[server] class ClientHandler(key: SelectionKey, name: String, onClose: Se
     onClose(key)
   }
 
+  private def readBuf(client: SocketChannel): ByteBuffer = {
+    val buf = ByteBuffer.allocate(readBufSize)
+    var size = client.read(buf)
+    log.debug(s"Read $size bytes")
+
+    if (size == 0) {
+      ByteBuffer.allocate(0)
+    } else if (size <= readBufSize && size > 0) {
+      val b = ByteBuffer.allocate(buf.remaining())
+      b.put(buf)
+    } else {
+      buf
+    }
+  }
+
   def readChunk(implicit ctx: ExecutionContext) {
     Try {
       val client = key.channel().asInstanceOf[SocketChannel]
 
-      val buf = ByteBuffer.allocate(1024)
-      var size = client.read(buf)
-      log.debug(s"Read $size bytes")
+      val buf = readBuf(client)
+      val size = buf.remaining()
 
       if (size > 0) {
         buf.flip()
