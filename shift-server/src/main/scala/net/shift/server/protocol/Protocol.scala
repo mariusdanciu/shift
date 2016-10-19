@@ -1,4 +1,4 @@
-package net.shift.protocol
+package net.shift.server.protocol
 
 import java.nio.ByteBuffer
 import scala.concurrent.ExecutionContext
@@ -13,3 +13,6 @@ trait Protocol {
 
 }
 
+trait ProtocolBuilder {
+  def createProtocol: Protocol
+}

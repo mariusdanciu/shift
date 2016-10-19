@@ -1,13 +1,12 @@
-package net.shift.http.test
+package net.shift.server.http
+package test
 
-import net.shift.common.Path
-import net.shift.io.LocalFileSystem
-import net.shift.server.ServerSpecs
-import net.shift.server.Server
 import org.apache.log4j.BasicConfigurator
-import net.shift.http.Responses
-import net.shift.http.HttpProtocol
-import net.shift.http._
+import net.shift.server.http._
+import net.shift.io.LocalFileSystem
+import net.shift.server.Server
+import net.shift.server.ServerSpecs
+import net.shift.common.Path
 
 object Main extends App {
 
@@ -18,7 +17,7 @@ object Main extends App {
   Server(ServerSpecs("test",
     "0.0.0.0",
     8081,
-    3)).start(HttpProtocol(req => resp =>
+    3)).start(HttpProtocolBuilder(req => resp =>
 
     if (req.uri.path == "/pic")
       Responses.imageFileResponse(Path("./src/test/resources/pic.jpg")) map { resp }

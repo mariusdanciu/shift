@@ -1,4 +1,4 @@
-package net.shift
+package net.shift.server
 
 package object http {
 

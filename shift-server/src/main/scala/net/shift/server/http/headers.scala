@@ -1,4 +1,4 @@
-package net.shift.http
+package net.shift.server.http
 
 object ContentType {
   val TextPlain = "text/plain"

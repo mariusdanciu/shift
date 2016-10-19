@@ -1,26 +1,30 @@
-package net.shift.http
+package net.shift.server.http
 
-import net.shift.http._
+import net.shift.server.http._
 import net.shift.common.BinReader
 import scala.concurrent.ExecutionContext
-import net.shift.protocol.Protocol
-import net.shift.io.BinProducer
-import java.nio.ByteBuffer
+import net.shift.server.protocol.Protocol
 import scala.util.Success
 import scala.concurrent.Future
 import net.shift.server.RawExtract
-import net.shift.common.Path
-import scala.util.Try
+import net.shift.io.BinProducer
+import java.nio.ByteBuffer
+import net.shift.server.protocol.ProtocolBuilder
 
-object HttpProtocol {
-  def apply(service: HTTPService) = new HttpProtocol(service)
+object HttpProtocolBuilder {
+  def apply(service: HTTPService) = new HttpProtocolBuilder(service)
+}
 
+class HttpProtocolBuilder(service: HTTPService) extends ProtocolBuilder {
+  def createProtocol = new HttpProtocol(service)
 }
 
 class HttpProtocol(service: HTTPService) extends Protocol {
   val log = HttpLog
   var keepAlive = true
   var readState: Option[Payload] = None
+
+  def createNew = new HttpProtocol(service)
 
   def keepConnection = keepAlive
 

@@ -1,14 +1,14 @@
-package net.shift.http
+package net.shift.server.http
 
-import scala.util.Success
+import java.net.URLDecoder
+import java.nio.ByteBuffer
+
 import scala.util.Try
+
 import net.shift.common.BinReader
+import net.shift.common.Log
 import net.shift.common.ShiftParsers
 import net.shift.io.IO
-import java.nio.ByteBuffer
-import java.net.URLDecoder
-import net.shift.common.Log
-import org.apache.log4j.Logger
 
 object HttpLog extends Log {
   def loggerName = "http_server"

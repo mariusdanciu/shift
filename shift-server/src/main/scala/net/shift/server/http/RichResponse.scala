@@ -1,13 +1,15 @@
-package net.shift.http
+package net.shift.server.http
 
 import java.nio.ByteBuffer
+
 import net.shift.common.Base64
 import net.shift.common.Config
+import net.shift.common.Path
 import net.shift.io.IO
+import net.shift.loc.Language
 import net.shift.security.HMac
 import net.shift.security.User
-import net.shift.common.Path
-import net.shift.loc.Language
+
 
 case class RichRequest(r: Request) {
 

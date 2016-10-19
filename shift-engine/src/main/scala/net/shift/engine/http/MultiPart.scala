@@ -18,7 +18,7 @@ import IO._
 import net.shift.common.Config
 import net.shift.common.Path
 import scala.concurrent.Future
-import net.shift.http.TextHeader
+import net.shift.server.http.TextHeader
 
 sealed trait MultiPart
 

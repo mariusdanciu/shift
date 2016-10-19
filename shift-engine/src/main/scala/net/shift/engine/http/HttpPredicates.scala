@@ -25,14 +25,14 @@ import net.shift.security.User
 import net.shift.security.Users
 import net.shift.security.Permission
 import scala.util.Try
-import net.shift.http.Request
-import net.shift.http.TextHeader
-import net.shift.http.Responses
-import net.shift.http.Response
+import net.shift.server.http.Request
+import net.shift.server.http.TextHeader
+import net.shift.server.http.Responses
+import net.shift.server.http.Response
 import net.shift.common.FileSplit
-import net.shift.http.ExtentionToMime
-import net.shift.http.Cookie
-import net.shift.http.ContentType
+import net.shift.server.http.ExtentionToMime
+import net.shift.server.http.Cookie
+import net.shift.server.http.ContentType
 import engine.ShiftApplication._
 
 object HttpPredicates {

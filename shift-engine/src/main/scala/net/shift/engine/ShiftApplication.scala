@@ -4,7 +4,7 @@ package engine
 import http._
 import common._
 import scala.util.Success
-import net.shift.http._
+import net.shift.server.http._
 
 object ShiftApplication {
 

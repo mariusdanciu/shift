@@ -17,22 +17,17 @@ object Config {
     } yield {
       val p = new Properties();
       p.load(new ByteArrayInputStream(arr))
-      new {
-        override val configs = p.asScala.toMap
-      } with Config()
+      new Config(p.asScala.toMap)
     }
 
   }
 
+  def apply() = new Config(Map.empty)
 }
 
-class Config() { self =>
+class Config(val configs: Map[String, String]) { self =>
 
-  protected val configs: Map[String, String] = Map.empty
-
-  def append(other: Map[String, String]): Config = new {
-    override val configs = self.configs ++ other
-  } with Config()
+  def append(other: Map[String, String]): Config = new Config(self.configs ++ other)
 
   def int(p: String, d: Int = 0): Int = configs.get(p).flatMap(toInt(_)).getOrElse(d)
 

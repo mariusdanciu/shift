@@ -1,6 +1,6 @@
 package net.shift.engine.http
 
-import net.shift.http.TextHeader
+import net.shift.server.http.TextHeader
 
 object HeaderKeyValue {
   def unapply(h: TextHeader): Option[(String, String)] = {

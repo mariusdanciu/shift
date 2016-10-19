@@ -1,13 +1,11 @@
-package net.shift
-package http
+package net.shift.server.http
 
-import net.shift.io.IO._
-import net.shift.common.Path
-import net.shift.io.FileSystem
-import net.shift.io.IO
-import scala.util.Try
 import net.shift.common.FileSplit
 import net.shift.io.BinProducer
+import net.shift.common.Path
+import net.shift.io.FileSystem
+import scala.util.Try
+import net.shift.io.IO
 
 object Responses {
 
@@ -63,7 +61,7 @@ object Responses {
 
   def redirect(location: String) =
     Response(code = 302, headers = List(TextHeader("Location", location)), body = Body.empty)
-    
+
   def notModified = Response(code = 304, body = Body.empty)
 
   def badRequest = Response(code = 400, body = Body.empty)

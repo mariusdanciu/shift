@@ -1,6 +1,6 @@
 package net.shift.engine.http
 
-import net.shift.http.TextHeader
+import net.shift.server.http.TextHeader
 import net.shift.security.BasicCredentials
 import net.shift.security.Credentials
 import net.shift.common.Base64

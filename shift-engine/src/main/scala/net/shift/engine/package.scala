@@ -3,7 +3,7 @@ package net.shift
 import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
-import net.shift.http.AsyncResponse
+import net.shift.server.http.AsyncResponse
 import net.shift.engine.utils.ServiceUtils
 
 package object engine {

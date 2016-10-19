@@ -21,9 +21,9 @@ import java.io.StringReader
 import net.shift.common.State._
 import net.shift.security.Credentials
 import HttpPredicates._
-import net.shift.http.Request
-import net.shift.http.Responses
-import net.shift.http.ContentType
+import net.shift.server.http.Request
+import net.shift.server.http.Responses
+import net.shift.server.http.ContentType
 
 object Html5 {
 

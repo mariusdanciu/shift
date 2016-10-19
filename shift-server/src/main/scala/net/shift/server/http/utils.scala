@@ -1,8 +1,6 @@
-package net.shift.http
+package net.shift.server.http
 
 import net.shift.loc.Language
-import net.shift.common.BinReader
-import java.nio.ByteBuffer
 import scala.util.Try
 import net.shift.io.IO
 

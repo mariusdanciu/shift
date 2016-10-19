@@ -11,9 +11,9 @@ import net.shift.io.Iteratee
 import net.shift.io._
 import net.shift.io.IO._
 import java.nio.channels.ClosedChannelException
-import net.shift.protocol.Protocol
-import net.shift.http.HttpLog
-import net.shift.http.Uri
+import net.shift.server.protocol.Protocol
+import net.shift.server.http.HttpLog
+import net.shift.server.http.Uri
 
 private[server] class ClientHandler(key: SelectionKey, name: String, onClose: SelectionKey => Unit, protocol: Protocol, readBufSize: Int = 1024) {
 

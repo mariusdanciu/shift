@@ -1,4 +1,4 @@
-package net.shift.http.websockets
+package net.shift.server.http.websockets
 
 import scala.util.Try
 

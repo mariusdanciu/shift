@@ -1,6 +1,6 @@
 package net.shift.engine.utils
 
-import net.shift.http._
+import net.shift.server.http._
 
 class ServiceUtils(service: AsyncResponse => Unit) {
 

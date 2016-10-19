@@ -12,12 +12,14 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 import Selections._
 import akka.actor.ActorSystem
-import net.shift.common.Log
-import net.shift.io._
+import net.shift.server.protocol.ProtocolBuilder
 import scala.collection.concurrent.TrieMap
+import net.shift.server.http.Payload
 import net.shift.common.Config
-import net.shift.protocol.Protocol
-import net.shift.http.Payload
+import net.shift.common.Log
+import net.shift.io.IO
+import net.shift.server.protocol.ProtocolBuilder
+import net.shift.server.http.Payload
 
 object Server {
   def apply() = new Server(ServerSpecs())
@@ -34,7 +36,7 @@ case class Server(specs: ServerSpecs) extends Log {
   @volatile
   private var running = false;
 
-  def start(protocol: Protocol): Future[Unit] = {
+  def start(protocol: ProtocolBuilder): Future[Unit] = {
 
     implicit val ctx = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(specs.numThreads))
 
@@ -59,11 +61,11 @@ case class Server(specs: ServerSpecs) extends Log {
                 if (client != null) {
                   client.configureBlocking(false)
                   val clientKey = client.register(selector, SelectionKey.OP_READ)
-                  val clientName = client.getRemoteAddress.toString + "-" + key
+                  val clientName = client.getRemoteAddress.toString + "-" + clientKey
                   log.info("Accepted connection " + clientName)
                   clients.put(clientKey, new ClientHandler(clientKey, clientName, k => {
                     closeClient(k)
-                  }, protocol))
+                  }, protocol.createProtocol))
                 }
               } else if (key.isReadable()) {
                 clients get (key) map { _.readChunk }
@@ -100,9 +102,10 @@ case class Server(specs: ServerSpecs) extends Log {
   }
 
   private def closeClient(key: SelectionKey) {
-    key.channel().close()
+    IO.close(key.channel())
     key.cancel()
-    clients remove key
+    val state = clients remove key
+    log.info(s"Client $key removed: $state")
   }
 
   def stop() = {
@@ -130,7 +133,7 @@ case class Raw(buffers: List[ByteBuffer]) extends Payload {
 }
 
 object ServerSpecs {
-  def apply() = fromConfig(new Config())
+  def apply() = fromConfig(Config())
 
   def fromConfig(conf: Config): ServerSpecs = {
     ServerSpecs(

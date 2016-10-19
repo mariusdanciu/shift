@@ -1,8 +1,16 @@
-package net.shift.http
+package net.shift.server.http
 
 import java.nio.ByteBuffer
+
 import scala.util.Try
-import net.shift.io._
+
+import net.shift.io.BinProducer
+import net.shift.io.Cont
+import net.shift.io.Data
+import net.shift.io.Done
+import net.shift.io.EOF
+import net.shift.io.IO
+import net.shift.io.Iteratee
 import net.shift.loc.Language
 
 trait Payload

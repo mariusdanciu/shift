@@ -1,4 +1,4 @@
-package net.shift.http.test
+package net.shift.server.http.test
 
 import scala.util.Try
 import scala.util.Failure

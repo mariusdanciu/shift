@@ -9,9 +9,9 @@ import net.shift.common.DefaultLog
 import net.shift.common.Log
 import net.shift.security.SecurityFailure
 import net.shift.common.ShiftFailure
-import net.shift.http.Request
-import net.shift.http._
-import net.shift.http.Responses._
+import net.shift.server.http.Request
+import net.shift.server.http._
+import net.shift.server.http.Responses._
 
 object Engine extends DefaultLog {
 
