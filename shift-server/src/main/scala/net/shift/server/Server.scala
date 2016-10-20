@@ -130,6 +130,8 @@ case class Raw(buffers: List[ByteBuffer]) extends Payload {
   def size = buffers map { _.limit } sum
 
   def buffersState: String = buffers map { b => s"${b.position} : ${b.limit}" } mkString "\n"
+
+  def duplicates = buffers map { _ duplicate }
 }
 
 object ServerSpecs {

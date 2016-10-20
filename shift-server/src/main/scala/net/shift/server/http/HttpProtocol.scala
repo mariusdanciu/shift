@@ -34,7 +34,7 @@ class HttpProtocol(service: HTTPService) extends Protocol {
       case RawExtract(raw) =>
         val msg = raw + in
 
-        new HttpParser().parse(BinReader(msg.buffers)) match {
+        new HttpParser().parse(BinReader(msg.duplicates)) match {
           case r @ Success(req) =>
             keepAlive = req.stringHeader("Connection").map { _ == "keep-alive" } getOrElse true
             tryRun(msg.size, req, write)
