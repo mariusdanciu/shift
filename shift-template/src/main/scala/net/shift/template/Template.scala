@@ -88,7 +88,7 @@ class Template {
             val (st, out) = snippets.inlinesMap.get(name) match {
               case Some(inl) =>
                 (for {
-                  (InlineState(oageState, _), s) <- inl(InlineState(state, params))
+                  (SnipState(oageState, _, _), s) <- inl(SnipState(state, params, NodeSeq.Empty))
                 } yield {
                   (oageState, s)
                 }).recover {
@@ -251,4 +251,3 @@ object PageState {
 }
 
 case class SnipState[T](state: PageState[T], params: List[String], node: NodeSeq)
-case class InlineState[T](state: PageState[T], params: List[String])
