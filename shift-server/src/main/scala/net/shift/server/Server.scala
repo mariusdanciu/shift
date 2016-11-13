@@ -31,7 +31,7 @@ case class Server(specs: ServerSpecs) extends Log {
 
   private val clients = new TrieMap[SelectionKey, ClientHandler]
 
-  def loggerName = specs.name
+  def loggerName = classOf[Server].getName
 
   @volatile
   private var running = false;
