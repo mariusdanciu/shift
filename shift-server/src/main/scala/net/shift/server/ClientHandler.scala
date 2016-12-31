@@ -40,7 +40,7 @@ private[server] class ClientHandler(key: SelectionKey, name: String, onClose: Se
     } else {
       val buffer = if (size <= readBufSize && size > 0) {
         buf.flip()
-        val b = ByteBuffer.allocate(buf.remaining())
+        val b = ByteBuffer.allocate(buf.limit())
         b.put(buf)
         b.flip
         b

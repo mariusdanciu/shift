@@ -7,7 +7,7 @@ trait Log {
 
   def loggerName: String
 
-  val log = Logger.getLogger(loggerName)
+  protected val log = Logger.getLogger(loggerName)
 
   def isOff = log.isEnabledFor(Level.OFF)
   def isAll = log.isEnabledFor(Level.ALL)
@@ -83,4 +83,10 @@ trait Log {
 
 trait DefaultLog extends Log {
   def loggerName = getClass().getName();
+}
+
+object LogBuilder {
+  def logger(name: String) : Log = new Log {
+    def loggerName = name
+  }
 }

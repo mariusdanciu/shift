@@ -1,19 +1,16 @@
 package net.shift
 package engine
 
-import scala.concurrent._
-import scala.util.Failure
-import scala.util.Success
-import net.shift.common.Config
-import net.shift.common.DefaultLog
-import net.shift.common.Log
+import net.shift.common._
 import net.shift.security.SecurityFailure
-import net.shift.common.ShiftFailure
-import net.shift.server.http.Request
-import net.shift.server.http._
 import net.shift.server.http.Responses._
+import net.shift.server.http.{Request, _}
 
-object Engine extends DefaultLog {
+import scala.util.{Failure, Success}
+
+object Engine {
+
+  private val log = LogBuilder.logger(getClass.getName)
 
   def run(app: ShiftApplication)(request: Request, response: AsyncResponse)(implicit conf: Config) {
 
@@ -22,32 +19,32 @@ object Engine extends DefaultLog {
         case Success((_, Success(f))) =>
 
           f(r => {
-            info("Sending response " + r)
+            log.info("Sending response " + r)
             response(r)
           })
         case Success((_, Failure(t @ ShiftFailure(msg)))) =>
-          error("Fail processing the request ", t)
+          log.error("Fail processing the request ", t)
           response(serverError.withTextBody(msg))
         case Success((_, Failure(t))) =>
-          error("Fail processing the request ", t)
+          log.error("Fail processing the request ", t)
           response(serverError)
         case Failure(t @ SecurityFailure(msg, 401)) =>
-          warn(s"Authentication failure $msg", t)
+          log.warn(s"Authentication failure $msg", t)
           response(basicAuthRequired(msg, conf.string("auth.realm", "shift")))
         case Failure(t @ SecurityFailure(msg, status)) =>
-          warn(s"Authentication failure $msg", t)
+          log.warn(s"Authentication failure $msg", t)
           response(textResponse(msg).withCode(status))
         case Failure(t @ ShiftFailure(msg)) =>
-          error("Fail processing the request ", t)
+          log.error("Fail processing the request ", t)
           response(serverError.withTextBody(msg))
         case Failure(t) =>
-          error("Fail processing the request ", t)
+          log.error("Fail processing the request ", t)
           response(serverError)
         case r =>
-          error(r.toString())
+          log.error(r.toString)
       }
     } catch {
-      case e: Exception => e.printStackTrace
+      case e: Exception => log.fatal("FATAL", e)
     }
   }
 }

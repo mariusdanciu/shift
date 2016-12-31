@@ -1,35 +1,28 @@
 package net.shift
 package io
 
-import java.io.Closeable
-import java.io.FileInputStream
-import java.io.InputStream
+import java.io.{Closeable, FileInputStream, InputStream}
 import java.nio.ByteBuffer
-import java.nio.channels.FileChannel
-import scala.annotation.tailrec
-import scala.util.Failure
-import scala.util.Success
-import scala.Some
-import scala.util.Try
-import scala.util.control.Exception.catching
-import scala.xml.NodeSeq
-import net.shift.common.Path
+import java.nio.channels.{Channels, ReadableByteChannel}
+
 import net.shift.common.XmlUtils.mkString
-import java.nio.channels.Channels
-import java.nio.channels.ReadableByteChannel
-import java.nio.channels.Channel
-import net.shift.common.Log
+import net.shift.common.{LogBuilder, Path}
+
+import scala.annotation.tailrec
+import scala.util.control.Exception.catching
+import scala.util.{Failure, Success, Try}
+import scala.xml.NodeSeq
 
 object IODefaults {
 
   implicit val fs: FileSystem = LocalFileSystem
 }
 
-object IO extends Log {
-  def loggerName = this.getClass.getName
+object IO {
+  private val log = LogBuilder.logger(getClass.getName)
 
   def close(c: Closeable) = Try {
-    c.close
+    c.close()
   }
 
   def failover[I, O](f: => Iteratee[I, O]): Iteratee[I, O] =
@@ -43,9 +36,9 @@ object IO extends Log {
 
     var current: List[ByteBuffer] = in toList
 
-    def apply[O](it: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = {
+    def apply[A](it: Iteratee[ByteBuffer, A]): Iteratee[ByteBuffer, A] = {
       @tailrec
-      def handle(it: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = {
+      def handle(it: Iteratee[ByteBuffer, A]): Iteratee[ByteBuffer, A] = {
 
         (it, current) match {
           case (Cont(f), Nil) =>
@@ -67,7 +60,7 @@ object IO extends Log {
 
   }
 
-  def singleProducer[O](in: ByteBuffer) = chunksProducer(List(in))
+  def singleProducer[O](in: ByteBuffer): BinProducer = chunksProducer(List(in))
 
   def emptyProducer = new BinProducer {
 
@@ -93,7 +86,7 @@ object IO extends Log {
       (size, channelProducer(fc, bufSize))
     }
 
-  def inputStreamProducer(is: InputStream, bufSize: Int = 32768) = channelProducer(Channels.newChannel(is), bufSize)
+  def inputStreamProducer(is: InputStream, bufSize: Int = 32768): BinProducer = channelProducer(Channels.newChannel(is), bufSize)
 
   def channelProducer(in: ReadableByteChannel, bufSize: Int = 32768) = new BinProducer {
 
@@ -146,7 +139,7 @@ object IO extends Log {
     }) match {
       case Done(v, _) => Success(v)
       case Error(t)   => Failure(t)
-      case k          => Failure(new IllegalStateException)
+      case _          => Failure(new IllegalStateException)
     }
   }
 
@@ -156,7 +149,7 @@ object IO extends Log {
     }) match {
       case Done(v, _) => Success(v)
       case Error(t)   => Failure(t)
-      case k          => Failure(new IllegalStateException)
+      case _          => Failure(new IllegalStateException)
     }
   }
 
@@ -170,7 +163,7 @@ object IO extends Log {
     }
   }
 
-  def concat(a: ByteBuffer, b: ByteBuffer) = {
+  def concat(a: ByteBuffer, b: ByteBuffer): ByteBuffer = {
     val nb = ByteBuffer.allocate(a.limit() + b.limit())
     nb.put(a)
     nb.put(b)
@@ -230,13 +223,13 @@ case class Cont[I, O](g: In[I] => Iteratee[I, O]) extends Iteratee[I, O] {
 
 case class Done[I, O](v: O, rest: In[I]) extends Iteratee[I, O] {
   def map[B](f: O => B): Iteratee[I, B] = Done(f(v), rest)
-  def flatMap[B](f: O => Iteratee[I, B]) = f(v) match {
-    case Done(d, r)     => Done(d, rest)
+  def flatMap[B](f: O => Iteratee[I, B]): Iteratee[I, B] = f(v) match {
+    case Done(d, _)     => Done(d, rest)
     case Cont(g)        => g(rest)
     case err @ Error(_) => err
   }
 
-  def filter(f: O => Boolean) = if (f(v))
+  def filter(f: O => Boolean): Iteratee[I, O] = if (f(v))
     Done(v, rest)
   else
     Error(new RuntimeException("Failed filter predicate"))

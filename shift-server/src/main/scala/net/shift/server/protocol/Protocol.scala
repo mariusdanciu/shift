@@ -3,7 +3,6 @@ package net.shift.server.protocol
 import java.nio.ByteBuffer
 import scala.concurrent.ExecutionContext
 import net.shift.io.BinProducer
-import net.shift.server.ResponseContinuationState
 
 trait Protocol {
 
