@@ -89,4 +89,7 @@ object LogBuilder {
   def logger(name: String) : Log = new Log {
     def loggerName = name
   }
+  def logger(cls: Class[_]) : Log = new Log {
+    def loggerName = cls.getName
+  }
 }

@@ -9,14 +9,11 @@ import scala.util.control.TailCalls._
 import scala.util.parsing.combinator._
 import scala.util.parsing.input.Position
 import scala.util.parsing.input.Reader
-import net.shift.common.Log
-import net.shift.common.TimeUtils
-import net.shift.common.ShiftFailure
+import net.shift.common._
 import TimeUtils._
 import net.shift.io._
 import IO._
-import net.shift.common.Config
-import net.shift.common.Path
+
 import scala.concurrent.Future
 import net.shift.server.http.TextHeader
 
@@ -34,8 +31,10 @@ object MultipartParser {
   def apply(boundry: String) = new MultipartParser(boundry.getBytes("UTF-8"))
 }
 
-class MultipartParser(boundary: Array[Byte]) extends Parsers with Log {
+class MultipartParser(boundary: Array[Byte]) extends Parsers {
   type Elem = Byte
+
+  private val log = LogBuilder.logger(classOf[MultipartParser])
 
   def loggerName = "MultipartParser"
 
@@ -78,7 +77,7 @@ class MultipartParser(boundary: Array[Byte]) extends Parsers with Log {
       case Failure(v, _) => ShiftFailure(v).toTry
       case Error(v, _)   => ShiftFailure(v).toTry
     }
-  } { d => debug(s"Multipart parsing took: $d") }
+  } { d => log.debug(s"Multipart parsing took: $d") }
 
   def key = rep1(acceptIf(b => (b >= 'a' && b <= 'z') ||
     (b >= 'A' && b <= 'Z') ||
@@ -138,7 +137,7 @@ class MultipartParser(boundary: Array[Byte]) extends Parsers with Log {
 
     duration {
       continue(in, sepBound, ListBuffer[Byte]()).map(_ toArray)
-    } { d => debug(s"Parsing binary part took: $d") }
+    } { d => log.debug(s"Parsing binary part took: $d") }
   }
 
 }

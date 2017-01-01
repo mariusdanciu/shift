@@ -1,14 +1,17 @@
 package net.shift.server.http
 
 import net.shift.server.http._
-import net.shift.common.BinReader
+import net.shift.common.{BinReader, LogBuilder}
+
 import scala.concurrent.ExecutionContext
 import net.shift.server.protocol.Protocol
+
 import scala.util.Success
 import scala.concurrent.Future
 import net.shift.server.RawExtract
 import net.shift.io.BinProducer
 import java.nio.ByteBuffer
+
 import net.shift.server.protocol.ProtocolBuilder
 
 object HttpProtocolBuilder {
@@ -20,7 +23,8 @@ class HttpProtocolBuilder(service: HTTPService) extends ProtocolBuilder {
 }
 
 class HttpProtocol(service: HTTPService) extends Protocol {
-  val log = HttpLog
+  private val log = LogBuilder.logger(classOf[HttpProtocol])
+
   var keepAlive = true
   var readState: Option[Payload] = None
 

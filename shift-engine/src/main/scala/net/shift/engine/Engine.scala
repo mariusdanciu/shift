@@ -10,7 +10,7 @@ import scala.util.{Failure, Success}
 
 object Engine {
 
-  private val log = LogBuilder.logger(getClass.getName)
+  private val log = LogBuilder.logger(getClass)
 
   def run(app: ShiftApplication)(request: Request, response: AsyncResponse)(implicit conf: Config) {
 

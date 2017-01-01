@@ -2,39 +2,33 @@ package net.shift.server
 
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
-import java.nio.channels.SelectionKey
-import java.nio.channels.Selector
-import java.nio.channels.ServerSocketChannel
+import java.nio.channels.{SelectionKey, Selector, ServerSocketChannel}
 import java.util.concurrent.Executors
-import scala.annotation.tailrec
-import scala.collection.JavaConverters._
-import scala.concurrent.ExecutionContext
-import scala.concurrent.Future
-import Selections._
-import akka.actor.ActorSystem
-import net.shift.server.protocol.ProtocolBuilder
-import scala.collection.concurrent.TrieMap
-import net.shift.server.http.Payload
-import net.shift.common.Config
-import net.shift.common.Log
+
+import net.shift.common.{Config, LogBuilder}
 import net.shift.io.IO
-import net.shift.server.protocol.ProtocolBuilder
+import net.shift.server.Selections._
 import net.shift.server.http.Payload
+import net.shift.server.protocol.ProtocolBuilder
+
+import scala.annotation.tailrec
+import scala.collection.concurrent.TrieMap
+import scala.concurrent.{ExecutionContext, Future}
 
 object Server {
   def apply() = new Server(ServerSpecs())
 }
 
-case class Server(specs: ServerSpecs) extends Log {
+case class Server(specs: ServerSpecs) {
+
+  private val log = LogBuilder.logger(classOf[Server])
 
   private val selector = Selector.open
 
   private val clients = new TrieMap[SelectionKey, ClientHandler]
 
-  def loggerName = classOf[Server].getName
-
   @volatile
-  private var running = false;
+  private var running = false
 
   def start(protocol: ProtocolBuilder): Future[Unit] = {
 
@@ -48,15 +42,15 @@ case class Server(specs: ServerSpecs) extends Log {
 
         val keys = selector.selectedKeys().iterator()
 
-        while (keys.hasNext()) {
+        while (keys.hasNext) {
           val key = keys.next()
           keys.remove()
 
           if (!running) {
             closeClient(key)
           } else {
-            if (key.isValid()) {
-              if (key.isAcceptable()) {
+            if (key.isValid) {
+              if (key.isAcceptable) {
                 val client = serverChannel.accept()
                 if (client != null) {
                   client.configureBlocking(false)
@@ -67,11 +61,15 @@ case class Server(specs: ServerSpecs) extends Log {
                     closeClient(k)
                   }, protocol.createProtocol))
                 }
-              } else if (key.isReadable()) {
-                clients get (key) map { _.readChunk }
-              } else if (key.isWritable()) {
+              } else if (key.isReadable) {
+                clients.get(key).foreach {
+                  _.readChunk
+                }
+              } else if (key.isWritable) {
                 unSelectForWrite(key)
-                clients get (key) map { _.continueWriting }
+                clients.get(key).foreach {
+                  _.continueWriting()
+                }
               }
             }
           }
@@ -94,10 +92,9 @@ case class Server(specs: ServerSpecs) extends Log {
       loop(serverChannel)
     }
 
-    listen.map {
-      case _ =>
-        log.info("Shutting down server")
-        serverChannel.close()
+    listen.map { _ =>
+      log.info("Shutting down server")
+      serverChannel.close()
     }
   }
 
@@ -108,8 +105,8 @@ case class Server(specs: ServerSpecs) extends Log {
     log.info(s"Client $key removed: $state")
   }
 
-  def stop() = {
-    running = false;
+  def stop(): Selector = {
+    running = false
     selector.wakeup()
   }
 
@@ -117,25 +114,30 @@ case class Server(specs: ServerSpecs) extends Log {
 
 object RawExtract {
   def unapply(t: Option[Payload]): Option[Raw] = t match {
-    case None           => Some(Raw(Nil))
+    case None => Some(Raw(Nil))
     case Some(raw: Raw) => Some(raw)
-    case _              => None
+    case _ => None
   }
 }
 
 case class Raw(buffers: List[ByteBuffer]) extends Payload {
   def +(b: ByteBuffer) = Raw(buffers ++ List(b))
+
   def ++(b: Seq[ByteBuffer]) = Raw(buffers ++ b)
 
-  def size = buffers map { _.limit } sum
+  def size: Int = buffers map {
+    _.limit
+  } sum
 
   def buffersState: String = buffers map { b => s"${b.position} : ${b.limit}" } mkString "\n"
 
-  def duplicates = buffers map { _ duplicate }
+  def duplicates: List[ByteBuffer] = buffers map {
+    _ duplicate
+  }
 }
 
 object ServerSpecs {
-  def apply() = fromConfig(Config())
+  def apply(): ServerSpecs = fromConfig(Config())
 
   def fromConfig(conf: Config): ServerSpecs = {
     ServerSpecs(

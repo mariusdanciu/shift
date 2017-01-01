@@ -51,16 +51,16 @@ case class SetCookie(cookieName: String,
 
   def name = "Set-Cookie"
 
-  def setCookieName(value: String) = this.copy(cookieName = value)
-  def setCookieValue(value: String) = this.copy(cookieValue = value)
-  def setDomain(value: String) = this.copy(domain = Some(value))
-  def setPath(value: String) = this.copy(path = Some(value))
-  def setMaxAge(value: Long) = this.copy(maxAge = Some(value))
-  def setVersion(value: Int) = this.copy(version = Some(value))
-  def setSecure(value: Boolean) = this.copy(secure = value)
-  def setHttpOnly(value: Boolean) = this.copy(httpOnly = value)
+  def setCookieName(value: String): SetCookie = this.copy(cookieName = value)
+  def setCookieValue(value: String): SetCookie = this.copy(cookieValue = value)
+  def setDomain(value: String): SetCookie = this.copy(domain = Some(value))
+  def setPath(value: String): SetCookie = this.copy(path = Some(value))
+  def setMaxAge(value: Long): SetCookie = this.copy(maxAge = Some(value))
+  def setVersion(value: Int): SetCookie = this.copy(version = Some(value))
+  def setSecure(value: Boolean): SetCookie = this.copy(secure = value)
+  def setHttpOnly(value: Boolean): SetCookie = this.copy(httpOnly = value)
 
-  def headerLine: String = s"$name: ${cookieName}=${cookieValue}" +
+  def headerLine: String = s"$name: $cookieName=$cookieValue" +
     domain.map(d => s";Domain=$d").getOrElse("") +
     maxAge.map(d => s";Max-Age=$d").getOrElse("") +
     path.map(d => s";Path=$d").getOrElse("") +
@@ -73,7 +73,7 @@ object Body {
   def empty = Body(Nil)
 }
 case class Body(parts: Seq[ByteBuffer]) extends BinProducer {
-  def size = parts.map { _.limit }.sum
+  def size: Int = parts.map { _.limit }.sum
 
   def apply[O](it: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = {
     val data = (parts map { d => Data(d) }) ++ List(EOF)
@@ -88,8 +88,8 @@ object Uri {
   def apply(path: String) = new Uri(None, None, path, Nil)
 }
 case class Uri(host: Option[String], port: Option[Int], path: String, params: List[Param]) {
-  def param(name: String) = params find { _.name == name }
-  def paramValue(name: String) = param(name) map { _.value }
+  def param(name: String): Option[Param] = params find { _.name == name }
+  def paramValue(name: String): Option[List[String]] = param(name) map { _.value }
 }
 
 case class Request(
@@ -111,36 +111,36 @@ case class Request(
   def header(name: String): Option[HeaderItem] = headers find { _.name == name }
 
   def stringHeader(name: String): Option[String] = header(name) match {
-    case Some(TextHeader(name, value)) => Some(value.trim)
+    case Some(TextHeader(_, value)) => Some(value.trim)
     case _                             => None
   }
 
   def longHeader(name: String): Option[Long] = header(name) match {
-    case Some(TextHeader(name, value)) => Try(value.trim.toLong).toOption
+    case Some(TextHeader(_, value)) => Try(value.trim.toLong).toOption
     case _                             => None
   }
 
   def intHeader(name: String): Option[Int] = header(name) match {
-    case Some(TextHeader(name, value)) => Try(value.trim.toInt).toOption
+    case Some(TextHeader(_, value)) => Try(value.trim.toInt).toOption
     case _                             => None
   }
 
   def booleanHeader(name: String): Option[Boolean] = header(name) match {
-    case Some(TextHeader(name, value)) => Try(value.trim.toBoolean).toOption
+    case Some(TextHeader(_, value)) => Try(value.trim.toBoolean).toOption
     case _                             => None
   }
 
   def doubleHeader(name: String): Option[Double] = header(name) match {
-    case Some(TextHeader(name, value)) => Try(value.trim.toDouble).toOption
+    case Some(TextHeader(_, value)) => Try(value.trim.toDouble).toOption
     case _                             => None
   }
 
-  lazy val cookies = headers flatMap {
+  lazy val cookies: Seq[Cookie] = headers flatMap {
     case c: Cookie => List(c)
     case _         => Nil
   }
 
-  def cookie(name: String) = cookies find (_.cookieName == name)
+  def cookie(name: String): Option[Cookie] = cookies find (_.cookieName == name)
 }
 
 case class Response(code: Int,
@@ -148,15 +148,15 @@ case class Response(code: Int,
                     headers: List[HeaderItem] = Nil,
                     body: BinProducer) extends Payload {
 
-  lazy val cookies = headers flatMap {
+  lazy val cookies: List[SetCookie] = headers flatMap {
     case c: SetCookie => List(c)
     case _            => Nil
   }
 
-  def cookie(name: String) = cookies find (_.cookieName == name)
+  def cookie(name: String): Option[SetCookie] = cookies find (_.cookieName == name)
 
   def asBinProducer: BinProducer = new BinProducer {
-    lazy val headerBuffer = {
+    lazy val headerBuffer: BinProducer = {
 
       val extra = if (body == Body.empty) {
         List(TextHeader("Content-Length", "0"))
@@ -164,7 +164,7 @@ case class Response(code: Int,
         Nil
 
       val headersStr = (headers ++ extra) map {
-        case h => s"${h.headerLine}\r\n"
+        h => s"${h.headerLine}\r\n"
       } mkString
 
       val header = s"HTTP/1.1 $code $reason\r\n$headersStr\r\n"
@@ -177,7 +177,7 @@ case class Response(code: Int,
     def apply[O](it: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = {
 
       it match {
-        case i if (current == headerBuffer) =>
+        case i if current == headerBuffer =>
           current(i) match {
             case Done(_, EOF) =>
               current = body

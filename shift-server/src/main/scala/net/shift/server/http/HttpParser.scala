@@ -4,21 +4,15 @@ import java.net.URLDecoder
 import java.nio.ByteBuffer
 
 import scala.util.Try
-
-import net.shift.common.BinReader
-import net.shift.common.Log
-import net.shift.common.ShiftParsers
+import net.shift.common.{BinReader, LogBuilder, ShiftParsers}
 import net.shift.io.IO
 
-object HttpLog extends Log {
-  def loggerName = "http_server"
-}
 
 class HttpParser extends ShiftParsers {
 
-  val log = HttpLog
+  private val log = LogBuilder.logger(classOf[HttpParser])
 
-  def uri = ws ~> (opt((str("http://") ~> notReserved()) ~ opt(chr(':') ~> int)) ~ opt(path) ~ (ws ~> opt(chr('?') ~> params))) ^^ {
+  def uri: Parser[Uri] = ws ~> (opt((str("http://") ~> notReserved()) ~ opt(chr(':') ~> int)) ~ opt(path) ~ (ws ~> opt(chr('?') ~> params))) ^^ {
     case Some(host ~ port) ~ path ~ params => Uri(Some(host), port, URLDecoder.decode(path getOrElse "/", "UTF-8"), params getOrElse Nil)
     case None ~ path ~ params              => Uri(None, None, URLDecoder.decode(path getOrElse "/", "UTF-8"), params getOrElse Nil)
   }
@@ -30,7 +24,7 @@ class HttpParser extends ShiftParsers {
     }
   }
 
-  def httpLine = capitals ~ uri ~ (str("HTTP/") ~> digit) ~ (chr('.') ~> digit) <~ crlf ^^ {
+  def httpLine: Parser[(String, Uri, Ver)] = capitals ~ uri ~ (str("HTTP/") ~> digit) ~ (chr('.') ~> digit) <~ crlf ^^ {
     case method ~ uri ~ major ~ minor =>
       (method,
         uri,
@@ -43,18 +37,18 @@ class HttpParser extends ShiftParsers {
     }
   }
 
-  def header: Parser[List[TextHeader]] = ((notReserved() <~ chr(':') <~ ws) ~ until(crlf, false)) ^^ {
+  def header: Parser[List[TextHeader]] = ((notReserved() <~ chr(':') <~ ws) ~ until(crlf, retryPInput = false)) ^^ {
     case name ~ value =>
       List(TextHeader(name.trim, IO.bufferToString(value)))
   }
 
   def httpHeaders: Parser[Seq[HeaderItem]] = rep(cookie | header) ^^ { _ flatten }
 
-  def httpBody = until(atEnd, false) ^^ { a =>
+  def httpBody: Parser[Body] = until(atEnd, retryPInput = false) ^^ { a =>
     Body(List(a))
   }
 
-  def http = httpLine ~ httpHeaders ~ (crlf ~> opt(httpBody)) ^^ {
+  def http: Parser[Request] = httpLine ~ httpHeaders ~ (crlf ~> opt(httpBody)) ^^ {
     case (method, uri, ver) ~ headers ~ body =>
       Request(method, uri, ver, headers, body getOrElse Body.empty)
   }
@@ -63,7 +57,7 @@ class HttpParser extends ShiftParsers {
     if (log.isInfo) {
       val bufs = reader.in.map { _.duplicate }
       log.info("Parsing data " + (for { b <- bufs } yield {
-        b.toString()
+        b.toString
       }).mkString("\n"))
       log.info(IO.buffersToString(bufs))
     }
@@ -79,11 +73,11 @@ class HttpParser extends ShiftParsers {
     }
   }
 
-  def parseParams(p: String) = params(BinReader(List(ByteBuffer.wrap(p.getBytes("UTF-8"))))) match {
+  def parseParams(p: String): Try[List[Param]] = params(BinReader(List(ByteBuffer.wrap(p.getBytes("UTF-8"))))) match {
     case Success(r, _) => scala.util.Success(r)
-    case Failure(f, p) =>
+    case Failure(f, _) =>
       scala.util.Failure(new Exception(f))
-    case Error(f, p) =>
+    case Error(f, _) =>
       scala.util.Failure(new Exception(f))
   }
 

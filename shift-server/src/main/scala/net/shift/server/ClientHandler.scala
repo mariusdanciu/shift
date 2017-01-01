@@ -2,28 +2,23 @@ package net.shift.server
 
 import java.io.IOException
 import java.nio.ByteBuffer
-import java.nio.channels.SelectionKey
-import java.nio.channels.SocketChannel
+import java.nio.channels.{ClosedChannelException, SelectionKey, SocketChannel}
+
+import net.shift.common.LogBuilder
+import net.shift.io.{Iteratee, _}
+import net.shift.server.Selections._
+import net.shift.server.protocol.Protocol
+
 import scala.concurrent.ExecutionContext
 import scala.util.Try
-import Selections._
-import net.shift.io.Iteratee
-import net.shift.io._
-import net.shift.io.IO._
-import java.nio.channels.ClosedChannelException
-import net.shift.server.protocol.Protocol
-import net.shift.server.http.HttpLog
-import net.shift.server.http.Uri
 
 private[server] class ClientHandler(key: SelectionKey, name: String, onClose: SelectionKey => Unit, protocol: Protocol, readBufSize: Int = 1024) {
 
-  val log = HttpLog
-
-  def loggerName = name
+  private val log = LogBuilder.logger(classOf[ClientHandler])
 
   var writeState: Option[ResponseContinuationState] = None
 
-  def terminate {
+  def terminate(): Unit = {
     onClose(key)
   }
 
@@ -34,7 +29,7 @@ private[server] class ClientHandler(key: SelectionKey, name: String, onClose: Se
 
     if (size < 0) {
       log.info("End of client stream")
-      terminate
+      terminate()
     } else if (size == 0) {
       log.info("No data to read")
     } else {
@@ -64,14 +59,14 @@ private[server] class ClientHandler(key: SelectionKey, name: String, onClose: Se
     }.recover {
       case e =>
         log.error("Cannot read data from client: ", e)
-        terminate
+        terminate()
     }
   }
 
   private def drain(requestId: String, client: SocketChannel, buffer: ByteBuffer): (Int, ByteBuffer) = {
     var written = client.write(buffer)
     log.debug(requestId + " - response: wrote " + written)
-    while (written > 0 && buffer.hasRemaining()) {
+    while (written > 0 && buffer.hasRemaining) {
       written = client.write(buffer)
       log.debug(requestId + " - response: wrote " + written)
     }
@@ -80,7 +75,7 @@ private[server] class ClientHandler(key: SelectionKey, name: String, onClose: Se
 
   private def handleResponseSent() {
     if (!protocol.keepConnection) {
-      terminate
+      terminate()
     } else {
       unSelectForWrite(key)
     }
@@ -103,8 +98,8 @@ private[server] class ClientHandler(key: SelectionKey, name: String, onClose: Se
               case (0, buf) =>
                 log.debug(rid + " Socket full " + System.identityHashCode(d))
                 Done(state, Data(buf))
-              case (_, buf) if (!buf.hasRemaining) => cont
-              case (-1, buf) =>
+              case (_, buf) if !buf.hasRemaining => cont
+              case (-1, _) =>
                 net.shift.io.Error[ByteBuffer, Option[ResponseContinuationState]](new IOException("Client connection closed."))
             }
           case EOF =>
@@ -115,28 +110,28 @@ private[server] class ClientHandler(key: SelectionKey, name: String, onClose: Se
         log.debug(st.requestId + " res " + res)
 
         res match {
-          case Done(state, Data(_)) =>
-            log.debug(state.map { _.requestId } + " response: continue sending")
-            writeState = state
+          case Done(s, Data(_)) =>
+            log.debug(s.map { _.requestId } + " response: continue sending")
+            writeState = s
             selectForWrite(key)
             ()
           case Done(_, EOF) =>
             handleResponseSent()
           case Error(t) =>
             log.error("Cannot sent response ", t)
-            terminate
+            terminate()
           case it =>
             log.error("Unexpected iteratee " + it)
-            terminate
+            terminate()
         }
 
       }.recover {
         case e: ClosedChannelException =>
           log.warn("Client closed the connection while writing.")
-          terminate
+          terminate()
         case e: Exception =>
           log.error("Internal error ", e)
-          terminate
+          terminate()
       }
     }
   }

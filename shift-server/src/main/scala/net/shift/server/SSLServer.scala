@@ -7,7 +7,7 @@ import java.security.KeyStore
 import java.util.concurrent.Executors
 import javax.net.ssl._
 
-import net.shift.common.{Config, Log}
+import net.shift.common.{Config, LogBuilder}
 import net.shift.io.IO
 import net.shift.server.Selections._
 import net.shift.server.protocol.ProtocolBuilder
@@ -20,16 +20,16 @@ object SSLServer {
   def apply() = new SSLServer(SSLServerSpecs())
 }
 
-case class SSLServer(specs: SSLServerSpecs) extends Log {
+case class SSLServer(specs: SSLServerSpecs) {
+
+  private val log = LogBuilder.logger(classOf[SSLServer])
 
   private val selector = Selector.open
 
   private val clients = new TrieMap[SelectionKey, SSLClientHandler]
 
-  def loggerName = classOf[Server].getName
-
   @volatile
-  private var running = false;
+  private var running = false
 
   def start(protocol: ProtocolBuilder): Future[Unit] = {
 
@@ -43,15 +43,15 @@ case class SSLServer(specs: SSLServerSpecs) extends Log {
 
         val keys = selector.selectedKeys().iterator()
 
-        while (keys.hasNext()) {
+        while (keys.hasNext) {
           val key = keys.next()
           keys.remove()
 
           if (!running) {
             closeClient(key)
           } else {
-            if (key.isValid()) {
-              if (key.isAcceptable()) {
+            if (key.isValid) {
+              if (key.isAcceptable) {
                 val client = serverChannel.accept()
                 if (client != null) {
                   client.configureBlocking(false)
@@ -68,11 +68,15 @@ case class SSLServer(specs: SSLServerSpecs) extends Log {
                     }, protocol.createProtocol))
                   }
                 }
-              } else if (key.isReadable()) {
-                clients get (key) map { _.readChunk }
-              } else if (key.isWritable()) {
+              } else if (key.isReadable) {
+                clients.get(key).foreach {
+                  _.readChunk
+                }
+              } else if (key.isWritable) {
                 unSelectForWrite(key)
-                clients get (key) map { _.continueWriting }
+                clients.get(key).foreach {
+                  _.continueWriting()
+                }
               }
             }
           }
@@ -95,16 +99,15 @@ case class SSLServer(specs: SSLServerSpecs) extends Log {
       loop(serverChannel)
     }
 
-    listen.map {
-      case _ =>
-        log.info("Shutting down server")
-        serverChannel.close()
+    listen.map { _ =>
+      log.info("Shutting down server")
+      serverChannel.close()
     }
   }
 
   private def handshake(engine: SSLEngine): Boolean = {
     // https://github.com/alkarn/sslengine.example/tree/master/src/main/java/alkarn/github/io/sslengine/example
-    val handshakeStatus = engine.getHandshakeStatus();
+    val handshakeStatus = engine.getHandshakeStatus
     while (handshakeStatus != SSLEngineResult.HandshakeStatus.FINISHED && handshakeStatus != SSLEngineResult.HandshakeStatus.NOT_HANDSHAKING) {
       handshakeStatus match {
         case SSLEngineResult.HandshakeStatus.NOT_HANDSHAKING =>
@@ -126,7 +129,7 @@ case class SSLServer(specs: SSLServerSpecs) extends Log {
     val ks = KeyStore.getInstance("JKS")
     val ts = KeyStore.getInstance("JKS")
 
-    val passPhrase = specs.pass.toCharArray()
+    val passPhrase = specs.pass.toCharArray
     ks.load(new FileInputStream(specs.keyStoreFile), passPhrase)
     ts.load(new FileInputStream(specs.trustStoreFile), passPhrase)
 
@@ -138,7 +141,7 @@ case class SSLServer(specs: SSLServerSpecs) extends Log {
 
     val sslCtx = SSLContext.getInstance("TLS")
 
-    sslCtx.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null)
+    sslCtx.init(kmf.getKeyManagers, tmf.getTrustManagers, null)
 
     val engine = sslCtx.createSSLEngine()
     engine.setUseClientMode(false)
@@ -153,15 +156,15 @@ case class SSLServer(specs: SSLServerSpecs) extends Log {
     log.info(s"Client $key removed: $state")
   }
 
-  def stop() = {
-    running = false;
+  def stop(): Selector = {
+    running = false
     selector.wakeup()
   }
 
 }
 
 object SSLServerSpecs {
-  def apply() = fromConfig(Config())
+  def apply(): SSLServerSpecs = fromConfig(Config())
 
   def fromConfig(conf: Config): SSLServerSpecs = {
     SSLServerSpecs(
@@ -171,7 +174,7 @@ object SSLServerSpecs {
       numThreads = conf.int("server.numThreads", Runtime.getRuntime.availableProcessors()),
       keyStoreFile = conf.string("server.keystore", "keystore.jks"),
       trustStoreFile = conf.string("server.truststore", "truststore.ts"),
-      pass = conf.string("server.pass", ""))
+      pass = conf.string("server.pass"))
   }
 }
 

@@ -31,7 +31,6 @@ object Headers {
 }
 
 object ExtentionToMime {
-  import ContentType._
   val map = Map(
     "txt" -> ContentType.TextPlain,
     "html" -> ContentType.TextHtml,

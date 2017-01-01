@@ -19,7 +19,7 @@ object IODefaults {
 }
 
 object IO {
-  private val log = LogBuilder.logger(getClass.getName)
+  private val log = LogBuilder.logger(getClass)
 
   def close(c: Closeable) = Try {
     c.close()
