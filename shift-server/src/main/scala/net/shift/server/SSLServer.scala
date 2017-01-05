@@ -21,7 +21,7 @@ object SSLServer {
   def apply() = new SSLServer(SSLServerSpecs())
 }
 
-case class SSLServer(specs: SSLServerSpecs) {
+case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
 
   private val log = LogBuilder.logger(classOf[SSLServer])
 
@@ -107,7 +107,7 @@ case class SSLServer(specs: SSLServerSpecs) {
   }
 
 
-  private def reallocate(buffer: ByteBuffer, capacity: Int):ByteBuffer = {
+  private def reallocate(buffer: ByteBuffer, capacity: Int): ByteBuffer = {
     if (capacity > buffer.capacity()) {
       ByteBuffer.allocate(capacity)
     } else {
@@ -115,19 +115,24 @@ case class SSLServer(specs: SSLServerSpecs) {
     }
   }
 
+
+
+
   private def handshake(socket: SocketChannel, engine: SSLEngine)(implicit ctx: ExecutionContext): Boolean = {
     // https://github.com/alkarn/sslengine.example/tree/master/src/main/java/alkarn/github/io/sslengine/example
     val appBufferSize = engine.getSession.getApplicationBufferSize
     val packetSize = engine.getSession.getPacketBufferSize
 
-    var clientDecryptedData = ByteBuffer.allocate(appBufferSize)
-    var clientEncryptedData = ByteBuffer.allocate(packetSize)
+    val clientDecryptedData = ByteBuffer.allocate(appBufferSize)
+    val clientEncryptedData = ByteBuffer.allocate(packetSize)
 
-    var serverDecryptedData = ByteBuffer.allocate(appBufferSize)
-    var serverEncryptedData = ByteBuffer.allocate(packetSize)
+    val serverDecryptedData = ByteBuffer.allocate(appBufferSize)
+    val serverEncryptedData = ByteBuffer.allocate(packetSize)
 
     var handshakeStatus = engine.getHandshakeStatus
+
     while (handshakeStatus != SSLEngineResult.HandshakeStatus.FINISHED && handshakeStatus != SSLEngineResult.HandshakeStatus.NOT_HANDSHAKING) {
+      handshakeStatus match {
         case SSLEngineResult.HandshakeStatus.NEED_UNWRAP =>
           if (socket.read(clientEncryptedData) < 0) {
             if (engine.isInboundDone && engine.isOutboundDone) {
@@ -135,55 +140,25 @@ case class SSLServer(specs: SSLServerSpecs) {
             } else {
               engine.closeInbound()
               engine.closeOutbound()
-
-              // After closeOutbound the engine will be set to WRAP state, in order to try to send a close message to the client.
-              handshakeStatus = engine.getHandshakeStatus
             }
           } else {
             clientEncryptedData.flip()
-            val result = engine.unwrap(clientEncryptedData, clientDecryptedData)
-            clientEncryptedData.compact()
-            handshakeStatus = result.getHandshakeStatus
-            result.getStatus match {
-              case SSLEngineResult.Status.OK =>
-              case SSLEngineResult.Status.CLOSED =>
-                engine.closeOutbound()
-                handshakeStatus = engine.getHandshakeStatus
-              case SSLEngineResult.Status.BUFFER_OVERFLOW =>
-                clientDecryptedData = reallocate(clientDecryptedData, appBufferSize)
-              case SSLEngineResult.Status.BUFFER_UNDERFLOW =>
-                clientEncryptedData = reallocate(clientEncryptedData, packetSize)
-
-            }
+            unwrap(socket, engine, clientEncryptedData, clientDecryptedData)
           }
         case SSLEngineResult.HandshakeStatus.NEED_WRAP =>
           serverEncryptedData.clear()
-          val result = engine.wrap(serverDecryptedData, serverEncryptedData)
-          handshakeStatus = result.getHandshakeStatus
-          result.getStatus match {
-            case SSLEngineResult.Status.OK =>
-            case SSLEngineResult.Status.CLOSED =>
-              serverEncryptedData.flip()
-              while (serverEncryptedData.hasRemaining) {
-                socket.write(serverEncryptedData)
-              }
-              clientDecryptedData.clear()
-            case SSLEngineResult.Status.BUFFER_OVERFLOW =>
-              serverEncryptedData = reallocate(serverEncryptedData, packetSize)
-            case SSLEngineResult.Status.BUFFER_UNDERFLOW =>
-              clientEncryptedData = reallocate(clientEncryptedData, packetSize)
-
-          }
-
+          wrap(socket, engine, serverDecryptedData, serverEncryptedData)
         case SSLEngineResult.HandshakeStatus.NEED_TASK =>
           var task = engine.getDelegatedTask
           while (task != null) {
             ctx.execute(task)
             task = engine.getDelegatedTask
           }
-          handshakeStatus = engine.getHandshakeStatus
+        case _ =>
+      }
+      handshakeStatus = engine.getHandshakeStatus
     }
-    true
+    handshakeStatus == SSLEngineResult.HandshakeStatus.FINISHED
   }
 
   private def makeSSLEngine(): SSLEngine = {
