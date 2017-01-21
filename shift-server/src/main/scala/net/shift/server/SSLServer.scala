@@ -133,6 +133,7 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
     var handshakeStatus = engine.getHandshakeStatus
 
     while (handshakeStatus != SSLEngineResult.HandshakeStatus.FINISHED && handshakeStatus != SSLEngineResult.HandshakeStatus.NOT_HANDSHAKING) {
+      println(handshakeStatus)
       handshakeStatus match {
         case SSLEngineResult.HandshakeStatus.NEED_UNWRAP =>
           val read = socket.read(clientEncryptedData)
