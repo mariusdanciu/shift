@@ -23,7 +23,6 @@ object SSLServer {
 
 case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
 
-  private val log = LogBuilder.logger(classOf[SSLServer])
 
   private val selector = Selector.open
 
@@ -97,7 +96,11 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
     running = true
 
     val listen = Future {
-      loop(serverChannel)
+      try {
+        loop(serverChannel)
+      } catch {
+        case t => t.printStackTrace()
+      }
     }
 
     listen.map { _ =>
@@ -116,8 +119,6 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
   }
 
 
-
-
   private def handshake(socket: SocketChannel, engine: SSLEngine)(implicit ctx: ExecutionContext): Boolean = {
     // https://github.com/alkarn/sslengine.example/tree/master/src/main/java/alkarn/github/io/sslengine/example
     val appBufferSize = engine.getSession.getApplicationBufferSize
@@ -134,21 +135,31 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
     while (handshakeStatus != SSLEngineResult.HandshakeStatus.FINISHED && handshakeStatus != SSLEngineResult.HandshakeStatus.NOT_HANDSHAKING) {
       handshakeStatus match {
         case SSLEngineResult.HandshakeStatus.NEED_UNWRAP =>
-          if (socket.read(clientEncryptedData) < 0) {
+          val read = socket.read(clientEncryptedData)
+          if (read < 0) {
             if (engine.isInboundDone && engine.isOutboundDone) {
-              handshakeStatus = SSLEngineResult.HandshakeStatus.NOT_HANDSHAKING
+              return false
             } else {
-              engine.closeInbound()
+              try {
+                engine.closeInbound();
+              } catch {
+                case e =>
+                  log.error("This engine was forced to close inbound, without having received the proper SSL/TLS close notification message from the peer, due to end of stream.");
+              }
               engine.closeOutbound()
             }
-          } else {
-            clientEncryptedData.flip()
-            unwrap(socket, engine, clientEncryptedData, clientDecryptedData)
           }
+          if (read > 0)
+            clientEncryptedData.flip()
+
+          unwrap(socket, engine, clientEncryptedData, clientDecryptedData)
+
         case SSLEngineResult.HandshakeStatus.NEED_WRAP =>
+          clientEncryptedData.clear()
           serverEncryptedData.clear()
           wrap(socket, engine, serverDecryptedData, serverEncryptedData)
         case SSLEngineResult.HandshakeStatus.NEED_TASK =>
+          clientEncryptedData.clear()
           var task = engine.getDelegatedTask
           while (task != null) {
             ctx.execute(task)
