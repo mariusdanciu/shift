@@ -17,23 +17,7 @@ trait SSLOps {
 
 
   def unwrap(socket: SocketChannel, engine: SSLEngine, clientEncryptedData: ByteBuffer, clientDecryptedData: ByteBuffer): Try[ByteBuffer] = {
-    val r = engine.unwrap(clientEncryptedData, clientDecryptedData)
-    println(r)
-    r.getStatus match {
-      case SSLEngineResult.Status.BUFFER_OVERFLOW =>
-        val appSize = engine.getSession.getApplicationBufferSize
-        val b = ByteBuffer.allocate(appSize + clientDecryptedData.position())
-        clientDecryptedData.flip()
-        b.put(clientDecryptedData)
-        unwrap(socket, engine, clientEncryptedData, b)
-      case SSLEngineResult.Status.BUFFER_UNDERFLOW =>
-        Failure(new Exception("Read more data in the socket buffer"))
-      case SSLEngineResult.Status.CLOSED =>
-        clientEncryptedData.clear()
-        Failure(new SSLException("Client closed"))
-      case SSLEngineResult.Status.OK =>
-        Success(clientDecryptedData)
-    }
+???
   }
 
   def wrap(socket: SocketChannel, engine: SSLEngine, serverDecryptedData: ByteBuffer, serverEncryptedData: ByteBuffer): Try[ByteBuffer] = {

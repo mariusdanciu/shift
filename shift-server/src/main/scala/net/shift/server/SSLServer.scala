@@ -16,6 +16,7 @@ import net.shift.server.protocol.ProtocolBuilder
 import scala.annotation.tailrec
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 object SSLServer {
   def apply() = new SSLServer(SSLServerSpecs())
@@ -110,22 +111,13 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
   }
 
 
-  private def reallocate(buffer: ByteBuffer, capacity: Int): ByteBuffer = {
-    if (capacity > buffer.capacity()) {
-      ByteBuffer.allocate(capacity)
-    } else {
-      ByteBuffer.allocate(buffer.capacity() * 2)
-    }
-  }
-
-
   private def handshake(socket: SocketChannel, engine: SSLEngine): Boolean = {
     // https://github.com/alkarn/sslengine.example/tree/master/src/main/java/alkarn/github/io/sslengine/example
     val appBufferSize = engine.getSession.getApplicationBufferSize
     val packetSize = engine.getSession.getPacketBufferSize
 
-    val clientDecryptedData = ByteBuffer.allocate(appBufferSize)
-    val clientEncryptedData = ByteBuffer.allocate(packetSize)
+    var clientDecryptedData = ByteBuffer.allocate(appBufferSize)
+    var clientEncryptedData = ByteBuffer.allocate(packetSize)
 
     val serverDecryptedData = ByteBuffer.allocate(appBufferSize)
     val serverEncryptedData = ByteBuffer.allocate(packetSize)
@@ -151,13 +143,39 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
               engine.closeOutbound()
             }
           }
-          if (read > 0)
-            clientEncryptedData.flip()
 
-          unwrap(socket, engine, clientEncryptedData, clientDecryptedData)
+          clientEncryptedData.flip()
+
+          println("unwrap " + clientEncryptedData)
+          println("unwrap " + clientDecryptedData)
+          val r = engine.unwrap(clientEncryptedData, clientDecryptedData)
+          println(r)
+          r.getStatus match {
+            case SSLEngineResult.Status.BUFFER_OVERFLOW =>
+              val appSize = engine.getSession.getApplicationBufferSize
+              val b = ByteBuffer.allocate(appSize + clientDecryptedData.position())
+              clientDecryptedData.flip()
+              b.put(clientDecryptedData)
+              clientDecryptedData = b
+
+            case SSLEngineResult.Status.BUFFER_UNDERFLOW =>
+              val appSize = engine.getSession.getPacketBufferSize
+              val b = ByteBuffer.allocate(appSize + clientEncryptedData.position())
+              clientEncryptedData.flip()
+              b.put(clientEncryptedData)
+              clientEncryptedData = b
+              clientEncryptedData.flip()
+
+            case SSLEngineResult.Status.CLOSED =>
+              clientEncryptedData.clear()
+
+            case SSLEngineResult.Status.OK =>
+              println("unwrap written " + clientDecryptedData)
+          }
+
+          clientEncryptedData.compact()
 
         case SSLEngineResult.HandshakeStatus.NEED_WRAP =>
-          clientEncryptedData.clear()
           serverEncryptedData.clear()
           wrap(socket, engine, serverDecryptedData, serverEncryptedData) map {
             out =>
@@ -166,6 +184,7 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
                 socket.write(out)
               }
           }
+
         case SSLEngineResult.HandshakeStatus.NEED_TASK =>
           val exec = Executors.newSingleThreadExecutor()
           var task = engine.getDelegatedTask
@@ -173,6 +192,7 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
             exec.execute(task)
             task = engine.getDelegatedTask
           }
+
         case v =>
           println("What? " + v)
       }
@@ -201,7 +221,6 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
 
     val engine = sslCtx.createSSLEngine()
     engine.setUseClientMode(false)
-
     engine
   }
 
