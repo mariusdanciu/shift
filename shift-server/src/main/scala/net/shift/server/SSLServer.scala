@@ -119,7 +119,7 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
   }
 
 
-  private def handshake(socket: SocketChannel, engine: SSLEngine)(implicit ctx: ExecutionContext): Boolean = {
+  private def handshake(socket: SocketChannel, engine: SSLEngine): Boolean = {
     // https://github.com/alkarn/sslengine.example/tree/master/src/main/java/alkarn/github/io/sslengine/example
     val appBufferSize = engine.getSession.getApplicationBufferSize
     val packetSize = engine.getSession.getPacketBufferSize
@@ -143,7 +143,7 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
               return false
             } else {
               try {
-                engine.closeInbound();
+                engine.closeInbound()
               } catch {
                 case e =>
                   log.error("This engine was forced to close inbound, without having received the proper SSL/TLS close notification message from the peer, due to end of stream.");
@@ -159,11 +159,18 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
         case SSLEngineResult.HandshakeStatus.NEED_WRAP =>
           clientEncryptedData.clear()
           serverEncryptedData.clear()
-          wrap(socket, engine, serverDecryptedData, serverEncryptedData)
+          wrap(socket, engine, serverDecryptedData, serverEncryptedData) map {
+            out =>
+              out.flip()
+              while (out.hasRemaining()) {
+                socket.write(out)
+              }
+          }
         case SSLEngineResult.HandshakeStatus.NEED_TASK =>
+          val exec = Executors.newSingleThreadExecutor()
           var task = engine.getDelegatedTask
           while (task != null) {
-            ctx.execute(task)
+            exec.execute(task)
             task = engine.getDelegatedTask
           }
         case v =>
@@ -171,7 +178,7 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
       }
       handshakeStatus = engine.getHandshakeStatus
     }
-    handshakeStatus == SSLEngineResult.HandshakeStatus.FINISHED
+    handshakeStatus == SSLEngineResult.HandshakeStatus.FINISHED || handshakeStatus == SSLEngineResult.HandshakeStatus.NOT_HANDSHAKING
   }
 
   private def makeSSLEngine(): SSLEngine = {

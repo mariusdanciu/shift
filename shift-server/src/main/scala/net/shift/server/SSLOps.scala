@@ -28,8 +28,11 @@ trait SSLOps {
         unwrap(socket, engine, clientEncryptedData, b)
       case SSLEngineResult.Status.BUFFER_UNDERFLOW =>
         Failure(new Exception("Read more data in the socket buffer"))
-      case SSLEngineResult.Status.CLOSED => Failure(new SSLException("Client closed"))
-      case SSLEngineResult.Status.OK => Success(clientDecryptedData)
+      case SSLEngineResult.Status.CLOSED =>
+        clientEncryptedData.clear()
+        Failure(new SSLException("Client closed"))
+      case SSLEngineResult.Status.OK =>
+        Success(clientDecryptedData)
     }
   }
 
@@ -68,11 +71,6 @@ trait SSLOps {
 
         Failure(new SSLException("Client closed"))
       case SSLEngineResult.Status.OK =>
-        serverEncryptedData.flip()
-        while (serverEncryptedData.hasRemaining()) {
-          socket.write(serverEncryptedData)
-        }
-
         Success(serverEncryptedData)
     }
   }
