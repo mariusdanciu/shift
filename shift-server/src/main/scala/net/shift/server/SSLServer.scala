@@ -100,7 +100,7 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
       try {
         loop(serverChannel)
       } catch {
-        case t => t.printStackTrace()
+        case t: Throwable => t.printStackTrace()
       }
     }
 
@@ -124,6 +124,9 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
 
     var handshakeStatus = engine.getHandshakeStatus
 
+
+
+
     while (handshakeStatus != SSLEngineResult.HandshakeStatus.FINISHED && handshakeStatus != SSLEngineResult.HandshakeStatus.NOT_HANDSHAKING) {
       println(handshakeStatus)
       handshakeStatus match {
@@ -137,7 +140,7 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
               try {
                 engine.closeInbound()
               } catch {
-                case e =>
+                case e: Throwable =>
                   log.error("This engine was forced to close inbound, without having received the proper SSL/TLS close notification message from the peer, due to end of stream.");
               }
               engine.closeOutbound()
@@ -146,31 +149,12 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
 
           clientEncryptedData.flip()
 
-          println("unwrap " + clientEncryptedData)
-          println("unwrap " + clientDecryptedData)
-          val r = engine.unwrap(clientEncryptedData, clientDecryptedData)
-          println(r)
-          r.getStatus match {
-            case SSLEngineResult.Status.BUFFER_OVERFLOW =>
-              val appSize = engine.getSession.getApplicationBufferSize
-              val b = ByteBuffer.allocate(appSize + clientDecryptedData.position())
-              clientDecryptedData.flip()
-              b.put(clientDecryptedData)
-              clientDecryptedData = b
-
-            case SSLEngineResult.Status.BUFFER_UNDERFLOW =>
-              val appSize = engine.getSession.getPacketBufferSize
-              val b = ByteBuffer.allocate(appSize + clientEncryptedData.position())
-              clientEncryptedData.flip()
-              b.put(clientEncryptedData)
-              clientEncryptedData = b
-              clientEncryptedData.flip()
-
-            case SSLEngineResult.Status.CLOSED =>
-              clientEncryptedData.clear()
-
-            case SSLEngineResult.Status.OK =>
-              println("unwrap written " + clientDecryptedData)
+          unwrap(socket, engine, clientEncryptedData, clientDecryptedData) match {
+            case OPResult(SSLEngineResult.Status.BUFFER_UNDERFLOW , src, dest) =>
+              clientEncryptedData = src
+            case OPResult(SSLEngineResult.Status.BUFFER_OVERFLOW , src, dest) =>
+              clientDecryptedData = dest
+            case _ =>
           }
 
           clientEncryptedData.compact()
