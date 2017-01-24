@@ -40,7 +40,7 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
     def loop(serverChannel: ServerSocketChannel) {
       if (running) {
 
-        val r = selector.select()
+        selector.select()
 
         val keys = selector.selectedKeys().iterator()
 
@@ -124,9 +124,6 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
 
     var handshakeStatus = engine.getHandshakeStatus
 
-
-
-
     while (handshakeStatus != SSLEngineResult.HandshakeStatus.FINISHED && handshakeStatus != SSLEngineResult.HandshakeStatus.NOT_HANDSHAKING) {
       println(handshakeStatus)
       handshakeStatus match {
@@ -149,10 +146,10 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
 
           clientEncryptedData.flip()
 
-          unwrap(socket, engine, clientEncryptedData, clientDecryptedData) match {
-            case OPResult(SSLEngineResult.Status.BUFFER_UNDERFLOW , src, dest) =>
+          unwrap(engine, clientEncryptedData, clientDecryptedData) match {
+            case OPResult(SSLEngineResult.Status.BUFFER_UNDERFLOW , src, _) =>
               clientEncryptedData = src
-            case OPResult(SSLEngineResult.Status.BUFFER_OVERFLOW , src, dest) =>
+            case OPResult(SSLEngineResult.Status.BUFFER_OVERFLOW , _, dest) =>
               clientDecryptedData = dest
             case _ =>
           }
@@ -161,7 +158,7 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
 
         case SSLEngineResult.HandshakeStatus.NEED_WRAP =>
           serverEncryptedData.clear()
-          wrap(socket, engine, serverDecryptedData, serverEncryptedData) map {
+          wrap( engine, serverDecryptedData, serverEncryptedData) map {
             out =>
               out.flip()
               while (out.hasRemaining()) {

@@ -15,31 +15,44 @@ trait SSLOps {
 
   protected val log = LogBuilder.logger(classOf[SSLServer])
 
+  def handleBufferOverflow(engine: SSLEngine,
+                           clientEncryptedData: ByteBuffer,
+                           clientDecryptedData: ByteBuffer): OPResult = {
+    val appSize = engine.getSession.getApplicationBufferSize
+    val b = ByteBuffer.allocate(appSize + clientDecryptedData.position())
+    clientDecryptedData.flip()
+    b.put(clientDecryptedData)
+    OPResult(SSLEngineResult.Status.BUFFER_OVERFLOW, clientEncryptedData, b)
+  }
 
-  def unwrap(socket: SocketChannel,
-             engine: SSLEngine,
+  def handleBufferUnderFlow(engine: SSLEngine,
+                            clientEncryptedData: ByteBuffer,
+                            clientDecryptedData: ByteBuffer): OPResult = {
+    val appSize = engine.getSession.getPacketBufferSize
+    val b = ByteBuffer.allocate(appSize + clientEncryptedData.position())
+    clientEncryptedData.flip()
+    b.put(clientEncryptedData)
+    b.flip()
+    OPResult(SSLEngineResult.Status.BUFFER_UNDERFLOW, b, clientDecryptedData)
+  }
+
+
+  def unwrap(engine: SSLEngine,
              clientEncryptedData: ByteBuffer,
              clientDecryptedData: ByteBuffer): OPResult = {
 
     println("unwrap " + clientEncryptedData)
     println("unwrap " + clientDecryptedData)
-    val r = engine.unwrap(clientEncryptedData, clientDecryptedData)
+    val r = this.synchronized {
+      engine.unwrap(clientEncryptedData, clientDecryptedData)
+    }
     println(r)
     r.getStatus match {
       case SSLEngineResult.Status.BUFFER_OVERFLOW =>
-        val appSize = engine.getSession.getApplicationBufferSize
-        val b = ByteBuffer.allocate(appSize + clientDecryptedData.position())
-        clientDecryptedData.flip()
-        b.put(clientDecryptedData)
-        OPResult(SSLEngineResult.Status.BUFFER_OVERFLOW, clientEncryptedData, b)
+        handleBufferOverflow(engine, clientEncryptedData, clientDecryptedData)
 
       case SSLEngineResult.Status.BUFFER_UNDERFLOW =>
-        val appSize = engine.getSession.getPacketBufferSize
-        val b = ByteBuffer.allocate(appSize + clientEncryptedData.position())
-        clientEncryptedData.flip()
-        b.put(clientEncryptedData)
-        b.flip()
-        OPResult(SSLEngineResult.Status.BUFFER_UNDERFLOW, b, clientDecryptedData)
+        handleBufferUnderFlow(engine, clientEncryptedData, clientDecryptedData)
 
       case SSLEngineResult.Status.CLOSED =>
         clientEncryptedData.clear()
@@ -51,8 +64,10 @@ trait SSLOps {
     }
   }
 
-  def wrap(socket: SocketChannel, engine: SSLEngine, serverDecryptedData: ByteBuffer, serverEncryptedData: ByteBuffer): Try[ByteBuffer] = {
-    val r = engine.wrap(serverDecryptedData, serverEncryptedData)
+  def wrap(engine: SSLEngine, serverDecryptedData: ByteBuffer, serverEncryptedData: ByteBuffer): Try[ByteBuffer] = {
+    val r = this.synchronized {
+      engine.wrap(serverDecryptedData, serverEncryptedData)
+    }
     println(r)
 
     r.getStatus match {
@@ -68,23 +83,13 @@ trait SSLOps {
           serverEncryptedData
         }
 
-        wrap(socket, engine, buf, serverEncryptedData)
+        wrap(engine, buf, serverEncryptedData)
 
       case SSLEngineResult.Status.BUFFER_UNDERFLOW =>
         Failure(new SSLException("Buffer underflow cannot occur on the server data buffer"))
 
       case SSLEngineResult.Status.CLOSED =>
-        try {
-          serverEncryptedData.flip()
-          while (serverEncryptedData.hasRemaining()) {
-            socket.write(serverEncryptedData)
-          }
-        } catch {
-          case e: Throwable =>
-            log.error("Failed to send server's CLOSE message due to socket channel's failure.");
-        }
-
-        Failure(new SSLException("Client closed"))
+        Success(serverEncryptedData)
       case SSLEngineResult.Status.OK =>
         Success(serverEncryptedData)
     }
