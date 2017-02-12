@@ -41,12 +41,12 @@ trait SSLOps {
              clientEncryptedData: ByteBuffer,
              clientDecryptedData: ByteBuffer): OPResult = {
 
-    println("unwrap " + clientEncryptedData)
-    println("unwrap " + clientDecryptedData)
+    log.debug("unwrap enc" + clientEncryptedData + " dec " + clientDecryptedData)
     val r = this.synchronized {
       engine.unwrap(clientEncryptedData, clientDecryptedData)
     }
-    println(r)
+    log.debug("Result " + r)
+
     r.getStatus match {
       case SSLEngineResult.Status.BUFFER_OVERFLOW =>
         handleBufferOverflow(engine, clientEncryptedData, clientDecryptedData)
@@ -59,7 +59,7 @@ trait SSLOps {
         OPResult(SSLEngineResult.Status.CLOSED, clientEncryptedData, clientDecryptedData)
 
       case SSLEngineResult.Status.OK =>
-        println("unwrap written " + clientDecryptedData)
+        log.debug("unwrap written " + clientDecryptedData)
         OPResult(SSLEngineResult.Status.OK, clientEncryptedData, clientDecryptedData)
     }
   }
@@ -68,7 +68,7 @@ trait SSLOps {
     val r = this.synchronized {
       engine.wrap(serverDecryptedData, serverEncryptedData)
     }
-    println(r)
+    log.debug("Result " + r)
 
     r.getStatus match {
       case SSLEngineResult.Status.BUFFER_OVERFLOW =>

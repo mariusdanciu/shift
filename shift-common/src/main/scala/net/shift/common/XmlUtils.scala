@@ -1,12 +1,13 @@
 package net.shift
 package common
 
-import java.io.BufferedInputStream
-import java.io.FileInputStream
+import java.io.{BufferedInputStream, FileInputStream}
+
+import net.shift.io.BinProducer
+import net.shift.io.IO._
+
 import scala.util.Try
 import scala.xml._
-import net.shift.io.IO._
-import net.shift.io.BinProducer
 
 object XmlAttr {
   def apply(m: MetaData) = XmlImplicits.metaData2Attr(m)
@@ -39,7 +40,6 @@ object XmlImplicits {
     ((Null: MetaData) /: attributes.attrs)((acc, attr) => new UnprefixedAttribute(attr._1, attr._2, acc))
 
   implicit class ElemExt(e: Elem) {
-    import XmlUtils._
 
     def addAttr(name: String, value: String) = e % new UnprefixedAttribute(name, value, Null)
     def removeAttr(name: String) = Xml(e.label, e.attributes remove name, e.child: _*)

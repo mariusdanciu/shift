@@ -1,14 +1,6 @@
 package net.shift
 package common
 
-import scala.util.Try
-import java.io.BufferedInputStream
-import java.io.FileInputStream
-import java.io.File
-import net.shift.io.BinProducer
-import net.shift.io.IO._
-import net.shift.io.FileSystem
-
 object FileSplit {
 
   def unapply(s: Path): Option[(String, String)] = unapply(s.toString())

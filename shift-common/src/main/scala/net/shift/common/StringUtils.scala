@@ -1,12 +1,10 @@
 package net.shift
 package common
 
-import java.io.FileInputStream
-import java.io.BufferedInputStream
-import net.shift.io.BinProducer
-import net.shift.io.IO
-import scala.util.Try
+import net.shift.io.{BinProducer, IO}
+
 import scala.io.Source
+import scala.util.Try
 
 object StringUtils {
 

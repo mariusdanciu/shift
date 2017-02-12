@@ -125,11 +125,11 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
     var handshakeStatus = engine.getHandshakeStatus
 
     while (handshakeStatus != SSLEngineResult.HandshakeStatus.FINISHED && handshakeStatus != SSLEngineResult.HandshakeStatus.NOT_HANDSHAKING) {
-      println(handshakeStatus)
+      log.debug("HS Status " + handshakeStatus)
       handshakeStatus match {
         case SSLEngineResult.HandshakeStatus.NEED_UNWRAP =>
           val read = socket.read(clientEncryptedData)
-          println("Read " + read + " bytes")
+          log.debug("HS Read " + read + " bytes")
           if (read < 0) {
             if (engine.isInboundDone && engine.isOutboundDone) {
               return false
@@ -173,9 +173,6 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
             exec.execute(task)
             task = engine.getDelegatedTask
           }
-
-        case v =>
-          println("What? " + v)
       }
       handshakeStatus = engine.getHandshakeStatus
     }

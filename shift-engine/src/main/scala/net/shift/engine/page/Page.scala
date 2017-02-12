@@ -27,7 +27,7 @@ import net.shift.server.http.ContentType
 
 object Html5 {
 
-  def servePage[T](uri: String, filePath: Path, snipets: DynamicContent[Request])(implicit fs: FileSystem, tq: TemplateFinder) = for {
+  def servePage[T](uri: String, filePath: Path, snipets: DynamicContent[Request])(implicit fs: FileSystem, tq: TemplateFinder): State[Request, Attempt] = for {
     r <- path(uri)
   } yield {
     Html5.pageFromFile(PageState(r, r.language, None), filePath, snipets)

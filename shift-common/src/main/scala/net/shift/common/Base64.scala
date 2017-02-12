@@ -1,9 +1,6 @@
 package net.shift.common
 
 import scala.annotation.tailrec
-import net.shift.security.HMac
-import net.shift.security.User
-import net.shift.security.Permission
 
 object Base64 {
   val base64chars: String = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"

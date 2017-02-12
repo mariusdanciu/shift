@@ -1,10 +1,9 @@
 package net.shift
 package common
 
-import scala.util.Try
-import scala.util.Success
-import scala.util.Failure
 import net.shift.security.SecurityFailure
+
+import scala.util.{Failure, Success, Try}
 
 trait Functor[F[_]] {
   def unit[A](a: A): F[A]

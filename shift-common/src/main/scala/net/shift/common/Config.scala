@@ -1,12 +1,14 @@
 package net.shift
 package common
 
-import java.util.Properties
 import java.io.ByteArrayInputStream
-import scala.collection.JavaConverters._
-import StringUtils._
-import net.shift.io.IO._
+import java.util.Properties
+
+import net.shift.common.StringUtils._
 import net.shift.io.FileSystem
+import net.shift.io.IO._
+
+import scala.collection.JavaConverters._
 import scala.util.Try
 
 object Config {

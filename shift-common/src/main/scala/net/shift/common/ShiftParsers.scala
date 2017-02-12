@@ -1,14 +1,14 @@
 package net.shift.common
 
-import scala.util.parsing.combinator.Parsers
-import scala.annotation.tailrec
-import java.nio.ByteBuffer
-import scala.collection.mutable.ListBuffer
-import net.shift.io.BinProducer
-import scala.util.parsing.input.Reader
-import scala.util.parsing.input.Position
-import net.shift.io.IO
 import java.io.IOException
+import java.nio.ByteBuffer
+
+import net.shift.io.{BinProducer, IO}
+
+import scala.annotation.tailrec
+import scala.collection.mutable.ListBuffer
+import scala.util.parsing.combinator.Parsers
+import scala.util.parsing.input.{Position, Reader}
 
 trait ShiftParsers extends Parsers {
   type Elem = Byte

@@ -1,9 +1,6 @@
 package net.shift
 package common
 
-import scala.util.Try
-import scala.util.Success
-
 object Path {
 
   private def string2Path(s: String): Path = {
