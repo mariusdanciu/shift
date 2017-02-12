@@ -100,7 +100,7 @@ object IO {
           case Cont(f) =>
 
             val (read, data) = current match {
-              case Some(buf) =>
+              case Some(buf) if buf.hasRemaining =>
                 log.debug("Read cached data: " + buf + " id " + System.identityHashCode(buf))
                 (buf.remaining(), buf)
               case _ =>
@@ -115,7 +115,6 @@ object IO {
             if (read != -1) {
               f(Data(data)) match {
                 case c @ Cont(_) =>
-                  current = None
                   loop(c)
                 case e => e
               }

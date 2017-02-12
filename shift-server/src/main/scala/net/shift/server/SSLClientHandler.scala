@@ -89,6 +89,8 @@ private[server] class SSLClientHandler(key: SelectionKey,
     serverEncryptedData.clear()
     wrap(engine, buffer, serverEncryptedData) match {
       case Success(b) =>
+        b.flip()
+        log.debug("Sending encrypted buf " + b)
         var written = client.write(b)
         log.debug(requestId + " - response: wrote " + written)
         while (written > 0 && b.hasRemaining) {
@@ -125,8 +127,8 @@ private[server] class SSLClientHandler(key: SelectionKey,
             drain(rid, client, d) match {
               case (0, buf) =>
                 log.debug(rid + " Socket full " + System.identityHashCode(d))
-                Done(state, Data(buf))
-              case (_, buf) if !buf.hasRemaining =>
+                Done(state, Empty)
+              case (_, buf) if !buf.hasRemaining || d.hasRemaining =>
                 cont
               case (-1, _) =>
                 net.shift.io.Error[ByteBuffer, Option[ResponseContinuationState]](new IOException("Client connection closed."))
@@ -139,7 +141,7 @@ private[server] class SSLClientHandler(key: SelectionKey,
         log.debug(st.requestId + " res " + res)
 
         res match {
-          case Done(s, Data(_)) =>
+          case Done(s, Empty) =>
             log.debug(s.map {
               _.requestId
             } + " response: continue sending")
