@@ -147,10 +147,16 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
           clientEncryptedData.flip()
 
           unwrap(engine, clientEncryptedData, clientDecryptedData) match {
-            case OPResult(SSLEngineResult.Status.BUFFER_UNDERFLOW , src, _) =>
+            case OPResult(SSLEngineResult.Status.BUFFER_UNDERFLOW, src, _) =>
               clientEncryptedData = src
-            case OPResult(SSLEngineResult.Status.BUFFER_OVERFLOW , _, dest) =>
+            case OPResult(SSLEngineResult.Status.BUFFER_OVERFLOW, _, dest) =>
               clientDecryptedData = dest
+            case OPResult(SSLEngineResult.Status.CLOSED, _, dest) =>
+              if (engine.isOutboundDone()) {
+                return false;
+              } else {
+                engine.closeOutbound();
+              }
             case _ =>
           }
 
@@ -158,7 +164,7 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
 
         case SSLEngineResult.HandshakeStatus.NEED_WRAP =>
           serverEncryptedData.clear()
-          wrap( engine, serverDecryptedData, serverEncryptedData) map {
+          wrap(engine, serverDecryptedData, serverEncryptedData) map {
             out =>
               out.flip()
               while (out.hasRemaining()) {
@@ -173,9 +179,12 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
             exec.execute(task)
             task = engine.getDelegatedTask
           }
+
+        case _ =>
       }
       handshakeStatus = engine.getHandshakeStatus
     }
+
     handshakeStatus == SSLEngineResult.HandshakeStatus.FINISHED || handshakeStatus == SSLEngineResult.HandshakeStatus.NOT_HANDSHAKING
   }
 
