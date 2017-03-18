@@ -41,11 +41,11 @@ trait SSLOps {
              clientEncryptedData: ByteBuffer,
              clientDecryptedData: ByteBuffer): OPResult = {
 
-    log.debug("unwrap enc" + clientEncryptedData + " dec " + clientDecryptedData)
+    log.debug("unwrap enc " + clientEncryptedData + " dec " + clientDecryptedData)
     val r = this.synchronized {
       engine.unwrap(clientEncryptedData, clientDecryptedData)
     }
-    log.debug("Result " + r)
+    log.debug("unwrap result " + r)
 
     r.getStatus match {
       case SSLEngineResult.Status.BUFFER_OVERFLOW =>
@@ -59,16 +59,16 @@ trait SSLOps {
         OPResult(SSLEngineResult.Status.CLOSED, clientEncryptedData, clientDecryptedData)
 
       case SSLEngineResult.Status.OK =>
-        log.debug("unwrap written " + clientDecryptedData)
+        log.debug("unwrap read " + clientDecryptedData)
         OPResult(SSLEngineResult.Status.OK, clientEncryptedData, clientDecryptedData)
     }
   }
 
-  def wrap(engine: SSLEngine, serverDecryptedData: ByteBuffer, serverEncryptedData: ByteBuffer): Try[ByteBuffer] = {
+  def wrap(engine: SSLEngine, serverDecryptedData: ByteBuffer, serverEncryptedData: ByteBuffer): OPResult = {
     val r = this.synchronized {
       engine.wrap(serverDecryptedData, serverEncryptedData)
     }
-    log.debug("Result " + r)
+    log.debug("wrap Result " + r)
 
     r.getStatus match {
       case SSLEngineResult.Status.BUFFER_OVERFLOW =>
@@ -86,12 +86,14 @@ trait SSLOps {
         wrap(engine, buf, serverEncryptedData)
 
       case SSLEngineResult.Status.BUFFER_UNDERFLOW =>
-        Failure(new SSLException("Buffer underflow cannot occur on the server data buffer"))
+        OPResult(SSLEngineResult.Status.BUFFER_UNDERFLOW, serverEncryptedData, serverDecryptedData)
+
 
       case SSLEngineResult.Status.CLOSED =>
-        Success(serverEncryptedData)
+        OPResult(SSLEngineResult.Status.CLOSED, serverEncryptedData, serverDecryptedData)
       case SSLEngineResult.Status.OK =>
-        Success(serverEncryptedData)
+        log.debug("Ecrypted buf " + serverEncryptedData)
+        OPResult(SSLEngineResult.Status.OK, serverEncryptedData, serverDecryptedData)
     }
   }
 }

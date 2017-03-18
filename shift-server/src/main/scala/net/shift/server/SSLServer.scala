@@ -124,7 +124,8 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
 
     var handshakeStatus = engine.getHandshakeStatus
 
-    while (handshakeStatus != SSLEngineResult.HandshakeStatus.FINISHED && handshakeStatus != SSLEngineResult.HandshakeStatus.NOT_HANDSHAKING) {
+    var forceDone = false
+    while (handshakeStatus != SSLEngineResult.HandshakeStatus.FINISHED && handshakeStatus != SSLEngineResult.HandshakeStatus.NOT_HANDSHAKING && !forceDone) {
       log.debug("HS Status " + handshakeStatus)
       handshakeStatus match {
         case SSLEngineResult.HandshakeStatus.NEED_UNWRAP =>
@@ -155,7 +156,7 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
               if (engine.isOutboundDone()) {
                 return false;
               } else {
-                engine.closeOutbound();
+                engine.closeOutbound()
               }
             case _ =>
           }
@@ -164,12 +165,24 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
 
         case SSLEngineResult.HandshakeStatus.NEED_WRAP =>
           serverEncryptedData.clear()
-          wrap(engine, serverDecryptedData, serverEncryptedData) map {
-            out =>
+          wrap(engine, serverDecryptedData, serverEncryptedData) match {
+            case OPResult(SSLEngineResult.Status.OK, out, _) =>
               out.flip()
+              println("Sending " + out)
               while (out.hasRemaining()) {
                 socket.write(out)
               }
+              println("Sent " + out)
+            case OPResult(SSLEngineResult.Status.CLOSED, out, _) =>
+              out.flip()
+              println("Sending " + out)
+              while (out.hasRemaining()) {
+                socket.write(out)
+              }
+              engine.closeOutbound()
+              forceDone = true
+              println("Sent " + out)
+
           }
 
         case SSLEngineResult.HandshakeStatus.NEED_TASK =>
@@ -185,7 +198,7 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
       handshakeStatus = engine.getHandshakeStatus
     }
 
-    handshakeStatus == SSLEngineResult.HandshakeStatus.FINISHED || handshakeStatus == SSLEngineResult.HandshakeStatus.NOT_HANDSHAKING
+    (handshakeStatus == SSLEngineResult.HandshakeStatus.FINISHED || handshakeStatus == SSLEngineResult.HandshakeStatus.NOT_HANDSHAKING) && !forceDone
   }
 
   private def makeSSLEngine(): SSLEngine = {
@@ -208,6 +221,7 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
 
     val engine = sslCtx.createSSLEngine()
     engine.setUseClientMode(false)
+    engine.setNeedClientAuth(false)
     engine
   }
 

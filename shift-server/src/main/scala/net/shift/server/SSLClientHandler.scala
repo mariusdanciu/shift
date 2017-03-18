@@ -86,19 +86,29 @@ private[server] class SSLClientHandler(key: SelectionKey,
   }
 
   private def drain(requestId: String, client: SocketChannel, buffer: ByteBuffer): (Int, ByteBuffer) = {
+    def write(b: ByteBuffer) = {
+      b.flip()
+      log.debug("Sending encrypted buf " + b)
+      var written = client.write(b)
+      log.debug(requestId + " - response: wrote " + written)
+      while (written > 0 && b.hasRemaining) {
+        written = client.write(b)
+        log.debug(requestId + " - response: wrote " + written)
+      }
+      (written, b)
+    }
+
     serverEncryptedData.clear()
     wrap(engine, buffer, serverEncryptedData) match {
-      case Success(b) =>
-        b.flip()
-        log.debug("Sending encrypted buf " + b)
-        var written = client.write(b)
-        log.debug(requestId + " - response: wrote " + written)
-        while (written > 0 && b.hasRemaining) {
-          written = client.write(b)
-          log.debug(requestId + " - response: wrote " + written)
-        }
-        (written, b)
-      case Failure(t) => throw t
+      case  OPResult(SSLEngineResult.Status.OK, b, _) =>
+        write(b)
+      case OPResult(SSLEngineResult.Status.CLOSED, b, _) =>
+        val res = write(b)
+        engine.closeOutbound()
+        engine.closeInbound()
+        terminate()
+        res
+      case r => throw new Exception(s"Cannot send data $r")
     }
   }
 
