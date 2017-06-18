@@ -1,12 +1,12 @@
 package net.shift.server.http
 
 object ContentType {
-  val TextPlain = "text/plain"
-  val TextHtml = "text/html"
-  val TextXml = "text/xml"
-  val TextJson = "text/json"
-  val TextJavascript = "text/javascript"
-  val TextCss = "text/css"
+  val TextPlain = "text/plain; charset=utf-8"
+  val TextHtml = "text/html; charset=utf-8"
+  val TextXml = "text/xml; charset=utf-8"
+  val TextJson = "text/json; charset=utf-8"
+  val TextJavascript = "text/javascript; charset=utf-8"
+  val TextCss = "text/css; charset=utf-8"
   val Bin = "application/octet-stream"
 
   val ImageSvg = "image/svg+xml"

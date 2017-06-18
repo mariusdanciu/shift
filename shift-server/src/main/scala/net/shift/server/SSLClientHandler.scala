@@ -12,12 +12,12 @@ import net.shift.server.protocol.Protocol
 import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success, Try}
 
-private[server] class SSLClientHandler(key: SelectionKey,
-                                       engine: SSLEngine,
-                                       name: String,
-                                       onClose: SelectionKey => Unit,
-                                       protocol: Protocol,
-                                       readBufSize: Int = 1024) extends SSLOps {
+private[server] case class SSLClientHandler(key: SelectionKey,
+                                            engine: SSLEngine,
+                                            name: String,
+                                            onClose: SelectionKey => Unit,
+                                            protocol: Protocol,
+                                            readBufSize: Int = 1024) extends SSLOps {
 
   private var writeState: Option[ResponseContinuationState] = None
 
@@ -36,6 +36,28 @@ private[server] class SSLClientHandler(key: SelectionKey,
     onClose(key)
   }
 
+  def readEncryptedBuffer(enc: ByteBuffer, f: ByteBuffer => Unit): Unit = {
+    var clientEncryptedData = enc
+    log.info("clientEncryptedData " + clientEncryptedData)
+    clientEncryptedData.flip()
+    log.info("clientEncryptedData " + clientEncryptedData)
+    while (clientEncryptedData.hasRemaining) {
+      clientDecryptedData.clear()
+
+      unwrap(engine, clientEncryptedData, clientDecryptedData) match {
+        case OPResult(SSLEngineResult.Status.BUFFER_UNDERFLOW, src, _) =>
+          clientEncryptedData = src
+        case OPResult(SSLEngineResult.Status.BUFFER_OVERFLOW, _, dest) =>
+          clientDecryptedData = dest
+        case OPResult(SSLEngineResult.Status.OK, _, dec) =>
+          dec.flip()
+          f(dec)
+        case OPResult(SSLEngineResult.Status.CLOSED, _, _) =>
+          engine.closeOutbound()
+      }
+    }
+  }
+
   private def readBuf(client: SocketChannel, f: ByteBuffer => Unit) {
     clientEncryptedData.clear()
     val size = client.read(clientEncryptedData)
@@ -43,27 +65,12 @@ private[server] class SSLClientHandler(key: SelectionKey,
 
     if (size < 0) {
       log.info("End of client stream")
+      engine.closeInbound()
       terminate()
     } else if (size == 0) {
       log.info("No data to read")
     } else {
-      clientEncryptedData.flip()
-      while (clientEncryptedData.hasRemaining) {
-        clientDecryptedData.clear()
-
-        unwrap(engine, clientEncryptedData, clientDecryptedData) match {
-          case OPResult(SSLEngineResult.Status.BUFFER_UNDERFLOW, src, _) =>
-            clientEncryptedData = src
-          case OPResult(SSLEngineResult.Status.BUFFER_OVERFLOW, _, dest) =>
-            clientDecryptedData = dest
-          case OPResult(SSLEngineResult.Status.OK, _, dec) =>
-            dec.flip()
-            f(dec)
-          case OPResult(SSLEngineResult.Status.CLOSED, _, _) =>
-            engine.closeOutbound()
-        }
-      }
-
+      readEncryptedBuffer(clientEncryptedData, f)
     }
   }
 
@@ -100,7 +107,7 @@ private[server] class SSLClientHandler(key: SelectionKey,
 
     serverEncryptedData.clear()
     wrap(engine, buffer, serverEncryptedData) match {
-      case  OPResult(SSLEngineResult.Status.OK, b, _) =>
+      case OPResult(SSLEngineResult.Status.OK, b, _) =>
         write(b)
       case OPResult(SSLEngineResult.Status.CLOSED, b, _) =>
         val res = write(b)
@@ -124,7 +131,7 @@ private[server] class SSLClientHandler(key: SelectionKey,
     send(writeState)
   }
 
-  private def send(state: Option[ResponseContinuationState]) {
+  def send(state: Option[ResponseContinuationState]) {
     state foreach { st =>
       Try {
 

@@ -39,8 +39,9 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
     @tailrec
     def loop(serverChannel: ServerSocketChannel) {
       if (running) {
-
-        selector.select()
+        log.debug("Waiting for key")
+        val k = selector.select()
+        log.debug(s"Got selector key $k")
 
         val keys = selector.selectedKeys().iterator()
 
@@ -60,13 +61,27 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
                   val sslEngine = makeSSLEngine()
                   sslEngine.beginHandshake()
 
-                  if (handshake(client, sslEngine)) {
+                  val (done, clientBuf) = handshake(client, sslEngine)
+                  if (done) {
                     val clientKey = client.register(selector, SelectionKey.OP_READ)
                     val clientName = client.getRemoteAddress.toString + "-" + clientKey
                     log.info("Accepted connection " + clientName)
-                    clients.put(clientKey, new SSLClientHandler(clientKey, sslEngine, clientName, k => {
+                    val ch = new SSLClientHandler(clientKey, sslEngine, clientName, k => {
                       closeClient(k)
-                    }, protocol.createProtocol))
+                    }, protocol.createProtocol)
+
+                    clients.put(clientKey, ch)
+                    log.info("clientBuf " + clientBuf)
+                    if (clientBuf.position() > 0) {
+                      ch.readEncryptedBuffer(clientBuf, buf => {
+                        log.info("buf " + buf)
+                        ch.protocol(buf) {
+                          (resp, rid) =>
+                            log.info("Response " + resp)
+                            ch.send(Some(ResponseContinuationState(resp, rid)))
+                        }
+                      })
+                    }
                   }
                 }
               } else if (key.isReadable) {
@@ -111,7 +126,7 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
   }
 
 
-  private def handshake(socket: SocketChannel, engine: SSLEngine): Boolean = {
+  private def handshake(socket: SocketChannel, engine: SSLEngine): (Boolean, ByteBuffer) = {
     // https://github.com/alkarn/sslengine.example/tree/master/src/main/java/alkarn/github/io/sslengine/example
     val appBufferSize = engine.getSession.getApplicationBufferSize
     val packetSize = engine.getSession.getPacketBufferSize
@@ -125,7 +140,9 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
     var handshakeStatus = engine.getHandshakeStatus
 
     var forceDone = false
-    while (handshakeStatus != SSLEngineResult.HandshakeStatus.FINISHED && handshakeStatus != SSLEngineResult.HandshakeStatus.NOT_HANDSHAKING && !forceDone) {
+    while (handshakeStatus != SSLEngineResult.HandshakeStatus.FINISHED &&
+      handshakeStatus != SSLEngineResult.HandshakeStatus.NOT_HANDSHAKING && !forceDone) {
+
       log.debug("HS Status " + handshakeStatus)
       handshakeStatus match {
         case SSLEngineResult.HandshakeStatus.NEED_UNWRAP =>
@@ -133,7 +150,7 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
           log.debug("HS Read " + read + " bytes")
           if (read < 0) {
             if (engine.isInboundDone && engine.isOutboundDone) {
-              return false
+              forceDone = true
             } else {
               try {
                 engine.closeInbound()
@@ -153,8 +170,10 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
             case OPResult(SSLEngineResult.Status.BUFFER_OVERFLOW, _, dest) =>
               clientDecryptedData = dest
             case OPResult(SSLEngineResult.Status.CLOSED, _, dest) =>
+              log.info("UNWRAP CLOSE")
+
               if (engine.isOutboundDone()) {
-                return false;
+                forceDone = true
               } else {
                 engine.closeOutbound()
               }
@@ -165,23 +184,26 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
 
         case SSLEngineResult.HandshakeStatus.NEED_WRAP =>
           serverEncryptedData.clear()
-          wrap(engine, serverDecryptedData, serverEncryptedData) match {
+          val writeStatus = wrap(engine, serverDecryptedData, serverEncryptedData)
+          log.info("Write status: " + writeStatus)
+
+          writeStatus match {
             case OPResult(SSLEngineResult.Status.OK, out, _) =>
               out.flip()
-              println("Sending " + out)
+              println("OK Sending " + out)
               while (out.hasRemaining()) {
                 socket.write(out)
               }
-              println("Sent " + out)
+              println("OK Sent " + out)
             case OPResult(SSLEngineResult.Status.CLOSED, out, _) =>
               out.flip()
-              println("Sending " + out)
+              println("CLOSE Sending " + out)
               while (out.hasRemaining()) {
                 socket.write(out)
               }
               engine.closeOutbound()
               forceDone = true
-              println("Sent " + out)
+              println("CLOSE Sent " + out)
 
           }
 
@@ -198,7 +220,16 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
       handshakeStatus = engine.getHandshakeStatus
     }
 
-    (handshakeStatus == SSLEngineResult.HandshakeStatus.FINISHED || handshakeStatus == SSLEngineResult.HandshakeStatus.NOT_HANDSHAKING) && !forceDone
+    log.info("serverDecryptedData " + serverDecryptedData)
+    log.info("serverEncryptedData " + serverEncryptedData)
+
+    log.info("clientEncryptedData " + clientEncryptedData)
+    log.info("clientDecryptedData " + clientDecryptedData)
+
+    log.info("handshakeStatus: " + handshakeStatus)
+
+    val state = (handshakeStatus == SSLEngineResult.HandshakeStatus.FINISHED || handshakeStatus == SSLEngineResult.HandshakeStatus.NOT_HANDSHAKING) && !forceDone
+    (state, clientEncryptedData)
   }
 
   private def makeSSLEngine(): SSLEngine = {
@@ -222,6 +253,8 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
     val engine = sslCtx.createSSLEngine()
     engine.setUseClientMode(false)
     engine.setNeedClientAuth(false)
+    engine.setWantClientAuth(false)
+
     engine
   }
 
