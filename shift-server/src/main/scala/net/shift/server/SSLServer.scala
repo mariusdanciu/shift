@@ -123,16 +123,17 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
     }
   }
 
-  private def handleExistentApplicationData(state: SSLState)(implicit ec: ExecutionContext) = {
+  private def handleExistentApplicationData(key: SelectionKey, state: SSLState)(implicit ec: ExecutionContext) = {
+    keyLog(key, "Try handle app data")
     val clientBuf = state.handler.clientEncryptedData
     val ch = state.handler
-    log.info("clientBuf " + clientBuf)
+    keyLog(key, "client buf " + clientBuf)
     if (clientBuf.position() > 0) {
       ch.readEncryptedBuffer(clientBuf, buf => {
-        log.info("buf " + buf)
+        keyLog(key, "Decrypted buf " + buf)
         ch.protocol(buf) {
           (resp, rid) =>
-            log.info("Response " + resp)
+            keyLog(key, "Response " + resp)
             ch.send(Some(ResponseContinuationState(resp, rid)))
         }
       })
@@ -189,16 +190,12 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
               selectForRead(key)
               keyLog(key, "Handshake successful")
               clients.put(key, state.copy(handshaking = false))
+              handleExistentApplicationData(key, state)
           }
         }
-
-
-      case SSLEngineResult.HandshakeStatus.FINISHED | SSLEngineResult.HandshakeStatus.NOT_HANDSHAKING =>
-        keyLog(key, "Handshake successful")
-        clients.put(key, state.copy(handshaking = false))
     }
 
-    handleExistentApplicationData(state)
+
   }
 
 
