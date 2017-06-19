@@ -1,7 +1,7 @@
 package net.shift.server
 
 import java.nio.ByteBuffer
-import java.nio.channels.SocketChannel
+import java.nio.channels.{SelectionKey, SocketChannel}
 import javax.net.ssl.{SSLEngine, SSLEngineResult, SSLException}
 
 import net.shift.common.LogBuilder
@@ -37,41 +37,53 @@ trait SSLOps {
   }
 
 
-  def unwrap(engine: SSLEngine,
+  def unwrap(key: SelectionKey,
+             engine: SSLEngine,
              clientEncryptedData: ByteBuffer,
              clientDecryptedData: ByteBuffer): OPResult = {
 
-    log.debug("unwrap enc " + clientEncryptedData + " dec " + clientDecryptedData)
+    keyLog(key, "unwrap() clientEncryptedData : " + clientEncryptedData)
     val r = this.synchronized {
       engine.unwrap(clientEncryptedData, clientDecryptedData)
     }
-    log.debug("unwrap result " + r)
+
+    keyLog(key, "unwrap() result : " + r)
 
     r.getStatus match {
       case SSLEngineResult.Status.BUFFER_OVERFLOW =>
+        keyLog(key, "unwrap() BUFFER_OVERFLOW " + clientEncryptedData)
         handleBufferOverflow(engine, clientEncryptedData, clientDecryptedData)
 
       case SSLEngineResult.Status.BUFFER_UNDERFLOW =>
+        keyLog(key, "unwrap() BUFFER_UNDERFLOW " + clientEncryptedData)
         handleBufferUnderFlow(engine, clientEncryptedData, clientDecryptedData)
 
       case SSLEngineResult.Status.CLOSED =>
+        keyLog(key, "unwrap() CLOSED " + clientEncryptedData)
         clientEncryptedData.clear()
         OPResult(SSLEngineResult.Status.CLOSED, clientEncryptedData, clientDecryptedData)
 
       case SSLEngineResult.Status.OK =>
-        log.debug("unwrap read " + clientDecryptedData)
+        keyLog(key, "unwrap() OK " + clientEncryptedData)
         OPResult(SSLEngineResult.Status.OK, clientEncryptedData, clientDecryptedData)
     }
   }
 
-  def wrap(engine: SSLEngine, serverDecryptedData: ByteBuffer, serverEncryptedData: ByteBuffer): OPResult = {
+  def wrap(key: SelectionKey,
+           engine: SSLEngine,
+           serverDecryptedData: ByteBuffer,
+           serverEncryptedData: ByteBuffer): OPResult = {
+
     val r = this.synchronized {
       engine.wrap(serverDecryptedData, serverEncryptedData)
     }
-    log.debug("wrap Result " + r)
+
+    keyLog(key, "wrap() result : " + r)
+
 
     r.getStatus match {
       case SSLEngineResult.Status.BUFFER_OVERFLOW =>
+        keyLog(key, "wrap() BUFFER_OVERFLOW ")
         val netSize = engine.getSession.getPacketBufferSize
 
         val buf = if (netSize > serverEncryptedData.capacity()) {
@@ -83,19 +95,28 @@ trait SSLOps {
           serverEncryptedData
         }
 
-        wrap(engine, buf, serverEncryptedData)
+        wrap(key, engine, buf, serverEncryptedData)
 
       case SSLEngineResult.Status.BUFFER_UNDERFLOW =>
+        keyLog(key, "wrap() BUFFER_UNDERFLOW " + serverEncryptedData)
         OPResult(SSLEngineResult.Status.BUFFER_UNDERFLOW, serverEncryptedData, serverDecryptedData)
 
 
       case SSLEngineResult.Status.CLOSED =>
+        keyLog(key, "wrap() CLOSED " + serverEncryptedData)
         OPResult(SSLEngineResult.Status.CLOSED, serverEncryptedData, serverDecryptedData)
       case SSLEngineResult.Status.OK =>
-        log.debug("Ecrypted buf " + serverEncryptedData)
+        keyLog(key, "wrap() OK " + serverEncryptedData)
         OPResult(SSLEngineResult.Status.OK, serverEncryptedData, serverDecryptedData)
     }
   }
+
+  private def keyToString(key: SelectionKey) = s"Key $key: r:${key.isReadable}, w:${key.isWritable}, a:${key.isAcceptable} - "
+
+  def keyLog(key: SelectionKey, str: String): Unit = {
+    log.debug(keyToString(key) + str)
+  }
+
 }
 
 case class OPResult(status: SSLEngineResult.Status, sourceBuf: ByteBuffer, destBuff: ByteBuffer)

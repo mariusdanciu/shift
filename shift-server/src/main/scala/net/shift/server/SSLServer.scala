@@ -27,7 +27,7 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
 
   private val selector = Selector.open
 
-  private val clients = new TrieMap[SelectionKey, SSLClientHandler]
+  private val clients = new TrieMap[SelectionKey, SSLState]
 
   @volatile
   private var running = false
@@ -49,6 +49,9 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
           val key = keys.next()
           keys.remove()
 
+          keyLog(key, "SELECTED")
+
+
           if (!running) {
             closeClient(key)
           } else {
@@ -61,37 +64,32 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
                   val sslEngine = makeSSLEngine()
                   sslEngine.beginHandshake()
 
-                  val (done, clientBuf) = handshake(client, sslEngine)
-                  if (done) {
-                    val clientKey = client.register(selector, SelectionKey.OP_READ)
-                    val clientName = client.getRemoteAddress.toString + "-" + clientKey
-                    log.info("Accepted connection " + clientName)
-                    val ch = new SSLClientHandler(clientKey, sslEngine, clientName, k => {
-                      closeClient(k)
-                    }, protocol.createProtocol)
+                  val clientKey = client.register(selector, SelectionKey.OP_READ)
+                  val clientName = client.getRemoteAddress.toString + "-" + clientKey
+                  keyLog(key, "Accepted connection " + clientName)
+                  val ch = new SSLClientHandler(clientKey, sslEngine, clientName, k => {
+                    closeClient(k)
+                  }, protocol.createProtocol)
 
-                    clients.put(clientKey, ch)
-                    log.info("clientBuf " + clientBuf)
-                    if (clientBuf.position() > 0) {
-                      ch.readEncryptedBuffer(clientBuf, buf => {
-                        log.info("buf " + buf)
-                        ch.protocol(buf) {
-                          (resp, rid) =>
-                            log.info("Response " + resp)
-                            ch.send(Some(ResponseContinuationState(resp, rid)))
-                        }
-                      })
-                    }
-                  }
+                  clients.put(clientKey, SSLState(true, ch))
+
                 }
               } else if (key.isReadable) {
-                clients.get(key).foreach {
-                  _.readChunk
+                clients.get(key).foreach { state =>
+                  if (state.handshaking) {
+                    handshakeRead(key, state)
+                  } else {
+                    state.handler.readChunk
+                  }
                 }
               } else if (key.isWritable) {
                 unSelectForWrite(key)
-                clients.get(key).foreach {
-                  _.continueWriting()
+                clients.get(key).foreach { state =>
+                  if (state.handshaking) {
+                    handshakeWrite(key, state)
+                  } else {
+                    state.handler.continueWriting
+                  }
                 }
               }
             }
@@ -125,6 +123,174 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
     }
   }
 
+  private def handleExistentApplicationData(state: SSLState)(implicit ec: ExecutionContext) = {
+    val clientBuf = state.handler.clientEncryptedData
+    val ch = state.handler
+    log.info("clientBuf " + clientBuf)
+    if (clientBuf.position() > 0) {
+      ch.readEncryptedBuffer(clientBuf, buf => {
+        log.info("buf " + buf)
+        ch.protocol(buf) {
+          (resp, rid) =>
+            log.info("Response " + resp)
+            ch.send(Some(ResponseContinuationState(resp, rid)))
+        }
+      })
+    }
+  }
+
+  private def handshakeWrite(key: SelectionKey, state: SSLState)(implicit ec: ExecutionContext) = {
+    val client = key.channel().asInstanceOf[SocketChannel]
+    val handshakeStatus = state.handler.engine.getHandshakeStatus
+    keyLog(key, "Handshake status " + handshakeStatus)
+
+    handshakeStatus match {
+      case SSLEngineResult.HandshakeStatus.NEED_WRAP =>
+
+        state.handler.serverEncryptedData.clear()
+        val writeStatus = wrap(key, state.handler.engine, state.handler.serverDecryptedData, state.handler.serverEncryptedData)
+        keyLog(key, "Write status: " + writeStatus)
+
+        writeStatus match {
+          case OPResult(SSLEngineResult.Status.OK, out, _) =>
+            out.flip()
+            keyLog(key, "OK Sending " + out)
+            while (out.hasRemaining()) {
+              client.write(out)
+            }
+            keyLog(key, "OK Sent " + out)
+          case OPResult(SSLEngineResult.Status.CLOSED, out, _) =>
+            out.flip()
+            keyLog(key, "CLOSE Sending " + out)
+            while (out.hasRemaining()) {
+              client.write(out)
+            }
+            state.handler.engine.closeOutbound()
+            keyLog(key, "CLOSE Sent " + out)
+          // STOP
+
+        }
+
+        var done = false
+        while (!done) {
+          val hsStatus = state.handler.engine.getHandshakeStatus
+          keyLog(key, "Handshake status " + hsStatus)
+          hsStatus match {
+            case SSLEngineResult.HandshakeStatus.NEED_WRAP =>
+              selectForWrite(key)
+              done = true
+            case SSLEngineResult.HandshakeStatus.NEED_UNWRAP =>
+              selectForRead(key)
+              done = true
+            case SSLEngineResult.HandshakeStatus.NEED_TASK =>
+              handleNeedTask(key, state)
+            case SSLEngineResult.HandshakeStatus.FINISHED | SSLEngineResult.HandshakeStatus.NOT_HANDSHAKING =>
+              done = true
+              selectForRead(key)
+              keyLog(key, "Handshake successful")
+              clients.put(key, state.copy(handshaking = false))
+          }
+        }
+
+
+      case SSLEngineResult.HandshakeStatus.FINISHED | SSLEngineResult.HandshakeStatus.NOT_HANDSHAKING =>
+        keyLog(key, "Handshake successful")
+        clients.put(key, state.copy(handshaking = false))
+    }
+
+    handleExistentApplicationData(state)
+  }
+
+
+  private def handshakeRead(key: SelectionKey, state: SSLState) = {
+    val client = key.channel().asInstanceOf[SocketChannel]
+    var handshakeStatus = state.handler.engine.getHandshakeStatus
+    keyLog(key, "Handshake status " + handshakeStatus)
+
+    handshakeStatus match {
+      case SSLEngineResult.HandshakeStatus.NEED_UNWRAP =>
+        val read = client.read(state.handler.clientEncryptedData)
+        keyLog(key, "Unwrap read from socket clientEncryptedData " + state.handler.clientEncryptedData)
+        if (read < 0) {
+          if (state.handler.engine.isInboundDone && state.handler.engine.isOutboundDone) {
+            // STOP
+          } else {
+            try {
+              state.handler.engine.closeInbound()
+            } catch {
+              case e: Throwable =>
+                keyLog(key, "This engine was forced to close inbound, without having received the proper SSL/TLS close notification message from the peer, due to end of stream.");
+            }
+            state.handler.engine.closeOutbound()
+          }
+        }
+
+        state.handler.clientEncryptedData.flip()
+
+        while (state.handler.clientEncryptedData.hasRemaining && handshakeStatus == SSLEngineResult.HandshakeStatus.NEED_UNWRAP) {
+
+          val unwrapStatus = unwrap(key, state.handler.engine, state.handler.clientEncryptedData, state.handler.clientDecryptedData)
+
+          keyLog(key, "Unwrap status: " + unwrapStatus)
+
+
+          unwrapStatus match {
+            case OPResult(SSLEngineResult.Status.BUFFER_UNDERFLOW, src, _) =>
+              state.handler.clientEncryptedData = src
+
+            case OPResult(SSLEngineResult.Status.BUFFER_OVERFLOW, _, dest) =>
+              state.handler.clientDecryptedData = dest
+
+            case OPResult(SSLEngineResult.Status.CLOSED, _, dest) =>
+              if (state.handler.engine.isOutboundDone()) {
+                // STOP
+              } else {
+                state.handler.engine.closeOutbound()
+              }
+            case _ =>
+          }
+
+          var done = false
+          while (!done) {
+
+            val hsStatus = state.handler.engine.getHandshakeStatus
+            keyLog(key, "Handshake status " + hsStatus)
+            hsStatus match {
+              case SSLEngineResult.HandshakeStatus.NEED_WRAP =>
+                selectForWrite(key)
+                done = true
+              case SSLEngineResult.HandshakeStatus.NEED_UNWRAP =>
+                selectForRead(key)
+                done = true
+              case SSLEngineResult.HandshakeStatus.NEED_TASK =>
+                handleNeedTask(key, state)
+              case _ =>
+                done = true
+
+            }
+          }
+
+          handshakeStatus = state.handler.engine.getHandshakeStatus
+        }
+
+        state.handler.clientEncryptedData.compact()
+
+      case SSLEngineResult.HandshakeStatus.FINISHED | SSLEngineResult.HandshakeStatus.NOT_HANDSHAKING =>
+        keyLog(key, "Handshake successful")
+        clients.put(key, state.copy(handshaking = false))
+    }
+  }
+
+  private def handleNeedTask(key: SelectionKey, state: SSLState) = {
+    val engine = state.handler.engine
+    val exec = Executors.newSingleThreadExecutor()
+    var task = engine.getDelegatedTask
+    while (task != null) {
+      keyLog(key, "Schedule SSL Task - " + task)
+      exec.execute(task)
+      task = engine.getDelegatedTask
+    }
+  }
 
   private def handshake(socket: SocketChannel, engine: SSLEngine): (Boolean, ByteBuffer) = {
     // https://github.com/alkarn/sslengine.example/tree/master/src/main/java/alkarn/github/io/sslengine/example
@@ -164,7 +330,7 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
 
           clientEncryptedData.flip()
 
-          unwrap(engine, clientEncryptedData, clientDecryptedData) match {
+          unwrap(null, engine, clientEncryptedData, clientDecryptedData) match {
             case OPResult(SSLEngineResult.Status.BUFFER_UNDERFLOW, src, _) =>
               clientEncryptedData = src
             case OPResult(SSLEngineResult.Status.BUFFER_OVERFLOW, _, dest) =>
@@ -184,7 +350,7 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps {
 
         case SSLEngineResult.HandshakeStatus.NEED_WRAP =>
           serverEncryptedData.clear()
-          val writeStatus = wrap(engine, serverDecryptedData, serverEncryptedData)
+          val writeStatus = wrap(null, engine, serverDecryptedData, serverEncryptedData)
           log.info("Write status: " + writeStatus)
 
           writeStatus match {
@@ -296,3 +462,4 @@ case class SSLServerSpecs(name: String,
                           pass: String)
 
 
+case class SSLState(handshaking: Boolean, handler: SSLClientHandler)

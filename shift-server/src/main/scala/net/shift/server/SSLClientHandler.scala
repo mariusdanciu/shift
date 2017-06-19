@@ -25,11 +25,11 @@ private[server] case class SSLClientHandler(key: SelectionKey,
   private val packetSize = engine.getSession.getPacketBufferSize
 
 
-  private var clientDecryptedData = ByteBuffer.allocate(appBufferSize)
-  private var clientEncryptedData = ByteBuffer.allocate(packetSize)
+  var clientDecryptedData = ByteBuffer.allocate(appBufferSize)
+  var clientEncryptedData = ByteBuffer.allocate(packetSize)
 
-  private val serverDecryptedData = ByteBuffer.allocate(appBufferSize)
-  private val serverEncryptedData = ByteBuffer.allocate(packetSize)
+  var serverDecryptedData = ByteBuffer.allocate(appBufferSize)
+  var serverEncryptedData = ByteBuffer.allocate(packetSize)
 
 
   def terminate(): Unit = {
@@ -38,13 +38,13 @@ private[server] case class SSLClientHandler(key: SelectionKey,
 
   def readEncryptedBuffer(enc: ByteBuffer, f: ByteBuffer => Unit): Unit = {
     var clientEncryptedData = enc
-    log.info("clientEncryptedData " + clientEncryptedData)
+    keyLog(key, "clientEncryptedData " + clientEncryptedData)
     clientEncryptedData.flip()
-    log.info("clientEncryptedData " + clientEncryptedData)
+    keyLog(key, "clientEncryptedData " + clientEncryptedData)
     while (clientEncryptedData.hasRemaining) {
       clientDecryptedData.clear()
 
-      unwrap(engine, clientEncryptedData, clientDecryptedData) match {
+      unwrap(key, engine, clientEncryptedData, clientDecryptedData) match {
         case OPResult(SSLEngineResult.Status.BUFFER_UNDERFLOW, src, _) =>
           clientEncryptedData = src
         case OPResult(SSLEngineResult.Status.BUFFER_OVERFLOW, _, dest) =>
@@ -61,14 +61,14 @@ private[server] case class SSLClientHandler(key: SelectionKey,
   private def readBuf(client: SocketChannel, f: ByteBuffer => Unit) {
     clientEncryptedData.clear()
     val size = client.read(clientEncryptedData)
-    log.debug(s"Read $size bytes")
+    keyLog(key, s"Read $size bytes")
 
     if (size < 0) {
-      log.info("End of client stream")
+      keyLog(key, "End of client stream")
       engine.closeInbound()
       terminate()
     } else if (size == 0) {
-      log.info("No data to read")
+      keyLog(key, "No data to read")
     } else {
       readEncryptedBuffer(clientEncryptedData, f)
     }
@@ -95,18 +95,18 @@ private[server] case class SSLClientHandler(key: SelectionKey,
   private def drain(requestId: String, client: SocketChannel, buffer: ByteBuffer): (Int, ByteBuffer) = {
     def write(b: ByteBuffer) = {
       b.flip()
-      log.debug("Sending encrypted buf " + b)
+      keyLog(key, "Sending encrypted buf " + b)
       var written = client.write(b)
-      log.debug(requestId + " - response: wrote " + written)
+      keyLog(key, requestId + " - response: wrote " + written)
       while (written > 0 && b.hasRemaining) {
         written = client.write(b)
-        log.debug(requestId + " - response: wrote " + written)
+        keyLog(key, requestId + " - response: wrote " + written)
       }
       (written, b)
     }
 
     serverEncryptedData.clear()
-    wrap(engine, buffer, serverEncryptedData) match {
+    wrap(key, engine, buffer, serverEncryptedData) match {
       case OPResult(SSLEngineResult.Status.OK, b, _) =>
         write(b)
       case OPResult(SSLEngineResult.Status.CLOSED, b, _) =>
@@ -139,11 +139,11 @@ private[server] case class SSLClientHandler(key: SelectionKey,
 
         lazy val cont: Iteratee[ByteBuffer, Option[ResponseContinuationState]] = Cont {
           case Data(d) =>
-            log.debug(rid + " Sending buffer " + System.identityHashCode(d) + " " + d)
+            keyLog(key, "Sending buffer " + System.identityHashCode(d) + " " + d)
             val client = key.channel().asInstanceOf[SocketChannel]
             drain(rid, client, d) match {
               case (0, buf) =>
-                log.debug(rid + " Socket full " + System.identityHashCode(d))
+                keyLog(key, " Socket full " + System.identityHashCode(d))
                 Done(state, Empty)
               case (_, buf) if !buf.hasRemaining || d.hasRemaining =>
                 cont
@@ -155,11 +155,11 @@ private[server] case class SSLClientHandler(key: SelectionKey,
         }
 
         val res = st.content(cont)
-        log.debug(st.requestId + " res " + res)
+        keyLog(key, " res " + res)
 
         res match {
           case Done(s, Empty) =>
-            log.debug(s.map {
+            keyLog(key, s.map {
               _.requestId
             } + " response: continue sending")
             writeState = s
