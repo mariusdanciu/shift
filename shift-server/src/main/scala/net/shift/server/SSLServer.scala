@@ -207,7 +207,7 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps with KeyLogger {
     keyLog(key, "handshakeRead Handshake status " + handshakeStatus)
 
     handshakeStatus match {
-      case SSLEngineResult.HandshakeStatus.NEED_WRAP  =>
+      case SSLEngineResult.HandshakeStatus.NEED_WRAP =>
         unSelectForRead(key)
         selectForWrite(key)
 
@@ -432,9 +432,11 @@ case class SSLServer(specs: SSLServerSpecs) extends SSLOps with KeyLogger {
   }
 
   private def closeClient(key: SelectionKey) {
-    clients.get(key).map { state =>
-      state.handler.engine.closeInbound()
-      state.handler.engine.closeOutbound()
+    clients.get(key).foreach { state =>
+      if (!state.handler.engine.isInboundDone)
+        state.handler.engine.closeInbound()
+      if (!state.handler.engine.isOutboundDone)
+        state.handler.engine.closeOutbound()
     }
     IO.close(key.channel())
     key.cancel()

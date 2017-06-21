@@ -81,7 +81,6 @@ private[server] case class SSLClientHandler(key: SelectionKey,
 
     if (size < 0) {
       keyLog(key, "End of client stream")
-      engine.closeInbound()
       terminate()
     } else if (size == 0) {
       keyLog(key, "No data to read")
