@@ -5,6 +5,7 @@ import java.nio.ByteBuffer
 import java.nio.channels.{ClosedChannelException, SelectionKey, SocketChannel}
 import javax.net.ssl.{SSLEngine, SSLEngineResult}
 
+import net.shift.common.LogBuilder
 import net.shift.io.{Iteratee, _}
 import net.shift.server.Selections._
 import net.shift.server.protocol.Protocol
@@ -17,7 +18,8 @@ private[server] case class SSLClientHandler(key: SelectionKey,
                                             name: String,
                                             onClose: SelectionKey => Unit,
                                             protocol: Protocol,
-                                            readBufSize: Int = 1024) extends SSLOps {
+                                            readBufSize: Int = 1024) extends SSLOps with KeyLogger {
+  protected val log = LogBuilder.logger(classOf[SSLClientHandler])
 
   private var writeState: Option[ResponseContinuationState] = None
 
@@ -41,20 +43,34 @@ private[server] case class SSLClientHandler(key: SelectionKey,
     keyLog(key, "clientEncryptedData " + clientEncryptedData)
     clientEncryptedData.flip()
     keyLog(key, "clientEncryptedData " + clientEncryptedData)
-    while (clientEncryptedData.hasRemaining) {
+    var goOn = clientEncryptedData.hasRemaining
+    while (goOn) {
       clientDecryptedData.clear()
 
       unwrap(key, engine, clientEncryptedData, clientDecryptedData) match {
         case OPResult(SSLEngineResult.Status.BUFFER_UNDERFLOW, src, _) =>
           clientEncryptedData = src
+          goOn = clientEncryptedData.hasRemaining
         case OPResult(SSLEngineResult.Status.BUFFER_OVERFLOW, _, dest) =>
           clientDecryptedData = dest
+          goOn = clientEncryptedData.hasRemaining
         case OPResult(SSLEngineResult.Status.OK, _, dec) =>
           dec.flip()
           f(dec)
+          goOn = clientEncryptedData.hasRemaining
         case OPResult(SSLEngineResult.Status.CLOSED, _, _) =>
+          val status = engine.getHandshakeStatus
+          if (status == SSLEngineResult.HandshakeStatus.NEED_WRAP) {
+            serverEncryptedData.clear()
+            val wrapResult = wrap(key, engine, serverDecryptedData, serverEncryptedData)
+            keyLog(key, "CLOSED WRAP Result" + wrapResult)
+          }
+          engine.closeInbound()
           engine.closeOutbound()
+          terminate()
+          goOn = false
       }
+
     }
   }
 
@@ -92,15 +108,15 @@ private[server] case class SSLClientHandler(key: SelectionKey,
     }
   }
 
-  private def drain(requestId: String, client: SocketChannel, buffer: ByteBuffer): (Int, ByteBuffer) = {
+  private def drain(client: SocketChannel, buffer: ByteBuffer): (Int, ByteBuffer) = {
     def write(b: ByteBuffer) = {
       b.flip()
       keyLog(key, "Sending encrypted buf " + b)
       var written = client.write(b)
-      keyLog(key, requestId + " - response: wrote " + written)
+      keyLog(key, " - response: wrote " + written)
       while (written > 0 && b.hasRemaining) {
         written = client.write(b)
-        keyLog(key, requestId + " - response: wrote " + written)
+        keyLog(key, " - response: wrote " + written)
       }
       (written, b)
     }
@@ -135,13 +151,11 @@ private[server] case class SSLClientHandler(key: SelectionKey,
     state foreach { st =>
       Try {
 
-        val rid = st.requestId
-
         lazy val cont: Iteratee[ByteBuffer, Option[ResponseContinuationState]] = Cont {
           case Data(d) =>
             keyLog(key, "Sending buffer " + System.identityHashCode(d) + " " + d)
             val client = key.channel().asInstanceOf[SocketChannel]
-            drain(rid, client, d) match {
+            drain(client, d) match {
               case (0, buf) =>
                 keyLog(key, " Socket full " + System.identityHashCode(d))
                 Done(state, Empty)

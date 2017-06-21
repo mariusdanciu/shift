@@ -12,8 +12,7 @@ import scala.util.{Failure, Success, Try}
   * Created by mariu on 1/5/2017.
   */
 trait SSLOps {
-
-  protected val log = LogBuilder.logger(classOf[SSLServer])
+  this: KeyLogger =>
 
   def handleBufferOverflow(engine: SSLEngine,
                            clientEncryptedData: ByteBuffer,
@@ -84,6 +83,9 @@ trait SSLOps {
     r.getStatus match {
       case SSLEngineResult.Status.BUFFER_OVERFLOW =>
         keyLog(key, "wrap() BUFFER_OVERFLOW ")
+        keyLog(key, "serverDecryptedData " + serverDecryptedData)
+        keyLog(key, "serverEncryptedData " + serverEncryptedData)
+
         val netSize = engine.getSession.getPacketBufferSize
 
         val buf = if (netSize > serverEncryptedData.capacity()) {
@@ -109,12 +111,6 @@ trait SSLOps {
         keyLog(key, "wrap() OK " + serverEncryptedData)
         OPResult(SSLEngineResult.Status.OK, serverEncryptedData, serverDecryptedData)
     }
-  }
-
-  private def keyToString(key: SelectionKey) = s"Key $key: r:${key.isReadable}, w:${key.isWritable}, a:${key.isAcceptable} - "
-
-  def keyLog(key: SelectionKey, str: String): Unit = {
-    log.debug(keyToString(key) + str)
   }
 
 }
