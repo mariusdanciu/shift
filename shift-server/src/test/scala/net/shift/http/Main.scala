@@ -1,5 +1,4 @@
 package net.shift.server.http
-package test
 
 import org.apache.log4j.BasicConfigurator
 import net.shift.server.http._

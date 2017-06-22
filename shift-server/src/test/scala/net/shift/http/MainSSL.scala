@@ -1,4 +1,4 @@
-package test
+package net.shift.server.http
 
 import net.shift.common.Path
 import net.shift.io.LocalFileSystem
