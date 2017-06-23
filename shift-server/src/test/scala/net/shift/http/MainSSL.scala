@@ -2,8 +2,7 @@ package net.shift.server.http
 
 import net.shift.common.Path
 import net.shift.io.LocalFileSystem
-import net.shift.server.{SSLServer, SSLServerSpecs, Server, ServerSpecs}
-import net.shift.server.http.{HttpProtocolBuilder, Responses}
+import net.shift.server._
 import org.apache.log4j.BasicConfigurator
 
 /**
@@ -17,13 +16,13 @@ object MainSSL extends App {
   BasicConfigurator.configure
   System.setProperty("https.protocols", "TLSv1");
 
-  SSLServer(SSLServerSpecs("test",
+  SSLServer(ServerSpecs("test",
     "0.0.0.0",
     443,
     30,
-    ".keystore",
-    ".truststore",
-    "idid.1"
+    SSLSpecs(".keystore",
+      ".truststore",
+      "idid.1")
   )).start(HttpProtocolBuilder(req => resp => {
 
     println("Got request " + req)

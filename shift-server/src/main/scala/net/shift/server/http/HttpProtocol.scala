@@ -1,18 +1,13 @@
 package net.shift.server.http
 
-import net.shift.server.http._
-import net.shift.common.{BinReader, LogBuilder}
-
-import scala.concurrent.ExecutionContext
-import net.shift.server.protocol.Protocol
-
-import scala.util.Success
-import scala.concurrent.Future
-import net.shift.server.RawExtract
-import net.shift.io.BinProducer
 import java.nio.ByteBuffer
 
-import net.shift.server.protocol.ProtocolBuilder
+import net.shift.common.{BinReader, LogBuilder}
+import net.shift.io.BinProducer
+import net.shift.server.protocol.{Protocol, ProtocolBuilder}
+
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Success
 
 object HttpProtocolBuilder {
   def apply(service: HTTPService) = new HttpProtocolBuilder(service)
@@ -30,23 +25,25 @@ class HttpProtocol(service: HTTPService) extends Protocol {
 
   def createNew = new HttpProtocol(service)
 
-  def keepConnection = keepAlive
+  def keepConnection: Boolean = keepAlive
 
-  def apply(in: ByteBuffer)(write: (BinProducer, String) => Unit)(implicit ctx: ExecutionContext) {
+  def apply(in: ByteBuffer)(write: BinProducer => Unit)(implicit ctx: ExecutionContext) {
 
     readState match {
       case RawExtract(raw) =>
         val msg = raw + in
 
         new HttpParser().parse(BinReader(msg.duplicates)) match {
-          case r @ Success(req) =>
-            keepAlive = req.stringHeader("Connection").map { _ == "keep-alive" } getOrElse true
+          case r@Success(req) =>
+            keepAlive = req.stringHeader("Connection").map {
+              _ == "keep-alive"
+            } getOrElse true
             tryRun(msg.size, req, write)
           case r =>
             readState = Some(msg)
         }
 
-      case Some(h @ Request(m, u, v, hd, body @ Body(seq))) =>
+      case Some(h@Request(m, u, v, hd, body@Body(seq))) =>
         val newSize = body.size + in.limit()
         val msg = Body(seq ++ Seq(in))
         val req = h.copy(body = msg)
@@ -54,13 +51,13 @@ class HttpProtocol(service: HTTPService) extends Protocol {
     }
   }
 
-  private def tryRun(size: Long, req: Request, write: (BinProducer, String) => Unit)(implicit ctx: ExecutionContext) {
+  private def tryRun(size: Long, req: Request, write: BinProducer => Unit)(implicit ctx: ExecutionContext) {
     if (requestComplete(size, req)) {
       readState = None
       Future {
         log.info("Processing " + req)
         service(req)(resp => {
-          write(resp.asBinProducer, req.uri.toString)
+          write(resp.asBinProducer)
         })
       }
     } else {
@@ -73,4 +70,28 @@ class HttpProtocol(service: HTTPService) extends Protocol {
     contentLength <= bodySize
   }
 
+}
+
+object RawExtract {
+  def unapply(t: Option[Payload]): Option[Raw] = t match {
+    case None => Some(Raw(Nil))
+    case Some(raw: Raw) => Some(raw)
+    case _ => None
+  }
+}
+
+case class Raw(buffers: List[ByteBuffer]) extends Payload {
+  def +(b: ByteBuffer) = Raw(buffers ++ List(b))
+
+  def ++(b: Seq[ByteBuffer]) = Raw(buffers ++ b)
+
+  def size: Int = buffers map {
+    _.limit
+  } sum
+
+  def buffersState: String = buffers map { b => s"${b.position} : ${b.limit}" } mkString "\n"
+
+  def duplicates: List[ByteBuffer] = buffers map {
+    _ duplicate
+  }
 }

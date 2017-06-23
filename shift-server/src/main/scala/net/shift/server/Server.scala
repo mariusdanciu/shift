@@ -63,12 +63,12 @@ case class Server(specs: ServerSpecs) {
                 }
               } else if (key.isReadable) {
                 clients.get(key).foreach {
-                  _.readChunk
+                  _.handleRead()
                 }
               } else if (key.isWritable) {
                 unSelectForWrite(key)
                 clients.get(key).foreach {
-                  _.continueWriting()
+                  _.handleWrite()
                 }
               }
             }
@@ -95,6 +95,8 @@ case class Server(specs: ServerSpecs) {
     listen.map { _ =>
       log.info("Shutting down server")
       serverChannel.close()
+    }.recover {
+      case t => log.error("Server error", t)
     }
   }
 
@@ -112,45 +114,6 @@ case class Server(specs: ServerSpecs) {
 
 }
 
-object RawExtract {
-  def unapply(t: Option[Payload]): Option[Raw] = t match {
-    case None => Some(Raw(Nil))
-    case Some(raw: Raw) => Some(raw)
-    case _ => None
-  }
-}
 
-case class Raw(buffers: List[ByteBuffer]) extends Payload {
-  def +(b: ByteBuffer) = Raw(buffers ++ List(b))
-
-  def ++(b: Seq[ByteBuffer]) = Raw(buffers ++ b)
-
-  def size: Int = buffers map {
-    _.limit
-  } sum
-
-  def buffersState: String = buffers map { b => s"${b.position} : ${b.limit}" } mkString "\n"
-
-  def duplicates: List[ByteBuffer] = buffers map {
-    _ duplicate
-  }
-}
-
-object ServerSpecs {
-  def apply(): ServerSpecs = fromConfig(Config())
-
-  def fromConfig(conf: Config): ServerSpecs = {
-    ServerSpecs(
-      name = conf.string("server.name", "Shift-HTTPServer"),
-      address = conf.string("server.address", "0.0.0.0"),
-      port = conf.int("server.port", 8080),
-      numThreads = conf.int("server.numThreads", Runtime.getRuntime.availableProcessors()))
-  }
-}
-
-case class ServerSpecs(name: String,
-                       address: String,
-                       port: Int,
-                       numThreads: Int)
 
 
