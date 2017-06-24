@@ -7,7 +7,7 @@ import java.security.KeyStore
 import java.util.concurrent.Executors
 import javax.net.ssl._
 
-import net.shift.common.LogBuilder
+import net.shift.common.{Log, LogBuilder}
 import net.shift.io._
 import net.shift.server.Selections._
 import net.shift.server.protocol.Protocol
@@ -16,12 +16,10 @@ import scala.concurrent.ExecutionContext
 import scala.util.Try
 
 private[server] case class SSLClientHandler(key: SelectionKey,
-                                            specs: ServerSpecs,
-                                            name: String,
+                                            sslConfig: SSLConfig,
                                             onClose: SelectionKey => Unit,
-                                            protocol: Protocol,
-                                            readBufSize: Int = 1024) extends SSLOps with ConnectionHandler with KeyLogger {
-  protected val log = LogBuilder.logger(classOf[SSLClientHandler])
+                                            protocol: Protocol) extends SSLOps with ConnectionHandler with KeyLogger {
+  protected val log: Log = LogBuilder.logger(classOf[SSLClientHandler])
 
 
   private val engine = makeSSLEngine()
@@ -29,15 +27,15 @@ private[server] case class SSLClientHandler(key: SelectionKey,
   private val packetSize = engine.getSession.getPacketBufferSize
 
 
-  var clientDecryptedData = ByteBuffer.allocate(appBufferSize)
-  var clientEncryptedData = ByteBuffer.allocate(packetSize)
+  var clientDecryptedData: ByteBuffer = ByteBuffer.allocate(appBufferSize)
+  var clientEncryptedData: ByteBuffer = ByteBuffer.allocate(packetSize)
 
-  var serverDecryptedData = ByteBuffer.allocate(appBufferSize)
-  var serverEncryptedData = ByteBuffer.allocate(packetSize)
+  var serverDecryptedData: ByteBuffer = ByteBuffer.allocate(appBufferSize)
+  var serverEncryptedData: ByteBuffer = ByteBuffer.allocate(packetSize)
 
   var handshaking = true
 
-  override def start() = {
+  override def start():Unit = {
     engine.beginHandshake()
   }
 
@@ -69,9 +67,9 @@ private[server] case class SSLClientHandler(key: SelectionKey,
     val ks = KeyStore.getInstance("JKS")
     val ts = KeyStore.getInstance("JKS")
 
-    val passPhrase = specs.ssl.pass.toCharArray
-    ks.load(new FileInputStream(specs.ssl.keyStoreFile), passPhrase)
-    ts.load(new FileInputStream(specs.ssl.trustStoreFile), passPhrase)
+    val passPhrase = sslConfig.pass.toCharArray
+    ks.load(new FileInputStream(sslConfig.keyStoreFile), passPhrase)
+    ts.load(new FileInputStream(sslConfig.trustStoreFile), passPhrase)
 
     val kmf = KeyManagerFactory.getInstance("SunX509")
     kmf.init(ks, passPhrase)
@@ -138,7 +136,7 @@ private[server] case class SSLClientHandler(key: SelectionKey,
             case OPResult(SSLEngineResult.Status.CLOSED, out, dest) =>
               out.flip()
               keyLog(key, "CLOSE Sending " + out)
-              while (out.hasRemaining()) {
+              while (out.hasRemaining) {
                 client.write(out)
               }
               terminate()
@@ -206,14 +204,14 @@ private[server] case class SSLClientHandler(key: SelectionKey,
           case OPResult(SSLEngineResult.Status.OK, out, _) =>
             out.flip()
             keyLog(key, "OK Sending " + out)
-            while (out.hasRemaining()) {
+            while (out.hasRemaining) {
               client.write(out)
             }
             keyLog(key, "OK Sent " + out)
           case OPResult(SSLEngineResult.Status.CLOSED, out, _) =>
             out.flip()
             keyLog(key, "CLOSE Sending " + out)
-            while (out.hasRemaining()) {
+            while (out.hasRemaining) {
               client.write(out)
             }
             terminate()
@@ -367,7 +365,7 @@ private[server] case class SSLClientHandler(key: SelectionKey,
     }
   }
 
-  def sendResponse(resp: BinProducer) = {
+  def sendResponse(resp: BinProducer):Unit = {
     writeState = Some(ResponseContinuationState(resp))
     continueSending(drain)
   }

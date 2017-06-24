@@ -16,14 +16,14 @@ object MainSSL extends App {
   BasicConfigurator.configure
   System.setProperty("https.protocols", "TLSv1");
 
-  SSLServer(ServerSpecs("test",
+  Server(ServerConfig("test",
     "0.0.0.0",
     443,
-    30,
-    SSLSpecs(".keystore",
+    30),
+    SSLConfig(".keystore",
       ".truststore",
       "idid.1")
-  )).start(HttpProtocolBuilder(req => resp => {
+  ).start(HttpProtocolBuilder(req => resp => {
 
     println("Got request " + req)
 

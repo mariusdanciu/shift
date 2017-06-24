@@ -56,9 +56,14 @@ class HttpProtocol(service: HTTPService) extends Protocol {
       readState = None
       Future {
         log.info("Processing " + req)
-        service(req)(resp => {
-          write(resp.asBinProducer)
-        })
+        try {
+          service(req)(resp => {
+            log.info("Got response")
+            write(resp.asBinProducer)
+          })
+        } catch {
+          case t => t.printStackTrace
+        }
       }
     } else {
       readState = Some(req)

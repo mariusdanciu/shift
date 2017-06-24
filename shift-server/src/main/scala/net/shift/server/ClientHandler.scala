@@ -11,7 +11,6 @@ import scala.concurrent.ExecutionContext
 import scala.util.Try
 
 private[server] case class ClientHandler(key: SelectionKey,
-                                         name: String,
                                          onClose: SelectionKey => Unit,
                                          protocol: Protocol,
                                          readBufSize: Int = 1024) extends ConnectionHandler with KeyLogger {
