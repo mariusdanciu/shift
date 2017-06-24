@@ -35,7 +35,7 @@ private[server] case class SSLClientHandler(key: SelectionKey,
 
   var handshaking = true
 
-  override def start():Unit = {
+  override def start(): Unit = {
     engine.beginHandshake()
   }
 
@@ -104,72 +104,63 @@ private[server] case class SSLClientHandler(key: SelectionKey,
         val read = client.read(clientEncryptedData)
         keyLog(key, "Unwrap read from socket clientEncryptedData " + clientEncryptedData)
         if (read < 0) {
-          if (engine.isInboundDone && engine.isOutboundDone) {
-            // STOP
-          } else {
-            try {
-              engine.closeInbound()
-            } catch {
-              case e: Throwable =>
-                keyLog(key, "This engine was forced to close inbound, without having received the proper SSL/TLS close notification message from the peer, due to end of stream.");
-            }
-            engine.closeOutbound()
-          }
-        }
+          terminate()
+        } else {
 
-        clientEncryptedData.flip()
+          clientEncryptedData.flip()
 
-        while (clientEncryptedData.hasRemaining && handshakeStatus == SSLEngineResult.HandshakeStatus.NEED_UNWRAP) {
+          while (clientEncryptedData.hasRemaining && handshakeStatus == SSLEngineResult.HandshakeStatus.NEED_UNWRAP) {
 
-          val unwrapStatus = unwrap(key, engine, clientEncryptedData, clientDecryptedData)
+            val unwrapStatus = unwrap(key, engine, clientEncryptedData, clientDecryptedData)
 
-          keyLog(key, "Unwrap status: " + unwrapStatus)
+            keyLog(key, "Unwrap status: " + unwrapStatus)
 
 
-          unwrapStatus match {
-            case OPResult(SSLEngineResult.Status.BUFFER_UNDERFLOW, src, _) =>
-              clientEncryptedData = src
+            unwrapStatus match {
+              case OPResult(SSLEngineResult.Status.BUFFER_UNDERFLOW, src, _) =>
+                clientEncryptedData = src
 
-            case OPResult(SSLEngineResult.Status.BUFFER_OVERFLOW, _, dest) =>
-              clientDecryptedData = dest
+              case OPResult(SSLEngineResult.Status.BUFFER_OVERFLOW, _, dest) =>
+                clientDecryptedData = dest
 
-            case OPResult(SSLEngineResult.Status.CLOSED, out, dest) =>
-              out.flip()
-              keyLog(key, "CLOSE Sending " + out)
-              while (out.hasRemaining) {
-                client.write(out)
-              }
-              terminate()
-              keyLog(key, "CLOSE Sent " + out)
-            case _ =>
-          }
-
-          var done = false
-          while (!done) {
-
-            val hsStatus = engine.getHandshakeStatus
-            keyLog(key, "handshakeRead loop Handshake status " + hsStatus)
-            hsStatus match {
-              case SSLEngineResult.HandshakeStatus.NEED_WRAP =>
-                selectForWrite(key)
-                done = true
-              case SSLEngineResult.HandshakeStatus.NEED_UNWRAP =>
-                selectForRead(key)
-                done = true
-              case SSLEngineResult.HandshakeStatus.NEED_TASK =>
-                handleNeedTask(key)
+              case OPResult(SSLEngineResult.Status.CLOSED, out, dest) =>
+                out.flip()
+                keyLog(key, "CLOSE Sending " + out)
+                while (out.hasRemaining) {
+                  client.write(out)
+                }
+                terminate()
+                keyLog(key, "CLOSE Sent " + out)
               case _ =>
-                done = true
-
             }
+
+            var done = false
+            while (!done) {
+
+              val hsStatus = engine.getHandshakeStatus
+              keyLog(key, "handshakeRead loop Handshake status " + hsStatus)
+              hsStatus match {
+                case SSLEngineResult.HandshakeStatus.NEED_WRAP =>
+                  selectForWrite(key)
+                  done = true
+                case SSLEngineResult.HandshakeStatus.NEED_UNWRAP =>
+                  selectForRead(key)
+                  done = true
+                case SSLEngineResult.HandshakeStatus.NEED_TASK =>
+                  handleNeedTask(key)
+                case _ =>
+                  done = true
+
+              }
+            }
+
+            handshakeStatus = engine.getHandshakeStatus
           }
-
-          handshakeStatus = engine.getHandshakeStatus
         }
-
         clientEncryptedData.compact()
 
-      case SSLEngineResult.HandshakeStatus.FINISHED | SSLEngineResult.HandshakeStatus.NOT_HANDSHAKING =>
+      case SSLEngineResult.HandshakeStatus.FINISHED | SSLEngineResult.HandshakeStatus.NOT_HANDSHAKING
+      =>
         keyLog(key, "Handshake successful")
         handshaking = false
       case s =>
@@ -365,7 +356,7 @@ private[server] case class SSLClientHandler(key: SelectionKey,
     }
   }
 
-  def sendResponse(resp: BinProducer):Unit = {
+  def sendResponse(resp: BinProducer): Unit = {
     writeState = Some(ResponseContinuationState(resp))
     continueSending(drain)
   }

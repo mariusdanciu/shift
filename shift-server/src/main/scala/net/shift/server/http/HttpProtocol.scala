@@ -35,11 +35,9 @@ class HttpProtocol(service: HTTPService) extends Protocol {
 
         new HttpParser().parse(BinReader(msg.duplicates)) match {
           case r@Success(req) =>
-            keepAlive = req.stringHeader("Connection").map {
-              _ == "keep-alive"
-            } getOrElse true
+            keepAlive = req.stringHeader("Connection").forall(_ == "keep-alive")
             tryRun(msg.size, req, write)
-          case r =>
+          case _ =>
             readState = Some(msg)
         }
 
@@ -56,14 +54,10 @@ class HttpProtocol(service: HTTPService) extends Protocol {
       readState = None
       Future {
         log.info("Processing " + req)
-        try {
-          service(req)(resp => {
-            log.info("Got response")
-            write(resp.asBinProducer)
-          })
-        } catch {
-          case t => t.printStackTrace
-        }
+        service(req)(resp => {
+          log.info("Got response")
+          write(resp.asBinProducer)
+        })
       }
     } else {
       readState = Some(req)
