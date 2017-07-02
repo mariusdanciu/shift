@@ -6,6 +6,7 @@ import net.shift.io.FileSystem
 import net.shift.io.IO._
 
 import scala.annotation.tailrec
+import scala.reflect.ClassTag
 import scala.util.Try
 import scala.util.parsing.combinator.RegexParsers
 import scala.util.parsing.input.CharSequenceReader
@@ -39,32 +40,29 @@ object Config {
 class Config(val configs: Map[String, String]) {
   self =>
 
-  def append(other: Map[String, String]): Config = new Config(self.configs ++ other)
+  def int(p: String, d: Int = 0): Int = int_?(p).getOrElse(d)
 
-  def int(p: String, d: Int = 0): Int = configs.get(p).flatMap(toInt(_)).getOrElse(d)
+  def long(p: String, d: Long = 0): Long = long_?(p).getOrElse(d)
 
-  def long(p: String, d: Long = 0): Long = configs.get(p).flatMap(toLong(_)).getOrElse(d)
+  def bool(p: String, d: Boolean = false): Boolean = bool_?(p).getOrElse(d)
 
-  def bool(p: String, d: Boolean = false): Boolean = configs.get(p).flatMap(toBool(_)).getOrElse(d)
+  def double(p: String, d: Double = 0.0): Double = double_?(p).getOrElse(d)
 
-  def double(p: String, d: Double = 0.0): Double = configs.get(p).flatMap(toDouble(_)).getOrElse(d)
+  def string(p: String, d: String = ""): String = string_?(p).getOrElse(d)
 
-  def string(p: String, d: String = ""): String = configs.get(p).getOrElse(d)
-
-  def list(p: String, d: List[String] = Nil): List[String] = configs.get(p).map(s => s.trim.split("\\s*,\\s*").toList).getOrElse(d)
+  def list(p: String, d: List[String] = Nil): List[String] = list_?(p).getOrElse(d)
 
   def int_?(p: String): Option[Int] = configs.get(p).flatMap(toInt(_))
 
   def long_?(p: String): Option[Long] = configs.get(p).flatMap(toLong(_))
 
-  def bool_?(p: String): Option[Boolean]= configs.get(p).flatMap(toBool(_))
+  def bool_?(p: String): Option[Boolean] = configs.get(p).flatMap(toBool(_))
 
   def double_?(p: String): Option[Double] = configs.get(p).flatMap(toDouble(_))
 
   def string_?(p: String): Option[String] = configs.get(p)
 
   def list_?(p: String): Option[List[String]] = configs.get(p).map(s => s.trim.split("\\s*,\\s*").toList)
-
 
   def +(other: Config) = new Config(configs ++ other.configs)
 

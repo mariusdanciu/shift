@@ -36,6 +36,7 @@ class ConfigTest extends UnitTest {
         | }
         |
         |  prop5 = val5
+        |  iprop = 234, 2, 3
         |
         |
     """.stripMargin)
@@ -43,7 +44,9 @@ class ConfigTest extends UnitTest {
     r match {
       case Success(c) =>
         println(c.configs)
-        assert(c.configs.size === 10)
+
+        assert(c.configs.size === 11)
+
       case Failure(t) => fail(t)
     }
   }
