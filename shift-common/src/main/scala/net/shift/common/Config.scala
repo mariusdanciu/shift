@@ -53,6 +53,19 @@ class Config(val configs: Map[String, String]) {
 
   def list(p: String, d: List[String] = Nil): List[String] = configs.get(p).map(s => s.trim.split("\\s*,\\s*").toList).getOrElse(d)
 
+  def int_?(p: String): Option[Int] = configs.get(p).flatMap(toInt(_))
+
+  def long_?(p: String): Option[Long] = configs.get(p).flatMap(toLong(_))
+
+  def bool_?(p: String): Option[Boolean]= configs.get(p).flatMap(toBool(_))
+
+  def double_?(p: String): Option[Double] = configs.get(p).flatMap(toDouble(_))
+
+  def string_?(p: String): Option[String] = configs.get(p)
+
+  def list_?(p: String): Option[List[String]] = configs.get(p).map(s => s.trim.split("\\s*,\\s*").toList)
+
+
   def +(other: Config) = new Config(configs ++ other.configs)
 
 }
