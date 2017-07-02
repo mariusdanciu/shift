@@ -5,6 +5,8 @@ import net.shift.io.LocalFileSystem
 import net.shift.server.{Server, ServerConfig}
 import org.apache.log4j.BasicConfigurator
 
+import scala.util.Success
+
 object Main extends App {
 
   implicit val fs = LocalFileSystem
@@ -18,7 +20,11 @@ object Main extends App {
 
     if (req.uri.path == "/pic") {
       val r = Responses.imageFileResponse(Path("./shift-server/src/test/resources/pic.jpg"))
-      r map { resp }
+      r map {
+        resp
+      }
+    } else if (req.uri.path == "/cart") {
+      resp(Responses.textResponse("got cart"))
     } else
       resp(Responses.textResponse("Got it"))))
 

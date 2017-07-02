@@ -44,7 +44,7 @@ trait ShiftParsers extends Parsers {
 
   def noCRLFSpace: Parser[Byte] = (accept(' ') | accept('\t')) ^^ { _ head }
 
-  def byte: Parser[Byte] = acceptIf(_ => true)(err => "Byte error " + err) ^^ { b => b.toByte }
+  def byte: Parser[Byte] = acceptIf(_ => true)(err => "Byte error " + err)
 
   def crlf: Parser[Unit] = accept('\r') ~> accept('\n') ^^ { b => () }
 
@@ -108,16 +108,18 @@ object BinReader {
   def apply(in: BinProducer) = producerToChunks(in) map { arr => new BinReader(arr, 0) }
 }
 
-case class BinReader(in: Seq[ByteBuffer], position: Int = 0, bufferOffset: Int = 0) extends Reader[Byte] {
+case class BinReader(in: Seq[ByteBuffer], position: Int = 0, bufferOffset: Int = 0, len: Long = 0) extends Reader[Byte] {
 
-  lazy val size = in.map { _.limit }.sum
+  lazy val size = if (len == 0)
+    in.map { _.limit }.sum
+  else
+    len
 
   lazy val first = {
     if (!in.isEmpty && in.head.hasRemaining()) {
       in.head.position(bufferOffset)
       in.head.get
     } else {
-      println(s"${in.size} : ${in.head.limit} : ${in.head.position()} : ${in.head.hasRemaining()}")
       throw new IOException(s"Not enough data for pos: $position")
     }
   }
@@ -125,9 +127,9 @@ case class BinReader(in: Seq[ByteBuffer], position: Int = 0, bufferOffset: Int =
   def rest = {
     if (!in.isEmpty) {
       if (in.head.hasRemaining()) {
-        BinReader(in, position + 1, bufferOffset + 1)
+        BinReader(in, position + 1, bufferOffset + 1, size)
       } else {
-        BinReader(in.tail, position + 1, 0)
+        BinReader(in.tail, position + 1, 0, size)
       }
     } else {
       throw new IOException("Not enough data")
@@ -140,5 +142,7 @@ case class BinReader(in: Seq[ByteBuffer], position: Int = 0, bufferOffset: Int =
     def lineContents: String = ""
   }
 
-  def atEnd: Boolean = position >= size
+  def atEnd: Boolean = {
+    position >= size
+  }
 }

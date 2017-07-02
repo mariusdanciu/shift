@@ -7,7 +7,7 @@ import net.shift.io.BinProducer
 import net.shift.server.protocol.{Protocol, ProtocolBuilder}
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Success
+import scala.util.{Failure, Success}
 
 object HttpProtocolBuilder {
   def apply(service: HTTPService) = new HttpProtocolBuilder(service)
@@ -33,11 +33,13 @@ class HttpProtocol(service: HTTPService) extends Protocol {
       case RawExtract(raw) =>
         val msg = raw + in
 
-        new HttpParser().parse(BinReader(msg.duplicates)) match {
+        val toParse = BinReader(msg.duplicates)
+        new HttpParser().parse(toParse) match {
           case r@Success(req) =>
             keepAlive = req.stringHeader("Connection").forall(_ == "keep-alive")
             tryRun(msg.size, req, write)
-          case _ =>
+          case Failure(f) =>
+            log.warn("Failed parsing buffer " + f + " " + toParse)
             readState = Some(msg)
         }
 
@@ -53,9 +55,9 @@ class HttpProtocol(service: HTTPService) extends Protocol {
     if (requestComplete(size, req)) {
       readState = None
       Future {
-        log.info("Processing " + req)
+        log.debug("Processing " + req)
         service(req)(resp => {
-          log.info("Got response")
+          log.debug("Got response")
           write(resp.asBinProducer)
         })
       }

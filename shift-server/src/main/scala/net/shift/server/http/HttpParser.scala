@@ -4,8 +4,9 @@ import java.net.URLDecoder
 import java.nio.ByteBuffer
 
 import scala.util.Try
-import net.shift.common.{BinReader, LogBuilder, ShiftParsers}
-import net.shift.io.IO
+import net.shift.common.{BinReader, LogBuilder, Path, ShiftParsers}
+import net.shift.io.{IO, LocalFileSystem}
+import net.shift.io.IO._
 
 
 class HttpParser extends ShiftParsers {
@@ -42,7 +43,7 @@ class HttpParser extends ShiftParsers {
       List(TextHeader(name.trim, IO.bufferToString(value)))
   }
 
-  def httpHeaders: Parser[Seq[HeaderItem]] = rep(cookie | header) ^^ { _ flatten }
+  def httpHeaders: Parser[Seq[HeaderItem]] = rep(header | cookie) ^^ { _ flatten }
 
   def httpBody: Parser[Body] = until(atEnd, retryPInput = false) ^^ { a =>
     Body(List(a))
@@ -54,22 +55,22 @@ class HttpParser extends ShiftParsers {
   }
 
   def parse(reader: BinReader): Try[Request] = {
-    if (log.isInfo) {
+    if (log.isDebug) {
       val bufs = reader.in.map { _.duplicate }
-      log.info("Parsing data " + (for { b <- bufs } yield {
+      log.debug("Parsing data " + (for { b <- bufs } yield {
         b.toString
       }).mkString("\n"))
-      log.info(IO.buffersToString(bufs))
+      log.debug(IO.buffersToString(bufs))
     }
 
     http(reader) match {
       case Success(r, _) => scala.util.Success(r)
       case Failure(f, p) =>
-        log.info("Failed at position: " + p.pos.column)
-        scala.util.Failure(new Exception(f))
+        log.debug("Failed at position: " + p.pos.column + " " + f)
+        scala.util.Failure(new Exception("Failed at position: " + p.pos.column + " " + f))
       case Error(f, p) =>
-        log.info("Error at position: " + p.pos.column)
-        scala.util.Failure(new Exception(f))
+        log.debug("Error at position: " + p.pos.column + " " + f)
+        scala.util.Failure(new Exception("Error at position: " + p.pos.column + " " + f))
     }
   }
 
