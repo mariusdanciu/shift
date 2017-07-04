@@ -6,7 +6,7 @@ import java.nio.ByteBuffer
 import java.nio.channels.{Channels, ReadableByteChannel}
 
 import net.shift.common.XmlUtils.mkString
-import net.shift.common.{LogBuilder, Path}
+import net.shift.common.{LogBuilder, Path, ShiftFailure}
 
 import scala.annotation.tailrec
 import scala.util.control.Exception.catching
@@ -32,6 +32,14 @@ object IO {
 
   def fromArray[O](in: ByteBuffer): BinProducer = singleProducer(in)
 
+  def sizeOf(prod: BinProducer): Try[Long] = prod(Iteratee.foldLeft(0L) {
+    case (acc, r) => acc + r.limit()
+  }) match {
+    case Done(size, _) => Success(size)
+    case Error(t) => Failure(t)
+    case e => ShiftFailure(e.toString).toTry
+  }
+
   def chunksProducer[O](in: Seq[ByteBuffer]): BinProducer = new BinProducer {
 
     var current: List[ByteBuffer] = in toList
@@ -45,7 +53,7 @@ object IO {
             f(EOF)
           case (Cont(f), buf :: tail) =>
             f(Data(buf)) match {
-              case c @ Cont(_) =>
+              case c@Cont(_) =>
                 current = tail
                 handle(c)
               case r => r
@@ -66,7 +74,7 @@ object IO {
 
     def apply[O](it: Iteratee[ByteBuffer, O]): Iteratee[ByteBuffer, O] = it match {
       case Cont(f) => f(Empty)
-      case state   => state
+      case state => state
     }
   }
 
@@ -114,7 +122,7 @@ object IO {
 
             if (read != -1) {
               f(Data(data)) match {
-                case c @ Cont(_) =>
+                case c@Cont(_) =>
                   loop(c)
                 case e => e
               }
@@ -127,7 +135,9 @@ object IO {
         }
       }
 
-      failover { loop(ait) }
+      failover {
+        loop(ait)
+      }
 
     }
   }
@@ -137,8 +147,8 @@ object IO {
       concat(acc, e)
     }) match {
       case Done(v, _) => Success(v)
-      case Error(t)   => Failure(t)
-      case _          => Failure(new IllegalStateException)
+      case Error(t) => Failure(t)
+      case _ => Failure(new IllegalStateException)
     }
   }
 
@@ -147,8 +157,8 @@ object IO {
       acc ++ List(e)
     }) match {
       case Done(v, _) => Success(v)
-      case Error(t)   => Failure(t)
-      case _          => Failure(new IllegalStateException)
+      case Error(t) => Failure(t)
+      case _ => Failure(new IllegalStateException)
     }
   }
 
@@ -197,35 +207,43 @@ object IO {
       concat(acc, e)
     }) match {
       case Done(v, _) => Success(v)
-      case Error(t)   => Failure(t)
-      case _          => Failure(new IllegalStateException)
+      case Error(t) => Failure(t)
+      case _ => Failure(new IllegalStateException)
     }
   }
 
-  def producerToString(in: BinProducer): Try[String] = producerToArray(in) map { new String(_, "utf-8") }
+  def producerToString(in: BinProducer): Try[String] = producerToArray(in) map {
+    new String(_, "utf-8")
+  }
 
   def producerToCharCodes(in: BinProducer): Try[String] = producerToArray(in) map { a => a.map { c => "%02d ".format(c.toInt) }.mkString }
 
 }
 
-sealed trait Iteratee[I, O] { self =>
+sealed trait Iteratee[I, O] {
+  self =>
   def map[B](f: O => B): Iteratee[I, B]
+
   def flatMap[B](f: O => Iteratee[I, B]): Iteratee[I, B]
+
   def filter(f: O => Boolean): Iteratee[I, O]
 }
 
 case class Cont[I, O](g: In[I] => Iteratee[I, O]) extends Iteratee[I, O] {
   def map[B](f: O => B): Iteratee[I, B] = Cont(i => g(i) map f)
+
   def flatMap[B](f: O => Iteratee[I, B]) = Cont(i => g(i) flatMap f)
+
   def filter(f: O => Boolean) = Cont(i => g(i) filter f)
 }
 
 case class Done[I, O](v: O, rest: In[I]) extends Iteratee[I, O] {
   def map[B](f: O => B): Iteratee[I, B] = Done(f(v), rest)
+
   def flatMap[B](f: O => Iteratee[I, B]): Iteratee[I, B] = f(v) match {
-    case Done(d, _)     => Done(d, rest)
-    case Cont(g)        => g(rest)
-    case err @ Error(_) => err
+    case Done(d, _) => Done(d, rest)
+    case Cont(g) => g(rest)
+    case err@Error(_) => err
   }
 
   def filter(f: O => Boolean): Iteratee[I, O] = if (f(v))
@@ -236,19 +254,26 @@ case class Done[I, O](v: O, rest: In[I]) extends Iteratee[I, O] {
 
 case class Error[I, O](t: Throwable) extends Iteratee[I, O] {
   def map[B](f: O => B): Iteratee[I, B] = Error(t)
+
   def flatMap[B](f: O => Iteratee[I, B]) = Error(t)
+
   def filter(f: O => Boolean) = Error(t)
 }
 
 object In {
   def apply[T](v: T): In[T] = Data(v)
+
   def fail(t: Throwable) = Fail(t)
 }
 
 trait In[+T]
+
 case class Data[+T](v: T) extends In[T]
+
 case object EOF extends In[Nothing]
+
 case object Empty extends In[Nothing]
+
 case class Fail(t: Throwable) extends In[Nothing]
 
 trait IterateeProducer[I] {
@@ -266,11 +291,12 @@ object Iteratee {
           } catch {
             case e: Exception => Error(e)
           }
-        case EOF     => Done(o, i)
+        case EOF => Done(o, i)
         case Fail(t) => Error(t)
-        case Empty   => Done(o, i)
+        case Empty => Done(o, i)
       }
     }
+
     Cont(step(initial))
   }
 
@@ -282,7 +308,7 @@ object IterateeProducer {
     def apply[O](it: Iteratee[T, O]): Iteratee[T, O] = (it /: t) { (acc, el) =>
       acc match {
         case Cont(f) => f(el)
-        case state   => state
+        case state => state
       }
     }
   }
