@@ -36,7 +36,7 @@ class ConfigTest extends UnitTest {
         | }
         |
         |  prop5 = val5
-        |  iprop = 234, 2, 3
+        |  iprop.list = 234, 2, 3
         |
         |
     """.stripMargin)
