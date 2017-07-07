@@ -18,6 +18,7 @@ object Main extends App {
     80,
     3)).start(HttpProtocolBuilder(req => resp =>
 
+
     if (req.uri.path == "/pic") {
       val r = Responses.imageFileResponse(Path("./shift-server/src/test/resources/pic.jpg"))
       r map {

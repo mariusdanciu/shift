@@ -1,8 +1,10 @@
-package net.shift.server.http.test
+package net.shift.engine
 
-import scala.util.Try
-import scala.util.Failure
-import scala.util.Success
+import net.shift.common.{ShiftFailure, State}
+import net.shift.common.State.state
+import net.shift.server.http.Request
+
+import scala.util.{Failure, Success, Try}
 
 object Routes extends App {
 
@@ -15,6 +17,10 @@ object Routes extends App {
     println(d)
     println(p)
     v
+  }
+
+  def route: State[Request, Request] = state {
+    r => Success((r, r))
   }
 
   val res = ("a" / ListPart(2) / "b" / IntPart / IntPart / DoublePart / IntPart) {
@@ -30,7 +36,9 @@ object Routes extends App {
 
 object RoutesImplicits {
   implicit def string2Static(s: String): Static = Static(s)
+
   implicit def string2Route(s: String): PathDef0 = PathDef0(List(Static(s)))
+
   implicit def static2Route(s: Static): PathDef0 = PathDef0(List(s))
 }
 
@@ -43,7 +51,7 @@ case class Static(name: String) extends PathSpec {
 
   def extract(path: List[String]): Try[(Data, List[String])] = path match {
     case h :: tail => Success((h, tail))
-    case l         => Failure(new Exception(s"$l did not match"))
+    case l => Failure(new Exception(s"$l did not match"))
   }
 
   def scheme = name
@@ -56,8 +64,10 @@ trait PathPart[A] extends PathSpec {
 case object IntPart extends PathPart[Int] {
 
   def extract(path: List[String]) = path match {
-    case h :: tail => Try { (h.toInt, tail) }
-    case l         => Failure(new Exception(s"$l did not match"))
+    case h :: tail => Try {
+      (h.toInt, tail)
+    }
+    case l => Failure(new Exception(s"$l did not match"))
   }
 
   def scheme = "{:int}"
@@ -66,8 +76,10 @@ case object IntPart extends PathPart[Int] {
 case object DoublePart extends PathPart[Double] {
 
   def extract(path: List[String]) = path match {
-    case h :: tail => Try { (h.toDouble, tail) }
-    case l         => Failure(new Exception(s"$l did not match"))
+    case h :: tail => Try {
+      (h.toDouble, tail)
+    }
+    case l => Failure(new Exception(s"$l did not match"))
   }
 
   def scheme = "{:double}"
@@ -76,8 +88,10 @@ case object DoublePart extends PathPart[Double] {
 case object StringPart extends PathPart[String] {
 
   def extract(path: List[String]) = path match {
-    case h :: tail => Try { (h.toString, tail) }
-    case l         => Failure(new Exception(s"$l did not match"))
+    case h :: tail => Try {
+      (h.toString, tail)
+    }
+    case l => Failure(new Exception(s"$l did not match"))
   }
 
   def scheme = "{:string}"
@@ -85,6 +99,7 @@ case object StringPart extends PathPart[String] {
 
 case object TailPart extends PathPart[List[String]] {
   def extract(path: List[String]) = Success((path, Nil))
+
   def scheme = "{:[string]}"
 }
 
@@ -95,31 +110,56 @@ case class ListPart(numParts: Int) extends PathPart[List[String]] {
   } else {
     Failure(new Exception(s"$path did not match"))
   }
+
   def scheme = s"{:[String]($numParts)}"
 }
 
 case class PathDef0(elems: List[PathSpec]) {
   def /(static: Static) = PathDef0(elems :+ static)
+
   def /[T](p: PathPart[T]) = PathDef1[T](elems :+ p, p)
+
   def apply[R](f: () => R) = Route0(this, f)
 }
 
 case class PathDef1[A](elems: List[PathSpec], p: PathPart[A]) {
   def /(static: Static) = PathDef1[A](elems :+ static, p)
+
   def /[A2](p2: PathPart[A2]) = PathDef2[A, A2](elems :+ p2, p, p2)
+
   def apply[R](f: A => R) = Route1(this, f)
+
+  def parts = state[Request, A] {
+    r => Route1[A, A](this, a => a).matching(r.uri.path.split("/").toList).map { a => (r, a) }
+  }
 }
 
 case class PathDef2[A, B](elems: List[PathSpec], p1: PathPart[A], p2: PathPart[B]) {
   def /(static: Static) = PathDef2[A, B](elems :+ static, p1, p2)
+
   def /[C](p3: PathPart[C]) = PathDef3[A, B, C](elems :+ p3, p1, p2, p3)
+
   def apply[R](f: (A, B) => R) = Route2(this, f)
+
+  def parts = state[Request, (A, B)] {
+    r =>
+      Route2[A, B, (A, B)](this,
+        (a: A, b: B) => (a, b)).matching(r.uri.path.split("/").toList).map { x => (r, x) }
+  }
 }
 
 case class PathDef3[A, B, C](elems: List[PathSpec], p1: PathPart[A], p2: PathPart[B], p3: PathPart[C]) {
   def /(static: Static) = PathDef3[A, B, C](elems :+ static, p1, p2, p3)
+
   def /[D](p4: PathPart[D]) = PathDef4[A, B, C, D](elems :+ p4, p1, p2, p3, p4)
+
   def apply[R](f: (A, B, C) => R) = Route3(this, f)
+
+  def parts = state[Request, (A, B, C)] {
+    r =>
+      Route3[A, B, C, (A, B, C)](this,
+        (a, b, c) => (a, b, c)).matching(r.uri.path.split("/").toList).map { x => (r, x) }
+  }
 }
 
 case class PathDef4[A, B, C, D](elems: List[PathSpec],
@@ -128,8 +168,16 @@ case class PathDef4[A, B, C, D](elems: List[PathSpec],
                                 p3: PathPart[C],
                                 p4: PathPart[D]) {
   def /(static: Static) = PathDef4[A, B, C, D](elems :+ static, p1, p2, p3, p4)
+
   def /[E](p5: PathPart[E]) = PathDef5[A, B, C, D, E](elems :+ p5, p1, p2, p3, p4, p5)
+
   def apply[R](f: (A, B, C, D) => R) = Route4(this, f)
+
+  def parts = state[Request, (A, B, C, D)] {
+    r =>
+      Route4[A, B, C, D, (A, B, C, D)](this,
+        (a, b, c, d) => (a, b, c, d)).matching(r.uri.path.split("/").toList).map { x => (r, x) }
+  }
 }
 
 case class PathDef5[A, B, C, D, E](elems: List[PathSpec],
@@ -139,7 +187,14 @@ case class PathDef5[A, B, C, D, E](elems: List[PathSpec],
                                    p4: PathPart[D],
                                    p5: PathPart[E]) {
   def /(static: Static) = PathDef5[A, B, C, D, E](elems :+ static, p1, p2, p3, p4, p5)
+
   def apply[R](f: (A, B, C, D, E) => R) = Route5(this, f)
+
+  def parts = state[Request, (A, B, C, D, E)] {
+    r =>
+      Route5[A, B, C, D, E, (A, B, C, D, E)](this,
+        (a, b, c, d, e) => (a, b, c, d, e)).matching(r.uri.path.split("/").toList).map { x => (r, x) }
+  }
 }
 
 sealed trait Route[R] {
@@ -180,7 +235,9 @@ case class Route0[R](rd: PathDef0, f: () => R) extends Route[R] {
     walk0(path, rd.elems) map { b => f() }
   }
 
-  def scheme = rd.elems.map { _.scheme }.mkString("/")
+  def scheme = rd.elems.map {
+    _.scheme
+  }.mkString("/")
 }
 
 case class Route1[A, R](rd: PathDef1[A], f: A => R) extends Route[R] {
@@ -194,8 +251,11 @@ case class Route1[A, R](rd: PathDef1[A], f: A => R) extends Route[R] {
     }
   }
 
-  def scheme = rd.elems.map { _.scheme }.mkString("/")
+  def scheme = rd.elems.map {
+    _.scheme
+  }.mkString("/")
 }
+
 case class Route2[A, B, R](rd: PathDef2[A, B], f: (A, B) => R) extends Route[R] {
   def matching(path: List[String]): Try[R] = {
 
@@ -208,7 +268,9 @@ case class Route2[A, B, R](rd: PathDef2[A, B], f: (A, B) => R) extends Route[R] 
     }
   }
 
-  def scheme = rd.elems.map { _.scheme }.mkString("/")
+  def scheme = rd.elems.map {
+    _.scheme
+  }.mkString("/")
 }
 
 case class Route3[A, B, C, R](rd: PathDef3[A, B, C], f: (A, B, C) => R) extends Route[R] {
@@ -224,7 +286,9 @@ case class Route3[A, B, C, R](rd: PathDef3[A, B, C], f: (A, B, C) => R) extends 
     }
   }
 
-  def scheme = rd.elems.map { _.scheme }.mkString("/")
+  def scheme = rd.elems.map {
+    _.scheme
+  }.mkString("/")
 }
 
 case class Route4[A, B, C, D, R](rd: PathDef4[A, B, C, D], f: (A, B, C, D) => R) extends Route[R] {
@@ -241,7 +305,9 @@ case class Route4[A, B, C, D, R](rd: PathDef4[A, B, C, D], f: (A, B, C, D) => R)
     }
   }
 
-  def scheme = rd.elems.map { _.scheme }.mkString("/")
+  def scheme = rd.elems.map {
+    _.scheme
+  }.mkString("/")
 }
 
 case class Route5[A, B, C, D, E, R](rd: PathDef5[A, B, C, D, E], f: (A, B, C, D, E) => R) extends Route[R] {
@@ -259,5 +325,7 @@ case class Route5[A, B, C, D, E, R](rd: PathDef5[A, B, C, D, E], f: (A, B, C, D,
     }
   }
 
-  def scheme = rd.elems.map { _.scheme }.mkString("/")
+  def scheme = rd.elems.map {
+    _.scheme
+  }.mkString("/")
 }
