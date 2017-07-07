@@ -17,7 +17,7 @@ object Routes extends App {
     v
   }
 
-  val res = ("a" / PathNParam(2) / "b" / IntParam / IntParam / DoubleParam / IntParam) {
+  val res = ("a" / ListPart(2) / "b" / IntPart / IntPart / DoublePart / IntPart) {
     service
   }
 
@@ -49,11 +49,11 @@ case class Static(name: String) extends PathSpec {
   def scheme = name
 }
 
-trait PathParam[A] extends PathSpec {
+trait PathPart[A] extends PathSpec {
   def extract(path: List[String]): Try[(A, List[String])]
 }
 
-case object IntParam extends PathParam[Int] {
+case object IntPart extends PathPart[Int] {
 
   def extract(path: List[String]) = path match {
     case h :: tail => Try { (h.toInt, tail) }
@@ -63,7 +63,7 @@ case object IntParam extends PathParam[Int] {
   def scheme = "{:int}"
 }
 
-case object DoubleParam extends PathParam[Double] {
+case object DoublePart extends PathPart[Double] {
 
   def extract(path: List[String]) = path match {
     case h :: tail => Try { (h.toDouble, tail) }
@@ -73,7 +73,7 @@ case object DoubleParam extends PathParam[Double] {
   def scheme = "{:double}"
 }
 
-case object StringParam extends PathParam[String] {
+case object StringPart extends PathPart[String] {
 
   def extract(path: List[String]) = path match {
     case h :: tail => Try { (h.toString, tail) }
@@ -83,12 +83,12 @@ case object StringParam extends PathParam[String] {
   def scheme = "{:string}"
 }
 
-case object TailPathParam extends PathParam[List[String]] {
+case object TailPart extends PathPart[List[String]] {
   def extract(path: List[String]) = Success((path, Nil))
   def scheme = "{:[string]}"
 }
 
-case class PathNParam(numParts: Int) extends PathParam[List[String]] {
+case class ListPart(numParts: Int) extends PathPart[List[String]] {
 
   def extract(path: List[String]) = if (path.size >= numParts) {
     Success(path.splitAt(numParts))
@@ -100,44 +100,44 @@ case class PathNParam(numParts: Int) extends PathParam[List[String]] {
 
 case class PathDef0(elems: List[PathSpec]) {
   def /(static: Static) = PathDef0(elems :+ static)
-  def /[T](p: PathParam[T]) = PathDef1[T](elems :+ p, p)
+  def /[T](p: PathPart[T]) = PathDef1[T](elems :+ p, p)
   def apply[R](f: () => R) = Route0(this, f)
 }
 
-case class PathDef1[A](elems: List[PathSpec], p: PathParam[A]) {
+case class PathDef1[A](elems: List[PathSpec], p: PathPart[A]) {
   def /(static: Static) = PathDef1[A](elems :+ static, p)
-  def /[A2](p2: PathParam[A2]) = PathDef2[A, A2](elems :+ p2, p, p2)
+  def /[A2](p2: PathPart[A2]) = PathDef2[A, A2](elems :+ p2, p, p2)
   def apply[R](f: A => R) = Route1(this, f)
 }
 
-case class PathDef2[A, B](elems: List[PathSpec], p1: PathParam[A], p2: PathParam[B]) {
+case class PathDef2[A, B](elems: List[PathSpec], p1: PathPart[A], p2: PathPart[B]) {
   def /(static: Static) = PathDef2[A, B](elems :+ static, p1, p2)
-  def /[C](p3: PathParam[C]) = PathDef3[A, B, C](elems :+ p3, p1, p2, p3)
+  def /[C](p3: PathPart[C]) = PathDef3[A, B, C](elems :+ p3, p1, p2, p3)
   def apply[R](f: (A, B) => R) = Route2(this, f)
 }
 
-case class PathDef3[A, B, C](elems: List[PathSpec], p1: PathParam[A], p2: PathParam[B], p3: PathParam[C]) {
+case class PathDef3[A, B, C](elems: List[PathSpec], p1: PathPart[A], p2: PathPart[B], p3: PathPart[C]) {
   def /(static: Static) = PathDef3[A, B, C](elems :+ static, p1, p2, p3)
-  def /[D](p4: PathParam[D]) = PathDef4[A, B, C, D](elems :+ p4, p1, p2, p3, p4)
+  def /[D](p4: PathPart[D]) = PathDef4[A, B, C, D](elems :+ p4, p1, p2, p3, p4)
   def apply[R](f: (A, B, C) => R) = Route3(this, f)
 }
 
 case class PathDef4[A, B, C, D](elems: List[PathSpec],
-                                p1: PathParam[A],
-                                p2: PathParam[B],
-                                p3: PathParam[C],
-                                p4: PathParam[D]) {
+                                p1: PathPart[A],
+                                p2: PathPart[B],
+                                p3: PathPart[C],
+                                p4: PathPart[D]) {
   def /(static: Static) = PathDef4[A, B, C, D](elems :+ static, p1, p2, p3, p4)
-  def /[E](p5: PathParam[E]) = PathDef5[A, B, C, D, E](elems :+ p5, p1, p2, p3, p4, p5)
+  def /[E](p5: PathPart[E]) = PathDef5[A, B, C, D, E](elems :+ p5, p1, p2, p3, p4, p5)
   def apply[R](f: (A, B, C, D) => R) = Route4(this, f)
 }
 
 case class PathDef5[A, B, C, D, E](elems: List[PathSpec],
-                                   p1: PathParam[A],
-                                   p2: PathParam[B],
-                                   p3: PathParam[C],
-                                   p4: PathParam[D],
-                                   p5: PathParam[E]) {
+                                   p1: PathPart[A],
+                                   p2: PathPart[B],
+                                   p3: PathPart[C],
+                                   p4: PathPart[D],
+                                   p5: PathPart[E]) {
   def /(static: Static) = PathDef5[A, B, C, D, E](elems :+ static, p1, p2, p3, p4, p5)
   def apply[R](f: (A, B, C, D, E) => R) = Route5(this, f)
 }
@@ -159,13 +159,13 @@ sealed trait Route[R] {
 
   }
 
-  protected def walk[A](path: List[String], specs: List[PathSpec], pp: PathParam[A]): Try[(A, List[String], List[PathSpec])] = (path, specs) match {
+  protected def walk[A](path: List[String], specs: List[PathSpec], pp: PathPart[A]): Try[(A, List[String], List[PathSpec])] = (path, specs) match {
     case (h1 :: tail1, Static(v) :: tail2) =>
       if (h1 == v)
         walk(tail1, tail2, pp)
       else
         Failure(new Exception(s"part $h1 != $v"))
-    case (h, (p: PathParam[_]) :: tail2) =>
+    case (h, (p: PathPart[_]) :: tail2) =>
       if (p == pp)
         pp.extract(h) map { case (a, pth) => (a, pth, tail2) }
       else
