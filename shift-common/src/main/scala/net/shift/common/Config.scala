@@ -75,7 +75,9 @@ object ConfigParser {
 class ConfigParser extends RegexParsers {
   override def skipWhitespace = false
 
-  def word: Parser[String] = """\w+""".r
+  def word: Parser[String] = repsep("""\w+""".r, accept('.')) ^^ {
+    case l => l.mkString(".")
+  }
 
   def ws = rep(accept(' ') | accept('\t'))
 

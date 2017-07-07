@@ -3,7 +3,7 @@ package net.shift.server.http
 import java.nio.ByteBuffer
 
 import net.shift.common.{BinReader, LogBuilder}
-import net.shift.io.BinProducer
+import net.shift.io.{BinProducer, Done, IO, Iteratee}
 import net.shift.server.protocol.{Protocol, ProtocolBuilder}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -37,13 +37,16 @@ class HttpProtocol(service: HTTPService) extends Protocol {
         new HttpParser().parse(toParse) match {
           case r@Success(req) =>
             keepAlive = req.stringHeader("Connection").forall(_ == "keep-alive")
-            tryRun(msg.size, req, write)
+
+            IO.sizeOf(req.body).map {
+              tryRun(_, req, write)
+            }
           case Failure(f) =>
             log.warn("Failed parsing buffer " + f + " " + toParse)
             readState = Some(msg)
         }
 
-      case Some(h@Request(m, u, v, hd, body@Body(seq))) =>
+      case Some(h@Request(_, _, _, _, body@Body(seq))) =>
         val newSize = body.size + in.limit()
         val msg = Body(seq ++ Seq(in))
         val req = h.copy(body = msg)
@@ -68,6 +71,7 @@ class HttpProtocol(service: HTTPService) extends Protocol {
 
   private def requestComplete(bodySize: Long, http: Request): Boolean = {
     val contentLength = http.longHeader("Content-Length").getOrElse(-1L)
+    log.debug(s"request complete: Content-Length: $contentLength : body size: $bodySize - ${contentLength <= bodySize}")
     contentLength <= bodySize
   }
 
