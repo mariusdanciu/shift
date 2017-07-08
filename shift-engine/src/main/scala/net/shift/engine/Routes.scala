@@ -1,37 +1,15 @@
 package net.shift.engine
 
-import net.shift.common.{ShiftFailure, State}
 import net.shift.common.State.state
 import net.shift.server.http.Request
 
 import scala.util.{Failure, Success, Try}
 
-object Routes extends App {
 
-  import RoutesImplicits._
+object / {
+  def apply(static: Static) = PathDef0(Static("") :: static :: Nil)
 
-  def service(v: List[String], s: Int, s2: Int, d: Double, p: Int) = {
-    println(v)
-    println(s)
-    println(s2)
-    println(d)
-    println(p)
-    v
-  }
-
-  def route: State[Request, Request] = state {
-    r => Success((r, r))
-  }
-
-  val res = ("a" / ListPart(2) / "b" / IntPart / IntPart / DoublePart / IntPart) {
-    service
-  }
-
-  val out = res.matching("a" :: "123" :: "s" :: "b" :: "2" :: "5" :: "3.14" :: "10" :: Nil)
-
-  println(res.scheme)
-  println(out)
-
+  def apply[A](p3: PathPart[A]) = PathDef1[A](List(Static(""), p3), p3)
 }
 
 object RoutesImplicits {
@@ -40,6 +18,7 @@ object RoutesImplicits {
   implicit def string2Route(s: String): PathDef0 = PathDef0(List(Static(s)))
 
   implicit def static2Route(s: Static): PathDef0 = PathDef0(List(s))
+
 }
 
 sealed trait PathSpec {
@@ -130,7 +109,7 @@ case class PathDef1[A](elems: List[PathSpec], p: PathPart[A]) {
   def apply[R](f: A => R) = Route1(this, f)
 
   def parts = state[Request, A] {
-    r => Route1[A, A](this, a => a).matching(r.uri.path.split("/").toList).map { a => (r, a) }
+    r => Route1[A, A](this, a => a).matching(r.uri.path).map { a => (r, a) }
   }
 }
 
@@ -144,7 +123,7 @@ case class PathDef2[A, B](elems: List[PathSpec], p1: PathPart[A], p2: PathPart[B
   def parts = state[Request, (A, B)] {
     r =>
       Route2[A, B, (A, B)](this,
-        (a: A, b: B) => (a, b)).matching(r.uri.path.split("/").toList).map { x => (r, x) }
+        (a: A, b: B) => (a, b)).matching(r.uri.path).map { x => (r, x) }
   }
 }
 
@@ -158,7 +137,7 @@ case class PathDef3[A, B, C](elems: List[PathSpec], p1: PathPart[A], p2: PathPar
   def parts = state[Request, (A, B, C)] {
     r =>
       Route3[A, B, C, (A, B, C)](this,
-        (a, b, c) => (a, b, c)).matching(r.uri.path.split("/").toList).map { x => (r, x) }
+        (a, b, c) => (a, b, c)).matching(r.uri.path).map { x => (r, x) }
   }
 }
 
@@ -176,7 +155,7 @@ case class PathDef4[A, B, C, D](elems: List[PathSpec],
   def parts = state[Request, (A, B, C, D)] {
     r =>
       Route4[A, B, C, D, (A, B, C, D)](this,
-        (a, b, c, d) => (a, b, c, d)).matching(r.uri.path.split("/").toList).map { x => (r, x) }
+        (a, b, c, d) => (a, b, c, d)).matching(r.uri.path).map { x => (r, x) }
   }
 }
 
@@ -190,16 +169,16 @@ case class PathDef5[A, B, C, D, E](elems: List[PathSpec],
 
   def apply[R](f: (A, B, C, D, E) => R) = Route5(this, f)
 
-  def parts = state[Request, (A, B, C, D, E)] {
+  def extract = state[Request, (A, B, C, D, E)] {
     r =>
       Route5[A, B, C, D, E, (A, B, C, D, E)](this,
-        (a, b, c, d, e) => (a, b, c, d, e)).matching(r.uri.path.split("/").toList).map { x => (r, x) }
+        (a, b, c, d, e) => (a, b, c, d, e)).matching(r.uri.path).map { x => (r, x) }
   }
 }
 
 sealed trait Route[R] {
 
-  def matching(path: List[String]): Try[R]
+  def matching(path: String): Try[R]
 
   def scheme: String
 
@@ -231,8 +210,8 @@ sealed trait Route[R] {
 }
 
 case class Route0[R](rd: PathDef0, f: () => R) extends Route[R] {
-  def matching(path: List[String]): Try[R] = {
-    walk0(path, rd.elems) map { b => f() }
+  def matching(path: String): Try[R] = {
+    walk0(path.split("/").toList, rd.elems) map { b => f() }
   }
 
   def scheme = rd.elems.map {
@@ -242,9 +221,9 @@ case class Route0[R](rd: PathDef0, f: () => R) extends Route[R] {
 
 case class Route1[A, R](rd: PathDef1[A], f: A => R) extends Route[R] {
 
-  def matching(path: List[String]): Try[R] = {
+  def matching(path: String): Try[R] = {
     for {
-      (v, rest2, specs2) <- walk(path, rd.elems, rd.p)
+      (v, rest2, specs2) <- walk(path.split("/").toList, rd.elems, rd.p)
       _ <- walk0(rest2, specs2)
     } yield {
       f(v)
@@ -257,10 +236,10 @@ case class Route1[A, R](rd: PathDef1[A], f: A => R) extends Route[R] {
 }
 
 case class Route2[A, B, R](rd: PathDef2[A, B], f: (A, B) => R) extends Route[R] {
-  def matching(path: List[String]): Try[R] = {
+  def matching(path: String): Try[R] = {
 
     for {
-      (a, rest, specs1) <- walk(path, rd.elems, rd.p1)
+      (a, rest, specs1) <- walk(path.split("/").toList, rd.elems, rd.p1)
       (b, rest2, specs2) <- walk(rest, specs1, rd.p2)
       _ <- walk0(rest2, specs2)
     } yield {
@@ -274,10 +253,10 @@ case class Route2[A, B, R](rd: PathDef2[A, B], f: (A, B) => R) extends Route[R] 
 }
 
 case class Route3[A, B, C, R](rd: PathDef3[A, B, C], f: (A, B, C) => R) extends Route[R] {
-  def matching(path: List[String]): Try[R] = {
+  def matching(path: String): Try[R] = {
 
     for {
-      (a, rest1, specs1) <- walk(path, rd.elems, rd.p1)
+      (a, rest1, specs1) <- walk(path.split("/").toList, rd.elems, rd.p1)
       (b, rest2, specs2) <- walk(rest1, specs1, rd.p2)
       (c, rest3, specs3) <- walk(rest2, specs2, rd.p3)
       _ <- walk0(rest3, specs3)
@@ -292,10 +271,10 @@ case class Route3[A, B, C, R](rd: PathDef3[A, B, C], f: (A, B, C) => R) extends 
 }
 
 case class Route4[A, B, C, D, R](rd: PathDef4[A, B, C, D], f: (A, B, C, D) => R) extends Route[R] {
-  def matching(path: List[String]): Try[R] = {
+  def matching(path: String): Try[R] = {
 
     for {
-      (a, rest1, specs1) <- walk(path, rd.elems, rd.p1)
+      (a, rest1, specs1) <- walk(path.split("/").toList, rd.elems, rd.p1)
       (b, rest2, specs2) <- walk(rest1, specs1, rd.p2)
       (c, rest3, specs3) <- walk(rest2, specs2, rd.p3)
       (d, rest4, specs4) <- walk(rest3, specs3, rd.p4)
@@ -311,10 +290,10 @@ case class Route4[A, B, C, D, R](rd: PathDef4[A, B, C, D], f: (A, B, C, D) => R)
 }
 
 case class Route5[A, B, C, D, E, R](rd: PathDef5[A, B, C, D, E], f: (A, B, C, D, E) => R) extends Route[R] {
-  def matching(path: List[String]): Try[R] = {
+  def matching(path: String): Try[R] = {
 
     for {
-      (a, rest1, specs1) <- walk(path, rd.elems, rd.p1)
+      (a, rest1, specs1) <- walk(path.split("/").toList, rd.elems, rd.p1)
       (b, rest2, specs2) <- walk(rest1, specs1, rd.p2)
       (c, rest3, specs3) <- walk(rest2, specs2, rd.p3)
       (d, rest4, specs4) <- walk(rest3, specs3, rd.p4)
