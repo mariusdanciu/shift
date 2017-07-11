@@ -1,10 +1,10 @@
 package net.shift
 package engine
 
-import http._
-import common._
-import scala.util.Success
+import net.shift.common._
 import net.shift.server.http._
+
+import scala.util.Success
 
 object ShiftApplication {
 
@@ -12,6 +12,7 @@ object ShiftApplication {
 
   def service(in: AsyncResponse => Unit): Attempt = Success(in)
 
+  def serve(response: Response) = service(_ (response))
 }
 
 trait ShiftApplication {
