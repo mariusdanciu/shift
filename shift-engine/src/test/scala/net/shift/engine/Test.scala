@@ -34,7 +34,7 @@ object TestApp extends ShiftApplication {
 
   def endpoint1 = for {
     _ <- get
-    (i, s) <- (/("a") / IntPart / "b" / StringPart) extract
+    (i, s) <- emptyPart / "a" / IntPart / "b" / StringPart extract
   } yield {
     serve(Responses.textResponse(s"got it. $i $s"))
   }

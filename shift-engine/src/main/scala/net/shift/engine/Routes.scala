@@ -6,12 +6,6 @@ import net.shift.server.http.Request
 import scala.util.{Failure, Success, Try}
 
 
-object / {
-  def apply(static: Static) = PathDef0(Static("") :: static :: Nil)
-
-  def apply[A](p3: PathPart[A]) = PathDef1[A](List(Static(""), p3), p3)
-}
-
 object RoutesImplicits {
   implicit def string2Static(s: String): Static = Static(s)
 
@@ -19,6 +13,7 @@ object RoutesImplicits {
 
   implicit def static2Route(s: Static): PathDef0 = PathDef0(List(s))
 
+  val emptyPart = PathDef0(Static("") :: Nil)
 }
 
 sealed trait PathSpec {
@@ -122,8 +117,7 @@ case class PathDef2[A, B](elems: List[PathSpec], p1: PathPart[A], p2: PathPart[B
 
   def extract = state[Request, (A, B)] {
     r =>
-      Route2[A, B, (A, B)](this,
-        (a: A, b: B) => (a, b)).matching(r.uri.path).map { x => (r, x) }
+      Route2[A, B, (A, B)](this, (a, b) => (a, b)).matching(r.uri.path).map { x => (r, x) }
   }
 }
 
