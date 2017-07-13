@@ -27,10 +27,11 @@ object Test extends App {
 import ShiftApplication._
 
 object TestApp extends ShiftApplication {
-  override def servingRule: State[Request, Attempt] = endpoint1 |
-    notFound
+  override def servingRule: State[Request, Attempt] =
+    endpoint1 |
+      notFound
 
-  def notFound = service(_ (Responses.textResponse(s"BAD REQUEST")))
+  def notFound = serve(Responses.textResponse(s"BAD REQUEST"))
 
   def endpoint1 = for {
     _ <- get
