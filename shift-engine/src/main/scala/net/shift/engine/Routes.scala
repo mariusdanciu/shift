@@ -6,12 +6,6 @@ import net.shift.server.http.Request
 import scala.util.{Failure, Success, Try}
 
 
-object / {
-  def apply(static: Static) = PathDef0(Static("") :: static :: Nil)
-
-  def apply[A](p3: PathPart[A]) = PathDef1[A](List(Static(""), p3), p3)
-}
-
 object RoutesImplicits {
   implicit def string2Static(s: String): Static = Static(s)
 
@@ -19,6 +13,7 @@ object RoutesImplicits {
 
   implicit def static2Route(s: Static): PathDef0 = PathDef0(List(s))
 
+  val emptyPart = PathDef0(Static("") :: Nil)
 }
 
 sealed trait PathSpec {
@@ -108,7 +103,7 @@ case class PathDef1[A](elems: List[PathSpec], p: PathPart[A]) {
 
   def apply[R](f: A => R) = Route1(this, f)
 
-  def parts = state[Request, A] {
+  def extract = state[Request, A] {
     r => Route1[A, A](this, a => a).matching(r.uri.path).map { a => (r, a) }
   }
 }
@@ -120,10 +115,9 @@ case class PathDef2[A, B](elems: List[PathSpec], p1: PathPart[A], p2: PathPart[B
 
   def apply[R](f: (A, B) => R) = Route2(this, f)
 
-  def parts = state[Request, (A, B)] {
+  def extract = state[Request, (A, B)] {
     r =>
-      Route2[A, B, (A, B)](this,
-        (a: A, b: B) => (a, b)).matching(r.uri.path).map { x => (r, x) }
+      Route2[A, B, (A, B)](this, (a, b) => (a, b)).matching(r.uri.path).map { x => (r, x) }
   }
 }
 
@@ -134,7 +128,7 @@ case class PathDef3[A, B, C](elems: List[PathSpec], p1: PathPart[A], p2: PathPar
 
   def apply[R](f: (A, B, C) => R) = Route3(this, f)
 
-  def parts = state[Request, (A, B, C)] {
+  def extract = state[Request, (A, B, C)] {
     r =>
       Route3[A, B, C, (A, B, C)](this,
         (a, b, c) => (a, b, c)).matching(r.uri.path).map { x => (r, x) }
@@ -152,7 +146,7 @@ case class PathDef4[A, B, C, D](elems: List[PathSpec],
 
   def apply[R](f: (A, B, C, D) => R) = Route4(this, f)
 
-  def parts = state[Request, (A, B, C, D)] {
+  def extract = state[Request, (A, B, C, D)] {
     r =>
       Route4[A, B, C, D, (A, B, C, D)](this,
         (a, b, c, d) => (a, b, c, d)).matching(r.uri.path).map { x => (r, x) }
