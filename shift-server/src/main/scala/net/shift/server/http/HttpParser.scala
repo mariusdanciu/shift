@@ -43,7 +43,7 @@ class HttpParser extends ShiftParsers {
       List(TextHeader(name.trim, IO.bufferToString(value)))
   }
 
-  def httpHeaders: Parser[Seq[HeaderItem]] = rep(header | cookie) ^^ { _ flatten }
+  def httpHeaders: Parser[Seq[HeaderItem]] = rep(cookie | header) ^^ { _ flatten }
 
   def httpBody: Parser[Body] = until(atEnd, retryPInput = false) ^^ { a =>
     Body(List(a))

@@ -16,6 +16,9 @@ import scala.util.{Failure, Success, Try}
 import scala.util.matching.Regex
 
 object HttpPredicates {
+
+  val log = LogBuilder.logger("shift")
+
   val Pattern = new Regex("""\w+:\w*:w*""")
 
   def get: State[Request, Request] = state {
@@ -276,9 +279,11 @@ object HttpPredicates {
   def computeUser(r: Request)(implicit login: Credentials => Try[User], conf: Config): Try[User] = {
     (r.header("Authorization"), r.cookie("identity"), r.cookie("secret")) match {
       case (Some(Authorization(creds@BasicCredentials(user, password))), None, None) =>
+        log.debug("Login with basic credentials.")
         login(creds)
 
       case (_, Some(Cookie(_, Base64(identity))), Some(Cookie(_, secret))) =>
+        log.debug("Login with secret.")
         val computedSecret = Base64.encode(HMac.encodeSHA256(identity, conf.string("hmac.auth.salt", "SHIFT-HMAC-SALT")))
         if (computedSecret == secret) {
           identity match {
@@ -289,7 +294,9 @@ object HttpPredicates {
           ShiftFailure("Identity is incorrect.").toTry
         }
 
-      case _ => ShiftFailure("Cannot determine the user.").toTry
+      case t =>
+        log.debug(s"Cannot determine the user. $t")
+        ShiftFailure("Cannot determine the user.").toTry
     }
   }
 
