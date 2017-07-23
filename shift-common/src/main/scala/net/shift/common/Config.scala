@@ -11,6 +11,7 @@ import scala.util.Try
 import scala.util.parsing.combinator.RegexParsers
 import scala.util.parsing.input.CharSequenceReader
 
+
 object Config {
 
   def apply(props: (String, String)*): Config = new Config(props.toMap)
@@ -40,29 +41,29 @@ object Config {
 class Config(val configs: Map[String, String]) {
   self =>
 
-  def int(p: String, d: Int = 0): Int = int_?(p).getOrElse(d)
+  def int(p: String, d: Int = 0): Int = optInt(p).getOrElse(d)
 
-  def long(p: String, d: Long = 0): Long = long_?(p).getOrElse(d)
+  def long(p: String, d: Long = 0): Long = optLong(p).getOrElse(d)
 
-  def bool(p: String, d: Boolean = false): Boolean = bool_?(p).getOrElse(d)
+  def bool(p: String, d: Boolean = false): Boolean = optBool(p).getOrElse(d)
 
-  def double(p: String, d: Double = 0.0): Double = double_?(p).getOrElse(d)
+  def double(p: String, d: Double = 0.0): Double = optDouble(p).getOrElse(d)
 
-  def string(p: String, d: String = ""): String = string_?(p).getOrElse(d)
+  def string(p: String, d: String = ""): String = optString(p).getOrElse(d)
 
-  def list(p: String, d: List[String] = Nil): List[String] = list_?(p).getOrElse(d)
+  def list(p: String, d: List[String] = Nil): List[String] = optList(p).getOrElse(d)
 
-  def int_?(p: String): Option[Int] = configs.get(p).flatMap(toInt(_))
+  def optInt(p: String): Option[Int] = configs.get(p).flatMap(toInt(_))
 
-  def long_?(p: String): Option[Long] = configs.get(p).flatMap(toLong(_))
+  def optLong(p: String): Option[Long] = configs.get(p).flatMap(toLong(_))
 
-  def bool_?(p: String): Option[Boolean] = configs.get(p).flatMap(toBool(_))
+  def optBool(p: String): Option[Boolean] = configs.get(p).flatMap(toBool(_))
 
-  def double_?(p: String): Option[Double] = configs.get(p).flatMap(toDouble(_))
+  def optDouble(p: String): Option[Double] = configs.get(p).flatMap(toDouble(_))
 
-  def string_?(p: String): Option[String] = configs.get(p)
+  def optString(p: String): Option[String] = configs.get(p)
 
-  def list_?(p: String): Option[List[String]] = configs.get(p).map(s => s.trim.split("\\s*,\\s*").toList)
+  def optList(p: String): Option[List[String]] = configs.get(p).map(s => s.trim.split("\\s*,\\s*").toList)
 
   def +(other: Config) = new Config(configs ++ other.configs)
 

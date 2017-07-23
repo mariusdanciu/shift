@@ -7,21 +7,27 @@ import java.util.concurrent.Executors
 import net.shift.common.{Config, Log, LogBuilder}
 import net.shift.io.IO
 import net.shift.server.Selections._
+import net.shift.server.ServerConfigNames._
+import net.shift.server.http.{HttpProtocolBuilder, HttpService}
 import net.shift.server.protocol.ProtocolBuilder
 
 import scala.annotation.tailrec
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
 
-object Server {
-  def apply() = new Server(ServerConfig(), None)
-
-  def apply(cfg: ServerConfig) = new Server(cfg, None)
-
-  def apply(cfg: ServerConfig, sslConfig: SSLConfig) = new Server(cfg, Some(sslConfig))
+object HttpServer {
+  def apply(config: Config, service: HttpService) = {
+    Server(config, HttpProtocolBuilder(service), ssl = false)
+  }
 }
 
-case class Server(config: ServerConfig, sslConfig: Option[SSLConfig]) extends KeyLogger {
+object HttpsServer {
+  def apply(config: Config, service: HttpService) = {
+    Server(config, HttpProtocolBuilder(service), ssl = true)
+  }
+}
+
+case class Server(config: Config, protocol: ProtocolBuilder, ssl: Boolean) extends KeyLogger {
   protected val log: Log = LogBuilder.logger(classOf[Server])
 
   private val selector = Selector.open
@@ -31,21 +37,24 @@ case class Server(config: ServerConfig, sslConfig: Option[SSLConfig]) extends Ke
   @volatile
   private var running = false
 
-  def start(protocol: ProtocolBuilder): Future[Unit] = {
+  def start(): Future[Unit] = {
 
-    implicit val ctx = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(config.numThreads))
+    val numThreads = if (ssl)
+      config.optInt(`server.ssl.numThreads`).getOrElse(config.int(`server.numThreads`, 10))
+    else
+      config.int(`server.ssl.numThreads`, 10)
+
+    implicit val ctx = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(numThreads))
 
     def makeConnectionHandler(clientKey: SelectionKey): ConnectionHandler = {
-      sslConfig match {
-        case Some(ssl) =>
-          SSLClientHandler(clientKey, ssl, k => {
-            closeClient(k)
-          }, protocol.createProtocol)
-        case _ =>
-          ClientHandler(clientKey, k => {
-            closeClient(k)
-          }, protocol.createProtocol)
-      }
+      if (ssl)
+        SSLClientHandler(clientKey, config, k => {
+          closeClient(k)
+        }, protocol.createProtocol)
+      else
+        ClientHandler(clientKey, k => {
+          closeClient(k)
+        }, protocol.createProtocol)
     }
 
     @tailrec
@@ -102,7 +111,13 @@ case class Server(config: ServerConfig, sslConfig: Option[SSLConfig]) extends Ke
 
     val serverChannel = ServerSocketChannel.open()
     serverChannel.configureBlocking(false)
-    val address = new InetSocketAddress(config.address, config.port)
+
+    val address = if (ssl) {
+      new InetSocketAddress(config.string(`server.address`, "localhost"), config.int(`server.ssl.port`, 8443))
+    } else {
+      new InetSocketAddress(config.string(`server.address`, "localhost"), config.int(`server.port`, 8080))
+    }
+
     serverChannel.bind(address)
     log.info("Server bound to " + address)
 
@@ -134,39 +149,14 @@ case class Server(config: ServerConfig, sslConfig: Option[SSLConfig]) extends Ke
 
 }
 
-object ServerConfig {
-  def apply(): ServerConfig = fromConfig(Config())
+object ServerConfigNames {
+  val `server.address` = "server.address"
+  val `server.port` = "server.port"
+  val `server.numThreads` = "server.numThreads"
 
-
-  def fromConfig(conf: Config): ServerConfig = {
-
-    ServerConfig(
-      name = conf.string("server.name", "Shift-HTTPServer"),
-      address = conf.string("server.address", "0.0.0.0"),
-      port = conf.int("server.port", 8080),
-      numThreads = conf.int("server.numThreads", Runtime.getRuntime.availableProcessors())
-    )
-  }
+  val `server.ssl.port` = "server.ssl.port"
+  val `server.ssl.numThreads` = "server.ssl.numThreads"
+  val `server.ssl.keystore` = "server.ssl.keystore"
+  val `server.ssl.truststore` = "server.ssl.truststore"
+  val `server.ssl.pass` = "server.ssl.pass"
 }
-
-case class ServerConfig(name: String,
-                        address: String,
-                        port: Int,
-                        numThreads: Int)
-
-
-object SSLConfig {
-  def apply(): SSLConfig = fromConfig(Config())
-
-
-  def fromConfig(conf: Config): SSLConfig = {
-
-    SSLConfig(conf.string("server.keystore", "keystore.jks"),
-      conf.string("server.keystore", "keystore.jks"),
-      conf.string("server.pass"))
-  }
-}
-
-case class SSLConfig(keyStoreFile: String,
-                     trustStoreFile: String,
-                     pass: String)

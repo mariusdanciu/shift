@@ -1,11 +1,9 @@
 package net.shift.server.http
 
-import net.shift.common.Path
+import net.shift.common.{Config, Path}
 import net.shift.io.LocalFileSystem
-import net.shift.server.{Server, ServerConfig}
+import net.shift.server.{HttpServer, Server}
 import org.apache.log4j.BasicConfigurator
-
-import scala.util.Success
 
 object Main extends App {
 
@@ -13,12 +11,13 @@ object Main extends App {
 
   BasicConfigurator.configure
 
-  Server(ServerConfig("test",
-    "0.0.0.0",
-    80,
-    3)).start(HttpProtocolBuilder(req => resp =>
+  val config = Config(
+    "server.address" -> "0.0.0.0",
+    "server.port" -> "80",
+    "server.numThreads" -> "10"
+  )
 
-
+  HttpServer(config, req => resp =>
     if (req.uri.path == "/pic") {
       val r = Responses.imageFileResponse(Path("./shift-server/src/test/resources/pic.jpg"))
       r map {
@@ -27,7 +26,7 @@ object Main extends App {
     } else if (req.uri.path == "/cart") {
       resp(Responses.textResponse("got cart"))
     } else
-      resp(Responses.textResponse("Got it"))))
+      resp(Responses.textResponse("Got it"))).start()
 
 }
 

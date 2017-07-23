@@ -10,14 +10,14 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 object HttpProtocolBuilder {
-  def apply(service: HTTPService) = new HttpProtocolBuilder(service)
+  def apply(service: HttpService) = new HttpProtocolBuilder(service)
 }
 
-class HttpProtocolBuilder(service: HTTPService) extends ProtocolBuilder {
+class HttpProtocolBuilder(service: HttpService) extends ProtocolBuilder {
   def createProtocol = new HttpProtocol(service)
 }
 
-class HttpProtocol(service: HTTPService) extends Protocol {
+class HttpProtocol(service: HttpService) extends Protocol {
   private val log = LogBuilder.logger(classOf[HttpProtocol])
 
   var keepAlive = true

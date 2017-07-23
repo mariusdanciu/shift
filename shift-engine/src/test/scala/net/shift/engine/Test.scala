@@ -1,12 +1,12 @@
 package net.shift.engine
 
-import net.shift.common.{Config, Path, State}
-import net.shift.io.LocalFileSystem
-import net.shift.server.{Server, ServerConfig}
-import net.shift.server.http.{HttpProtocolBuilder, Request, Responses}
-import org.apache.log4j.BasicConfigurator
+import net.shift.common.{Config, State}
+import net.shift.engine.RoutesImplicits._
 import net.shift.engine.http.HttpPredicates._
-import RoutesImplicits._
+import net.shift.io.LocalFileSystem
+import net.shift.server.{HttpServer, HttpsServer}
+import net.shift.server.http.{Request, Responses}
+import org.apache.log4j.BasicConfigurator
 
 /**
   * Created by Marius Danciu on 7/11/2017.
@@ -16,15 +16,31 @@ object Test extends App {
 
   BasicConfigurator.configure
 
-  implicit val cfg = Config()
 
-  Server(ServerConfig("test",
-    "0.0.0.0",
-    80,
-    3)).start(HttpProtocolBuilder(TestApp.shiftService))
+  implicit val config = Config fromString
+    """
+      |server {
+      |  address = 0.0.0.0
+      |  port = 80
+      |  numThreads = 50
+      |
+      |  ssl {
+      |    port = 443
+      |    numThreads = 30
+      |    keystore = .keystore
+      |    truststore = .truststore
+      |    pass = idid.1
+      |  }
+      |}
+    """.stripMargin get
+
+
+
+  HttpServer(config, TestApp.shiftService).start()
+  HttpsServer(config, TestApp.shiftService).start()
 }
 
-import ShiftApplication._
+import net.shift.engine.ShiftApplication._
 
 object TestApp extends ShiftApplication {
   override def servingRule: State[Request, Attempt] =

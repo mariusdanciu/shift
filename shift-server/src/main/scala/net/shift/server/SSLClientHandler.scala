@@ -7,16 +7,17 @@ import java.security.KeyStore
 import java.util.concurrent.Executors
 import javax.net.ssl._
 
-import net.shift.common.{Log, LogBuilder}
+import net.shift.common.{Config, Log, LogBuilder}
 import net.shift.io._
 import net.shift.server.Selections._
+import net.shift.server.ServerConfigNames._
 import net.shift.server.protocol.Protocol
 
 import scala.concurrent.ExecutionContext
 import scala.util.Try
 
 private[server] case class SSLClientHandler(key: SelectionKey,
-                                            sslConfig: SSLConfig,
+                                            config: Config,
                                             onClose: SelectionKey => Unit,
                                             protocol: Protocol) extends SSLOps with ConnectionHandler with KeyLogger {
   protected val log: Log = LogBuilder.logger(classOf[SSLClientHandler])
@@ -67,9 +68,10 @@ private[server] case class SSLClientHandler(key: SelectionKey,
     val ks = KeyStore.getInstance("JKS")
     val ts = KeyStore.getInstance("JKS")
 
-    val passPhrase = sslConfig.pass.toCharArray
-    ks.load(new FileInputStream(sslConfig.keyStoreFile), passPhrase)
-    ts.load(new FileInputStream(sslConfig.trustStoreFile), passPhrase)
+    val passPhrase = config.string(`server.ssl.pass`, "test").toCharArray
+
+    ks.load(new FileInputStream(config.string(`server.ssl.keystore`, ".keystore")), passPhrase)
+    ts.load(new FileInputStream(config.string(`server.ssl.truststore`, ".truststore")), passPhrase)
 
     val kmf = KeyManagerFactory.getInstance("SunX509")
     kmf.init(ks, passPhrase)
