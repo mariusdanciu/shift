@@ -42,9 +42,7 @@ trait SSLOps {
              clientDecryptedData: ByteBuffer): OPResult = {
 
     keyLog(key, "unwrap() clientEncryptedData : " + clientEncryptedData)
-    val r = this.synchronized {
-      engine.unwrap(clientEncryptedData, clientDecryptedData)
-    }
+    val r = engine.unwrap(clientEncryptedData, clientDecryptedData)
 
     keyLog(key, "unwrap() result : " + r)
 
@@ -73,18 +71,16 @@ trait SSLOps {
            serverDecryptedData: ByteBuffer,
            serverEncryptedData: ByteBuffer): OPResult = {
 
-    val r = this.synchronized {
-      engine.wrap(serverDecryptedData, serverEncryptedData)
-    }
+    val r = engine.wrap(serverDecryptedData, serverEncryptedData)
 
     keyLog(key, "wrap() result : " + r)
+    keyLog(key, "serverDecryptedData " + serverDecryptedData)
+    keyLog(key, "serverEncryptedData " + serverEncryptedData)
 
 
     r.getStatus match {
       case SSLEngineResult.Status.BUFFER_OVERFLOW =>
         keyLog(key, "wrap() BUFFER_OVERFLOW ")
-        keyLog(key, "serverDecryptedData " + serverDecryptedData)
-        keyLog(key, "serverEncryptedData " + serverEncryptedData)
 
         val netSize = engine.getSession.getPacketBufferSize
 

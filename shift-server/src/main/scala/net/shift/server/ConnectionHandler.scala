@@ -42,10 +42,9 @@ trait ConnectionHandler {
               case (0, buf) =>
                 keyLog(key, " Socket full " + System.identityHashCode(d))
                 Done(writeState, Empty)
-              case (_, buf) if !buf.hasRemaining || d.hasRemaining =>
-                cont
               case (-1, _) =>
                 net.shift.io.Error[ByteBuffer, Option[ResponseContinuationState]](new IOException("Client connection closed."))
+              case (_, buf) => cont
             }
           case EOF =>
             Done(None, EOF)
@@ -58,6 +57,7 @@ trait ConnectionHandler {
             selectForWrite(key)
             key.selector().wakeup()
           case Done(_, EOF) =>
+            keyLog(key, "Done sending response")
             handleResponseSent()
           case Error(t) =>
             log.error("Cannot sent response ", t)

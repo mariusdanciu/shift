@@ -54,7 +54,9 @@ object IO {
           case (Cont(f), buf :: tail) =>
             f(Data(buf)) match {
               case c@Cont(_) =>
-                current = tail
+                if (!buf.hasRemaining) {
+                  current = tail
+                }
                 handle(c)
               case r => r
             }
