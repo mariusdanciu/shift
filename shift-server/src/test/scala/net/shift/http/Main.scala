@@ -2,7 +2,7 @@ package net.shift.server.http
 
 import net.shift.common.{Config, Path}
 import net.shift.io.LocalFileSystem
-import net.shift.server.{HttpServer, Server}
+import net.shift.server.{HttpServer, Server, ServerConfigNames}
 import org.apache.log4j.BasicConfigurator
 
 object Main extends App {
@@ -11,13 +11,7 @@ object Main extends App {
 
   BasicConfigurator.configure
 
-  val config = Config(
-    "server.address" -> "0.0.0.0",
-    "server.port" -> "80",
-    "server.numThreads" -> "10"
-  )
-
-  HttpServer(config, req => resp =>
+  HttpServer(80, 10, req => resp =>
     if (req.uri.path == "/pic") {
       val r = Responses.imageFileResponse(Path("./shift-server/src/test/resources/pic.jpg"))
       r map {

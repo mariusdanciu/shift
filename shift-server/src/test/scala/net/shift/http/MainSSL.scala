@@ -16,17 +16,7 @@ object MainSSL extends App {
   BasicConfigurator.configure
   System.setProperty("https.protocols", "TLSv1");
 
-  val config = Config(
-    "ssl.address" -> "0.0.0.0",
-    "ssl.port" -> "443",
-    "ssl.numThreads" -> "10",
-    "ssl.keystore" -> ".keystore",
-    "ssl.truststore" -> ".truststore",
-    "ssl.pass" -> "idid.1"
-  )
-
-
-  HttpsServer(config, req => resp => {
+  HttpsServer(8443, 10, "idid.1", req => resp => {
 
     println("Got request " + req)
 

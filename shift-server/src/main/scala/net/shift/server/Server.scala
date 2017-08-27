@@ -16,18 +16,66 @@ import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
 
 object HttpServer {
-  def apply(config: Config, service: HttpService) = {
+  def apply(config: Config, service: HttpService): Server = {
+    implicit val ctx = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(config.int(`server.port`, 80)))
     Server(config, HttpProtocolBuilder(service), ssl = false)
   }
+
+  def apply(port: Int, threads: Int, service: HttpService): Server = {
+    val c = Config(
+      `server.address` -> "0.0.0.0",
+      `server.port` -> s"$port",
+      `server.numThreads` -> s"$threads"
+    )
+    HttpServer(c, service)
+  }
+
+  def apply(host: String, port: Int, threads: Int, service: HttpService): Server = {
+    val c = Config(
+      `server.address` -> host,
+      `server.port` -> s"$port",
+      `server.numThreads` -> s"$threads"
+    )
+    HttpServer(c, service)
+  }
+
 }
 
 object HttpsServer {
-  def apply(config: Config, service: HttpService) = {
+  def apply(config: Config, service: HttpService): Server = {
+    implicit val ctx = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(config.int(`server.port`, 443)))
     Server(config, HttpProtocolBuilder(service), ssl = true)
   }
+
+  def apply(port: Int, threads: Int, keystorePass: String, service: HttpService): Server = {
+    val c = Config(
+      `server.address` -> "0.0.0.0",
+      `server.ssl.port` -> s"$port",
+      `server.ssl.numThreads` -> s"$threads",
+      `server.ssl.keystore` -> ".keystore",
+      `server.ssl.truststore` -> ".truststore",
+      `server.ssl.pass` -> s"$keystorePass"
+    )
+    implicit val ctx = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(threads))
+    HttpsServer(c, service)
+  }
+
+  def apply(host: String, port: Int, threads: Int, keystorePass: String, service: HttpService): Server = {
+    val c = Config(
+      `server.address` -> host,
+      `server.ssl.port` -> s"$port",
+      `server.ssl.numThreads` -> s"$threads",
+      `server.ssl.keystore` -> ".keystore",
+      `server.ssl.truststore` -> ".truststore",
+      `server.ssl.pass` -> s"$keystorePass"
+    )
+    implicit val ctx = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(threads))
+    HttpsServer(c, service)
+  }
+
 }
 
-case class Server(config: Config, protocol: ProtocolBuilder, ssl: Boolean) extends KeyLogger {
+case class Server(config: Config, protocol: ProtocolBuilder, ssl: Boolean)(implicit ctx: ExecutionContext) extends KeyLogger {
   protected val log: Log = LogBuilder.logger(classOf[Server])
 
   private val selector = Selector.open
@@ -38,13 +86,6 @@ case class Server(config: Config, protocol: ProtocolBuilder, ssl: Boolean) exten
   private var running = false
 
   def start(): Future[Unit] = {
-
-    val numThreads = if (ssl)
-      config.optInt(`server.ssl.numThreads`).getOrElse(config.int(`server.numThreads`, 10))
-    else
-      config.int(`server.ssl.numThreads`, 10)
-
-    implicit val ctx = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(numThreads))
 
     def makeConnectionHandler(clientKey: SelectionKey): ConnectionHandler = {
       if (ssl)
