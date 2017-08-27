@@ -16,7 +16,7 @@ object MainSSL extends App {
   BasicConfigurator.configure
   System.setProperty("https.protocols", "TLSv1");
 
-  HttpsServer(8443, 10, "idid.1", req => resp => {
+  HttpsServer(443, 10, "idid.1", req => resp => {
 
     println("Got request " + req)
 
