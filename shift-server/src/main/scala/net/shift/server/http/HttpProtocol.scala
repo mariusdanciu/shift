@@ -1,9 +1,11 @@
 package net.shift.server.http
 
 import java.nio.ByteBuffer
+import java.util.concurrent.atomic.AtomicBoolean
 
 import net.shift.common.{BinReader, LogBuilder}
 import net.shift.io.{BinProducer, Done, IO, Iteratee}
+import net.shift.server.{AlreadyCommitted, CommitFailure, Committed, ResponseFeedback}
 import net.shift.server.protocol.{Protocol, ProtocolBuilder}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -59,10 +61,7 @@ class HttpProtocol(service: HttpService) extends Protocol {
       readState = None
       Future {
         log.debug("Processing " + req)
-        service(req)(resp => {
-          log.debug("Got response")
-          write(resp.asBinProducer)
-        })
+        service(req)(new CallOnceResponseFunction(write))
       }
     } else {
       readState = Some(req)
@@ -73,6 +72,26 @@ class HttpProtocol(service: HttpService) extends Protocol {
     val contentLength = http.longHeader("Content-Length").getOrElse(-1L)
     log.debug(s"request complete: Content-Length: $contentLength : body size: $bodySize - ${contentLength <= bodySize}")
     contentLength <= bodySize
+  }
+
+
+  class CallOnceResponseFunction(write: BinProducer => Unit) extends (Response => ResponseFeedback) {
+
+    val flag = new AtomicBoolean(false)
+
+    override def apply(resp: Response): ResponseFeedback = {
+      try {
+        if (flag.compareAndSet(false, true)) {
+          log.debug("Got response")
+          write(resp.asBinProducer)
+          Committed
+        } else {
+          AlreadyCommitted
+        }
+      } catch {
+        case t: Throwable => CommitFailure(t)
+      }
+    }
   }
 
 }
@@ -100,3 +119,4 @@ case class Raw(buffers: List[ByteBuffer]) extends Payload {
     _ duplicate
   }
 }
+

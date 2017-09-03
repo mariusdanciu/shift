@@ -14,9 +14,9 @@ object MainSSL extends App {
 
   println("Starting ")
   BasicConfigurator.configure
-  System.setProperty("https.protocols", "TLSv1");
+  System.setProperty("https.protocols", "TLSv1")
 
-  HttpsServer(443, 10, "idid.1", req => resp => {
+  HttpsServer(443, 10, "idid.1", HttpService.build(req => (resp: ResponseFunc) => {
 
     println("Got request " + req)
 
@@ -29,6 +29,6 @@ object MainSSL extends App {
     } else
       resp(Responses.textResponse("Got it"))
   }
-  ).start()
+  )).start()
 
 }

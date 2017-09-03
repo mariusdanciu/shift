@@ -10,15 +10,19 @@ object ShiftApplication {
 
   implicit def rule(r: Attempt): State[Request, Attempt] = State.gets[Request, Attempt](req => r)
 
-  def service(in: AsyncResponse => Unit): Attempt = Success(in)
+  def service(in: ResponseFunc => Unit): Attempt = Success(in)
 
   def serve(response: Response) = service(_ (response))
 }
 
 trait ShiftApplication {
+  app =>
   def servingRule: State[Request, Attempt]
 
-  def shiftService(req: Request)(resp: AsyncResponse)(implicit conf: Config): Unit = {
-    Engine.run(this)(req, resp)
+  def shiftService(implicit conf: Config) = new HttpService {
+
+    override def apply(req: Request): (ResponseFunc) => Unit = resp => {
+      Engine.run(app)(req, resp)
+    }
   }
 }

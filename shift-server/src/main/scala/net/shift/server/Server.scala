@@ -16,6 +16,7 @@ import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
 
 object HttpServer {
+
   def apply(config: Config, service: HttpService): Server = {
     implicit val ctx = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(config.int(`server.port`, 80)))
     Server(config, HttpProtocolBuilder(service), ssl = false)

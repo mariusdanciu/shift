@@ -30,7 +30,7 @@ trait ConnectionHandler {
   protected val key: SelectionKey
   protected val protocol: Protocol
 
-  def continueSending(drain: (SocketChannel, ByteBuffer) => (Int, ByteBuffer)) {
+  def continueSending(drain: (SocketChannel, ByteBuffer) => (Int, ByteBuffer)): Unit = {
     writeState foreach { st =>
       Try {
 
@@ -39,12 +39,12 @@ trait ConnectionHandler {
             keyLog(key, "Sending buffer " + System.identityHashCode(d) + " " + d)
             val client = key.channel().asInstanceOf[SocketChannel]
             drain(client, d) match {
-              case (0, buf) =>
-                keyLog(key, " Socket full " + System.identityHashCode(d))
+              case (0, _) =>
+                keyLog(key, "Socket full " + System.identityHashCode(d))
                 Done(writeState, Empty)
               case (-1, _) =>
                 net.shift.io.Error[ByteBuffer, Option[ResponseContinuationState]](new IOException("Client connection closed."))
-              case (_, buf) => cont
+              case (_, _) => cont
             }
           case EOF =>
             Done(None, EOF)

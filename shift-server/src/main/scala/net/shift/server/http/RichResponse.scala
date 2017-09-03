@@ -53,7 +53,7 @@ case class RichResponse(r: Response) {
 
   def withTextBody(b: String): Response = withBody(b, ContentType.TextPlain)
   def withJsonBody(b: String): Response = withBody(b, ContentType.TextJson)
-  def withJavascripBody(b: String): Response = withBody(b, ContentType.TextJavascript)
+  def withJavaScriptBody(b: String): Response = withBody(b, ContentType.TextJavascript)
   def withCssBody(b: String): Response = withBody(b, ContentType.TextCss)
   def withHtmlBody(b: String): Response = withBody(b, ContentType.TextHtml)
 

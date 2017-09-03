@@ -12,7 +12,7 @@ object Engine {
 
   private val log = LogBuilder.logger(getClass)
 
-  def run(app: ShiftApplication)(request: Request, response: AsyncResponse)(implicit conf: Config) {
+  def run(app: ShiftApplication)(request: Request, response: ResponseFunc)(implicit conf: Config) {
 
     try {
       app.servingRule(request) match {

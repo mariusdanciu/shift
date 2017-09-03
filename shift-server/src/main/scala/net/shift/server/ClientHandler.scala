@@ -4,7 +4,7 @@ import java.nio.ByteBuffer
 import java.nio.channels.{SelectionKey, SocketChannel}
 
 import net.shift.common.LogBuilder
-import net.shift.io._
+import net.shift.io.{BinProducer, _}
 import net.shift.server.protocol.Protocol
 
 import scala.concurrent.ExecutionContext
