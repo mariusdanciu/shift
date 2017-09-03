@@ -4,28 +4,24 @@ import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicBoolean
 
 import net.shift.common.{BinReader, LogBuilder}
-import net.shift.io.{BinProducer, Done, IO, Iteratee}
-import net.shift.server.{AlreadyCommitted, CommitFailure, Committed, ResponseFeedback}
+import net.shift.io.{BinProducer, IO}
 import net.shift.server.protocol.{Protocol, ProtocolBuilder}
+import net.shift.server.{AlreadyCommitted, CommitFailure, Committed, ResponseFeedback}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
-object HttpProtocolBuilder {
-  def apply(service: HttpService) = new HttpProtocolBuilder(service)
+case class HttpProtocolBuilder(service: HttpService) extends ProtocolBuilder {
+  def createProtocol = HttpProtocol(service)
 }
 
-class HttpProtocolBuilder(service: HttpService) extends ProtocolBuilder {
-  def createProtocol = new HttpProtocol(service)
-}
-
-class HttpProtocol(service: HttpService) extends Protocol {
+case class HttpProtocol(service: HttpService) extends Protocol {
   private val log = LogBuilder.logger(classOf[HttpProtocol])
 
   var keepAlive = true
   var readState: Option[Payload] = None
 
-  def createNew = new HttpProtocol(service)
+  def createNew = HttpProtocol(service)
 
   def keepConnection: Boolean = keepAlive
 

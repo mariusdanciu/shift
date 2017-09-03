@@ -26,13 +26,14 @@ trait ConnectionHandler {
 
   def terminate(): Unit
 
+
   protected var writeState: Option[ResponseContinuationState] = None
   protected val key: SelectionKey
   protected val protocol: Protocol
 
   def continueSending(drain: (SocketChannel, ByteBuffer) => (Int, ByteBuffer)): Unit = {
     writeState foreach { st =>
-      Try {
+      try {
 
         lazy val cont: Iteratee[ByteBuffer, Option[ResponseContinuationState]] = Cont {
           case Data(d) =>
@@ -67,13 +68,11 @@ trait ConnectionHandler {
             terminate()
         }
 
-      }.recover {
-        case e: ClosedChannelException =>
-          log.warn("Client closed the connection while writing.")
+      } catch {
+        case e: Throwable =>
+          log.error("Error during writing", e)
           terminate()
-        case e: Exception =>
-          log.error("Internal error ", e)
-          terminate()
+          throw e
       }
     }
   }

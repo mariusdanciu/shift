@@ -19,7 +19,9 @@ import scala.util.Try
 private[server] case class SSLClientHandler(key: SelectionKey,
                                             config: Config,
                                             onClose: SelectionKey => Unit,
-                                            protocol: Protocol) extends SSLOps with ConnectionHandler with KeyLogger {
+                                            protocol: Protocol,
+                                            listener: Option[ServerListener]
+                                           ) extends SSLOps with ConnectionHandler with KeyLogger {
   protected val log: Log = LogBuilder.logger(classOf[SSLClientHandler])
 
 
@@ -41,26 +43,34 @@ private[server] case class SSLClientHandler(key: SelectionKey,
   }
 
   def handleRead()(implicit ec: ExecutionContext): Unit = {
-    if (handshaking) {
-      handshakeRead().recover {
-        case t =>
-          keyLog(key, t.getMessage)
-          terminate()
+    try {
+      if (handshaking) {
+        handshakeRead().recover {
+          case t =>
+            keyLog(key, t.getMessage)
+            terminate()
+        }
+      } else {
+        readChunk()
       }
-    } else {
-      readChunk()
+    } catch {
+      case t: Throwable => listener.foreach(_.onError(t))
     }
   }
 
   def handleWrite()(implicit ec: ExecutionContext): Unit = {
-    if (handshaking) {
-      handshakeWrite().recover {
-        case t =>
-          keyLog(key, t.getMessage)
-          terminate()
+    try {
+      if (handshaking) {
+        handshakeWrite().recover {
+          case t =>
+            keyLog(key, t.getMessage)
+            terminate()
+        }
+      } else {
+        continueSending(drain)
       }
-    } else {
-      continueSending(drain)
+    } catch {
+      case t: Throwable => listener.foreach(_.onError(t))
     }
   }
 

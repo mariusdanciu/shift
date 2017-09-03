@@ -76,7 +76,7 @@ object HttpsServer {
 
 }
 
-case class Server(config: Config, protocol: ProtocolBuilder, ssl: Boolean)(implicit ctx: ExecutionContext) extends KeyLogger {
+case class Server(config: Config, protocol: ProtocolBuilder, ssl: Boolean, listener: Option[ServerListener] = None)(implicit ctx: ExecutionContext) extends KeyLogger {
   protected val log: Log = LogBuilder.logger(classOf[Server])
 
   private val selector = Selector.open
@@ -86,21 +86,26 @@ case class Server(config: Config, protocol: ProtocolBuilder, ssl: Boolean)(impli
   @volatile
   private var running = false
 
+  def withListener(l: ServerListener) = copy(listener = Some(l))
+
   def start(): Future[Unit] = {
 
     def makeConnectionHandler(clientKey: SelectionKey): ConnectionHandler = {
       if (ssl)
         SSLClientHandler(clientKey, config, k => {
           closeClient(k)
-        }, protocol.createProtocol)
+        }, protocol.createProtocol,
+          listener)
       else
         ClientHandler(clientKey, k => {
           closeClient(k)
-        }, protocol.createProtocol)
+        }, protocol.createProtocol,
+          1024,
+          listener)
     }
 
     @tailrec
-    def loop(serverChannel: ServerSocketChannel) {
+    def loop(serverChannel: ServerSocketChannel): Unit = {
       if (running) {
         log.debug("Waiting for key")
         val k = selector.select()
@@ -166,14 +171,19 @@ case class Server(config: Config, protocol: ProtocolBuilder, ssl: Boolean)(impli
     serverChannel.register(selector, SelectionKey.OP_ACCEPT, null)
 
     running = true
-
+    listener.map {
+      _.onStart()
+    }
     val listen = Future {
       loop(serverChannel)
     }
 
-    listen.map { _ =>
+    listen.recover {
+      case t => listener.map(_.onError(t))
+    }.map { _ =>
       log.info("Shutting down server")
       serverChannel.close()
+      listener.map(_.onShutDown())
     }
   }
 
@@ -201,4 +211,13 @@ object ServerConfigNames {
   val `server.ssl.keystore` = "server.ssl.keystore"
   val `server.ssl.truststore` = "server.ssl.truststore"
   val `server.ssl.pass` = "server.ssl.pass"
+}
+
+
+trait ServerListener {
+  def onStart(): Unit
+
+  def onShutDown(): Unit
+
+  def onError(t: Throwable)
 }

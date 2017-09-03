@@ -4,21 +4,22 @@ import java.nio.ByteBuffer
 import java.nio.channels.{SelectionKey, SocketChannel}
 
 import net.shift.common.LogBuilder
-import net.shift.io.{BinProducer, _}
+import net.shift.io.BinProducer
 import net.shift.server.protocol.Protocol
 
 import scala.concurrent.ExecutionContext
-import scala.util.Try
 
 private[server] case class ClientHandler(key: SelectionKey,
                                          onClose: SelectionKey => Unit,
                                          protocol: Protocol,
-                                         readBufSize: Int = 1024) extends ConnectionHandler with KeyLogger {
+                                         readBufSize: Int = 1024,
+                                         listener: Option[ServerListener]
+                                        ) extends ConnectionHandler with KeyLogger {
 
   protected val log = LogBuilder.logger(classOf[ClientHandler])
 
   def handleRead()(implicit ec: ExecutionContext): Unit = {
-    Try {
+    try {
       val client = key.channel().asInstanceOf[SocketChannel]
 
       readBuf(client, buf => {
@@ -27,15 +28,20 @@ private[server] case class ClientHandler(key: SelectionKey,
         }
       })
 
-    }.recover {
-      case e =>
+    } catch {
+      case e: Throwable =>
+        listener.foreach(_.onError(e))
         log.error("Cannot read data from client: ", e)
         terminate()
     }
   }
 
   def handleWrite()(implicit ec: ExecutionContext): Unit = {
-    continueSending(drain)
+    try {
+      continueSending(drain)
+    } catch {
+      case t: Throwable => listener.foreach(_.onError(t))
+    }
   }
 
   def terminate(): Unit = {
