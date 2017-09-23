@@ -1,6 +1,6 @@
 package net.shift.server
 
-import java.net.InetSocketAddress
+import java.net.{InetSocketAddress, SocketOption, StandardSocketOptions}
 import java.nio.channels.{SelectionKey, Selector, ServerSocketChannel}
 import java.util.concurrent.Executors
 
@@ -127,6 +127,7 @@ case class Server(config: Config, protocol: ProtocolBuilder, ssl: Boolean, liste
               if (key.isAcceptable) {
                 val client = serverChannel.accept()
                 if (client != null) {
+                  client.setOption(StandardSocketOptions.TCP_NODELAY, (true: java.lang.Boolean))
                   client.configureBlocking(false)
                   val clientKey = client.register(selector, SelectionKey.OP_READ)
                   val clientName = client.getRemoteAddress.toString + "-" + clientKey
@@ -157,6 +158,7 @@ case class Server(config: Config, protocol: ProtocolBuilder, ssl: Boolean, liste
     }
 
     val serverChannel = ServerSocketChannel.open()
+
     serverChannel.configureBlocking(false)
 
     val address = if (ssl) {
@@ -164,6 +166,7 @@ case class Server(config: Config, protocol: ProtocolBuilder, ssl: Boolean, liste
     } else {
       new InetSocketAddress(config.string(`server.address`, "localhost"), config.int(`server.port`, 8080))
     }
+
 
     serverChannel.bind(address)
     log.info("Server bound to " + address)

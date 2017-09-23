@@ -1,8 +1,8 @@
 package net.shift.server.http
 
-import net.shift.common.{Config, Path}
+import net.shift.common.Path
 import net.shift.io.LocalFileSystem
-import net.shift.server.{HttpServer, Server, ServerConfigNames}
+import net.shift.server.HttpServer
 import org.apache.log4j.BasicConfigurator
 
 object Main extends App {
