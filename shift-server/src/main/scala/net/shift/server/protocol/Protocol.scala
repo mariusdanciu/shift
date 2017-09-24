@@ -8,7 +8,7 @@ trait Protocol {
 
   def keepConnection: Boolean
 
-  def apply(in: ByteBuffer)(write: BinProducer=> Unit)(implicit ctx: ExecutionContext)
+  def apply(in: ByteBuffer)(write: BinProducer => Unit)(implicit ctx: ExecutionContext)
 
 }
 
