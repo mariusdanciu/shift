@@ -150,10 +150,6 @@ object State {
     s => Success((f(s), f(s)))
   }
 
-  def put[S] = state[S, Unit] {
-    s => Success((s, ()))
-  }
-
   def put[S, A](a: A) = state[S, A] {
     s => Success((s, a))
   }

@@ -81,7 +81,7 @@ object HttpPredicates {
   def ajax: State[Request, Request] = state {
     r =>
       r.header("X-Requested-With") match {
-        case Some(TextHeader(_, "XMLRequest")) => Success((r, r))
+        case Some(TextHeader(_, "XMLHttpRequest")) => Success((r, r))
         case _ => ShiftFailure.toTry
       }
   }
