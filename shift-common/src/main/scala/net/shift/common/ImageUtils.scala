@@ -1,10 +1,10 @@
 package net.shift.common
 
 import java.awt.Image
-import java.io.File
-import javax.imageio.{IIOImage, ImageIO, ImageWriteParam}
-import javax.imageio.stream.FileImageOutputStream
 import java.awt.image.BufferedImage
+import java.io.File
+import javax.imageio.stream.FileImageOutputStream
+import javax.imageio.{IIOImage, ImageIO}
 
 import scala.util.Try
 
