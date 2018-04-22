@@ -81,7 +81,7 @@ trait Log {
 }
 
 trait DefaultLog extends Log {
-  def loggerName = getClass().getName();
+  def loggerName = getClass().getName()
 }
 
 object LogBuilder {
