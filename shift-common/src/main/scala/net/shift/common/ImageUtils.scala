@@ -2,17 +2,19 @@ package net.shift.common
 
 import java.awt.Image
 import java.awt.image.BufferedImage
-import java.io.File
-import javax.imageio.stream.FileImageOutputStream
-import javax.imageio.{IIOImage, ImageIO}
+import java.io.{BufferedInputStream, ByteArrayInputStream, File}
+import javax.imageio.stream.{FileImageOutputStream, ImageOutputStream}
+import javax.imageio.{IIOImage, ImageIO, ImageWriter}
+
+import net.shift.io.LocalFileSystem.mkdir
+import net.shift.io.{IO, LocalFileSystem}
 
 import scala.util.Try
 
 object ImageUtils {
 
-  def resizeImage(targetWidth: Int, inputPath: String, outputPath: String): Try[String] = Try {
-
-    val img = ImageIO.read(new File(inputPath))
+  def resizeImage(targetWidth: Int, inputImage: Array[Byte], outputPath: String): Try[String] = Try {
+    val img = ImageIO.read(new ByteArrayInputStream(inputImage))
 
     val h = img.getHeight
     val w = img.getWidth
@@ -29,11 +31,14 @@ object ImageUtils {
 
     graphics.drawImage(srcSized, 0, 0, null)
 
-    val writer = ImageIO.getImageWritersByMIMEType("image/png").next
+    val writer: ImageWriter = ImageIO.getImageWritersByMIMEType("image/png").next
 
     val params = writer.getDefaultWriteParam
 
+    mkdir(Path(outputPath).dropLast)
+
     val toFs = new FileImageOutputStream(new File(outputPath))
+
     try {
       writer.setOutput(toFs)
       val image = new IIOImage(dest, null, null)
@@ -42,6 +47,16 @@ object ImageUtils {
       outputPath
     } finally {
       if (toFs != null) toFs.close()
+    }
+  }
+
+  def resizeImage(targetWidth: Int, inputPath: String, outputPath: String): Try[String] = {
+    for {
+      bin <- LocalFileSystem.reader(Path(inputPath))
+      array <- IO.producerToArray(bin)
+      out <- resizeImage(targetWidth, array, outputPath)
+    } yield {
+      out
     }
   }
 

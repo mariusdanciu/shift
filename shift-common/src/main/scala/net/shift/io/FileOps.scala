@@ -1,23 +1,14 @@
 package net.shift
 package io
 
-import java.io.BufferedOutputStream
-import java.io.File
-import java.io.FileNotFoundException
-import java.io.FileOutputStream
-import java.io.OutputStream
-import scala.util.Failure
-import scala.util.Success
-import scala.util.Try
-import scala.util.control.Exception._
-import net.shift.common.Path
-import java.io.FileInputStream
-import java.io.BufferedInputStream
+import java.io.{File, FileNotFoundException, FileOutputStream}
 import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
-import java.nio.file.OpenOption
-import java.io.RandomAccessFile
-import java.nio.file.Paths
+
+import net.shift.common.Path
+
+import scala.util.{Failure, Success, Try}
+import scala.util.control.Exception._
 
 trait FileSystem {
   def exists(in: Path): Try[Boolean]
