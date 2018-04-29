@@ -1,8 +1,7 @@
 package net.shift.server
 
-import java.net.{InetSocketAddress, SocketOption, StandardSocketOptions}
+import java.net.{InetSocketAddress, StandardSocketOptions}
 import java.nio.channels.{SelectionKey, Selector, ServerSocketChannel}
-import java.util.concurrent.Executors
 
 import net.shift.common.{Config, Log, LogBuilder}
 import net.shift.io.IO
@@ -17,25 +16,22 @@ import scala.concurrent.{ExecutionContext, Future}
 
 object HttpServer {
 
-  def apply(config: Config, service: HttpService): Server = {
-    implicit val ctx = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(config.int(`server.port`, 80)))
+  def apply(config: Config, service: HttpService)(implicit ctx: ExecutionContext): Server = {
     Server(config, HttpProtocolBuilder(service), ssl = false)
   }
 
-  def apply(port: Int, threads: Int, service: HttpService): Server = {
+  def apply(port: Int, service: HttpService)(implicit ctx: ExecutionContext): Server = {
     val c = Config(
       `server.address` -> "0.0.0.0",
-      `server.port` -> s"$port",
-      `server.numThreads` -> s"$threads"
+      `server.port` -> s"$port"
     )
     HttpServer(c, service)
   }
 
-  def apply(host: String, port: Int, threads: Int, service: HttpService): Server = {
+  def apply(host: String, port: Int, service: HttpService)(implicit ctx: ExecutionContext): Server = {
     val c = Config(
       `server.address` -> host,
-      `server.port` -> s"$port",
-      `server.numThreads` -> s"$threads"
+      `server.port` -> s"$port"
     )
     HttpServer(c, service)
   }
@@ -43,40 +39,38 @@ object HttpServer {
 }
 
 object HttpsServer {
-  def apply(config: Config, service: HttpService): Server = {
-    implicit val ctx = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(config.int(`server.port`, 443)))
+  def apply(config: Config, service: HttpService)(implicit ctx: ExecutionContext): Server = {
     Server(config, HttpProtocolBuilder(service), ssl = true)
   }
 
-  def apply(port: Int, threads: Int, keystorePass: String, service: HttpService): Server = {
+  def apply(port: Int, keystorePass: String, service: HttpService)(implicit ctx: ExecutionContext): Server = {
     val c = Config(
       `server.address` -> "0.0.0.0",
       `server.ssl.port` -> s"$port",
-      `server.ssl.numThreads` -> s"$threads",
       `server.ssl.keystore` -> ".keystore",
       `server.ssl.truststore` -> ".truststore",
       `server.ssl.pass` -> s"$keystorePass"
     )
-    implicit val ctx = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(threads))
     HttpsServer(c, service)
   }
 
-  def apply(host: String, port: Int, threads: Int, keystorePass: String, service: HttpService): Server = {
+  def apply(host: String, port: Int,  keystorePass: String, service: HttpService)(implicit ctx: ExecutionContext): Server = {
     val c = Config(
       `server.address` -> host,
       `server.ssl.port` -> s"$port",
-      `server.ssl.numThreads` -> s"$threads",
       `server.ssl.keystore` -> ".keystore",
       `server.ssl.truststore` -> ".truststore",
       `server.ssl.pass` -> s"$keystorePass"
     )
-    implicit val ctx = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(threads))
     HttpsServer(c, service)
   }
 
 }
 
-case class Server(config: Config, protocol: ProtocolBuilder, ssl: Boolean, listener: Option[ServerListener] = None)(implicit ctx: ExecutionContext) extends KeyLogger {
+case class Server(config: Config,
+                  protocol: ProtocolBuilder,
+                  ssl: Boolean, listener:
+                  Option[ServerListener] = None)(implicit ctx: ExecutionContext) extends KeyLogger {
   protected val log: Log = LogBuilder.logger(classOf[Server])
 
   private val selector = Selector.open
@@ -207,7 +201,6 @@ case class Server(config: Config, protocol: ProtocolBuilder, ssl: Boolean, liste
 object ServerConfigNames {
   val `server.address` = "server.address"
   val `server.port` = "server.port"
-  val `server.numThreads` = "server.numThreads"
 
   val `server.ssl.port` = "server.ssl.port"
   val `server.ssl.numThreads` = "server.ssl.numThreads"

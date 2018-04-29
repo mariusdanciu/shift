@@ -8,6 +8,8 @@ import net.shift.server.{HttpServer, HttpsServer}
 import net.shift.server.http.{Request, Responses}
 import org.apache.log4j.BasicConfigurator
 
+import scala.concurrent.ExecutionContext
+
 /**
   * Created by Marius Danciu on 7/11/2017.
   */
@@ -34,7 +36,7 @@ object Test extends App {
       |}
     """.stripMargin get
 
-
+  implicit val ctx = ExecutionContext.Implicits.global
 
   HttpServer(config, TestApp.shiftService).start()
   HttpsServer(config, TestApp.shiftService).start()
