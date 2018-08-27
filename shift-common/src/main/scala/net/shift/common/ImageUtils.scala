@@ -44,9 +44,12 @@ object ImageUtils {
       val image = new IIOImage(dest, null, null)
       writer.write(null, image, params)
       toFs.flush()
+
       outputPath
     } finally {
       if (toFs != null) toFs.close()
+      graphics.dispose()
+      writer.dispose()
     }
   }
 
